@@ -1,0 +1,2159 @@
+{
+  "info": {
+    "name": "ToquePlay API",
+    "description": "Coleção completa da API ToquePlay - Auth, Usuários, Times e Torneios",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000/api" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "team_id", "value": "" },
+    { "key": "member_id", "value": "" },
+    { "key": "guest_member_id", "value": "" },
+    { "key": "tournament_id", "value": "" },
+    { "key": "stage_id", "value": "" },
+    { "key": "category_id", "value": "" },
+    { "key": "registration_id", "value": "" },
+    { "key": "match_id", "value": "" },
+    { "key": "friendly_id", "value": "" },
+    { "key": "notification_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201 or 409', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([201, 409]);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Has message', function() {",
+                  "        pm.expect(json.message).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Usuario Teste\",\n    \"email\": \"teste@exemplo.com\",\n    \"password\": \"123456\",\n    \"confirmPassword\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 400', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "    pm.test('Has tokens and user', function() {",
+                  "        pm.expect(json.accessToken).to.be.a('string');",
+                  "        pm.expect(json.refreshToken).to.be.a('string');",
+                  "        pm.expect(json.user.isEmailVerified).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"teste@exemplo.com\",\n    \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "verify-email"]
+            }
+          }
+        },
+        {
+          "name": "Resend Code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 429', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 429]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.test('Has message', function() {",
+                  "        pm.expect(json.message).to.be.a('string');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"teste@exemplo.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/resend-code",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "resend-code"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 401', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "    pm.test('Has tokens and user', function() {",
+                  "        pm.expect(json.accessToken).to.be.a('string');",
+                  "        pm.expect(json.refreshToken).to.be.a('string');",
+                  "        pm.expect(json.user.isEmailVerified).to.be.true;",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"teste@exemplo.com\",\n    \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Login com Google",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 401', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "    pm.test('Has tokens', function() {",
+                  "        pm.expect(json.accessToken).to.be.a('string');",
+                  "        pm.expect(json.refreshToken).to.be.a('string');",
+                  "        pm.expect(json.user).to.be.an('object');",
+                  "        pm.expect(json.user.isFirstAccess).to.be.a('boolean');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"{{google_id_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/google",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "google"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200 or 401', function() {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401]);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "    const json = pm.response.json();",
+                  "    pm.collectionVariables.set('access_token', json.accessToken);",
+                  "    pm.collectionVariables.set('refresh_token', json.refreshToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has user fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.email).to.be.a('string');",
+                  "    pm.expect(json.name).to.be.a('string');",
+                  "    pm.expect(json.isFirstAccess).to.be.a('boolean');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Name updated', function() {",
+                  "    pm.expect(json.name).to.eql('Usuario Teste');",
+                  "});",
+                  "pm.test('isFirstAccess is false', function() {",
+                  "    pm.expect(json.isFirstAccess).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Usuario Teste\",\n    \"phone\": \"11999999999\",\n    \"bio\": \"Jogador de vôlei\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "Criar Time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has team fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.name).to.eql('Time Teste Postman');",
+                  "    pm.expect(json.ownerId).to.be.a('string');",
+                  "});",
+                  "pm.test('Owner is captain member', function() {",
+                  "    pm.expect(json.members).to.have.lengthOf(1);",
+                  "    pm.expect(json.members[0].isCaptain).to.be.true;",
+                  "});",
+                  "pm.collectionVariables.set('team_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Time Teste Postman\",\n    \"description\": \"Time criado via Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams",
+              "host": ["{{base_url}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Listar Meus Times",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns an array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});",
+                  "pm.test('Team has member count', function() {",
+                  "    if (json.length > 0) {",
+                  "        pm.expect(json[0]._count.members).to.be.a('number');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/teams",
+              "host": ["{{base_url}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Detalhes do Time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has team details', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.name).to.be.a('string');",
+                  "    pm.expect(json.members).to.be.an('array');",
+                  "});",
+                  "pm.test('Has owner info', function() {",
+                  "    pm.expect(json.owner).to.be.an('object');",
+                  "    pm.expect(json.owner.name).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Editar Time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Name updated', function() {",
+                  "    pm.expect(json.name).to.eql('Time Atualizado');",
+                  "});",
+                  "pm.test('Description updated', function() {",
+                  "    pm.expect(json.description).to.eql('Nova descricao');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Time Atualizado\",\n    \"description\": \"Nova descricao\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Excluir Time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Members",
+      "item": [
+        {
+          "name": "Adicionar Membro (email)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has member fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.userId).to.be.a('string');",
+                  "    pm.expect(json.isGuest).to.be.false;",
+                  "});",
+                  "pm.test('CPF saved', function() {",
+                  "    pm.expect(json.cpf).to.eql('02222222206');",
+                  "});",
+                  "pm.collectionVariables.set('member_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"membro@exemplo.com\",\n    \"cpf\": \"02222222206\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}/members",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Adicionar Convidado (guest)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Is guest', function() {",
+                  "    pm.expect(json.isGuest).to.be.true;",
+                  "    pm.expect(json.guestName).to.eql('Joao Convidado');",
+                  "});",
+                  "pm.test('CPF saved', function() {",
+                  "    pm.expect(json.cpf).to.eql('03333333309');",
+                  "});",
+                  "pm.collectionVariables.set('guest_member_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"guestName\": \"Joao Convidado\",\n    \"cpf\": \"03333333309\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}/members/guest",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}", "members", "guest"]
+            }
+          }
+        },
+        {
+          "name": "Listar Elenco",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns members array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "    pm.expect(json.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}/members",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Editar Membro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Is captain', function() {",
+                  "    pm.expect(json.isCaptain).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"isCaptain\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}/members/{{member_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}", "members", "{{member_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Remover Membro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/teams/{{team_id}}/members/{{member_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{team_id}}", "members", "{{member_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tournaments",
+      "item": [
+        {
+          "name": "Criar Torneio (DRAFT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has tournament fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.status).to.eql('DRAFT');",
+                  "    pm.expect(json.isPublished).to.be.false;",
+                  "});",
+                  "pm.collectionVariables.set('tournament_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"Torneio Postman\",\n    \"description\": \"Torneio criado via Postman\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments"]
+            }
+          }
+        },
+        {
+          "name": "Definir Estrutura",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has stages and categories', function() {",
+                  "    pm.expect(json.stages).to.be.an('array');",
+                  "    pm.expect(json.categories).to.be.an('array');",
+                  "});",
+                  "if (json.stages && json.stages.length > 0) {",
+                  "    pm.collectionVariables.set('stage_id', json.stages[0].id);",
+                  "}",
+                  "if (json.categories && json.categories.length > 0) {",
+                  "    pm.collectionVariables.set('category_id', json.categories[0].id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"eventType\": \"CIRCUIT\",\n    \"stages\": [\n        {\n            \"name\": \"Etapa 1\",\n            \"date\": \"2026-06-01\",\n            \"maxTeams\": 16,\n            \"address\": \"Arena Volei, Rua 1\",\n            \"city\": \"Sao Paulo\",\n            \"state\": \"SP\",\n            \"latitude\": -23.5,\n            \"longitude\": -46.6,\n            \"regionRadius\": 30,\n            \"facilities\": [\n                { \"name\": \"Estacionamento\" },\n                { \"name\": \"Churrasqueira\" },\n                { \"name\": \"Copa\" }\n            ]\n        },\n        {\n            \"name\": \"Etapa 2\",\n            \"date\": \"2026-06-15\",\n            \"maxTeams\": 12,\n            \"address\": \"Arena Praia, Av. Beira Mar\",\n            \"city\": \"Rio de Janeiro\",\n            \"state\": \"RJ\",\n            \"facilities\": [\n                { \"name\": \"Estacionamento\" },\n                { \"name\": \"Piscina\" }\n            ]\n        }\n    ],\n    \"categories\": [\n        {\n            \"type\": \"MALE\",\n            \"format\": \"PAIR\",\n            \"modality\": \"BEACH\",\n            \"minMembers\": 2,\n            \"maxMembers\": 3,\n            \"registrationPrice\": 150.0,\n            \"registrationDeadline\": \"2026-05-29T00:00:00Z\",\n            \"registrationRules\": \"Pagamento via PIX\"\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/structure",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "structure"]
+            }
+          }
+        },
+        {
+          "name": "Adicionar Facilities (por Etapa)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has facilities', function() {",
+                  "    pm.expect(json.facilities.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"facilities\": [\n        { \"name\": \"Estacionamento\" },\n        { \"name\": \"Churrasqueira\" },\n        { \"name\": \"Copa\" }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/stages/{{stage_id}}/facilities",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "stages", "{{stage_id}}", "facilities"]
+            }
+          }
+        },
+        {
+          "name": "Adicionar Patrocinadores",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has sponsors', function() {",
+                  "    pm.expect(json.sponsors.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"sponsors\": [\n        { \"name\": \"Nike\", \"description\": \"Apoio oficial\" },\n        { \"name\": \"Gatorade\" }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/sponsors",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "sponsors"]
+            }
+          }
+        },
+        {
+          "name": "Resumo do Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has all relations', function() {",
+                  "    pm.expect(json.stages).to.be.an('array');",
+                  "    pm.expect(json.categories).to.be.an('array');",
+                  "    pm.expect(json.sponsors).to.be.an('array');",
+                  "    pm.expect(json.owner).to.be.an('object');",
+                  "});",
+                  "pm.test('Stages have facilities', function() {",
+                  "    if (json.stages.length > 0) {",
+                  "        pm.expect(json.stages[0].facilities).to.be.an('array');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/summary",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "summary"]
+            }
+          }
+        },
+        {
+          "name": "Publicar Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Published', function() {",
+                  "    pm.expect(json.status).to.eql('PUBLISHED');",
+                  "    pm.expect(json.isPublished).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/publish",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "publish"]
+            }
+          }
+        },
+        {
+          "name": "Listar Torneios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments"]
+            }
+          }
+        },
+        {
+          "name": "Meus Torneios",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/mine",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "mine"]
+            }
+          }
+        },
+        {
+          "name": "Detalhes do Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has full details', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.stages).to.be.an('array');",
+                  "    pm.expect(json.owner).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Cancelar Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 204', function() {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Registrations",
+      "item": [
+        {
+          "name": "Inscrever Time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has registration fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.status).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set('registration_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"teamId\": \"{{team_id}}\",\n    \"categoryId\": \"{{category_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "register"]
+            }
+          }
+        },
+        {
+          "name": "Listar Inscricoes do Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/registrations",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "registrations"]
+            }
+          }
+        },
+        {
+          "name": "Confirmar Inscricao",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is CONFIRMED', function() {",
+                  "    pm.expect(json.status).to.eql('CONFIRMED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/registrations/{{registration_id}}/confirm",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "registrations", "{{registration_id}}", "confirm"]
+            }
+          }
+        },
+        {
+          "name": "Rejeitar Inscricao",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is REJECTED', function() {",
+                  "    pm.expect(json.status).to.eql('REJECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/registrations/{{registration_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "registrations", "{{registration_id}}", "reject"]
+            }
+          }
+        },
+        {
+          "name": "Minhas Inscricoes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/registrations",
+              "host": ["{{base_url}}"],
+              "path": ["registrations"]
+            }
+          }
+        },
+        {
+          "name": "Detalhes Inscricao",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has registration details', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.tournament).to.be.an('object');",
+                  "    pm.expect(json.team).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/registrations/{{registration_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["registrations", "{{registration_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Criar Checkout Stripe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has checkout URL', function() {",
+                  "    pm.expect(json.url).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/registrations/{{registration_id}}/checkout",
+              "host": ["{{base_url}}"],
+              "path": ["registrations", "{{registration_id}}", "checkout"]
+            }
+          }
+        },
+        {
+          "name": "Cancelar Inscricao",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is CANCELLED', function() {",
+                  "    pm.expect(json.status).to.eql('CANCELLED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/registrations/{{registration_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["registrations", "{{registration_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Payment Webhook (Stub)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Payment processed', function() {",
+                  "    pm.expect(json.paymentId).to.be.a('string');",
+                  "    pm.expect(json.paidAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"registrationId\": \"{{registration_id}}\",\n    \"paymentId\": \"pay_stripe_12345\",\n    \"status\": \"CONFIRMED\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/payments/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "webhook"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Brackets",
+      "item": [
+        {
+          "name": "Gerar Chaveamento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has bracket with matches', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.type).to.be.a('string');",
+                  "    pm.expect(json.matches).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoryId\": \"{{category_id}}\",\n    \"type\": \"SINGLE_ELIMINATION\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/generate-bracket",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "generate-bracket"]
+            }
+          }
+        },
+        {
+          "name": "Visualizar Chaveamento",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns brackets array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});",
+                  "if (json.length > 0) {",
+                  "    pm.test('Has rounds grouped', function() {",
+                  "        pm.expect(json[0].rounds).to.be.an('object');",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/bracket",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "bracket"]
+            }
+          }
+        },
+        {
+          "name": "Visualizar por Categoria",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns brackets filtered', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/bracket?categoryId={{category_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "bracket"],
+              "query": [
+                { "key": "categoryId", "value": "{{category_id}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matches",
+      "item": [
+        {
+          "name": "Iniciar Partida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Match is IN_PROGRESS', function() {",
+                  "    pm.expect(json.status).to.eql('IN_PROGRESS');",
+                  "    pm.expect(json.startedAt).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/start",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "start"]
+            }
+          }
+        },
+        {
+          "name": "Registrar Ponto (Time A)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Score updated', function() {",
+                  "    pm.expect(json.scoreTeamA).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"team\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/point",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "point"]
+            }
+          }
+        },
+        {
+          "name": "Registrar Ponto (Time B)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Score updated', function() {",
+                  "    pm.expect(json.scoreTeamB).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"team\": \"B\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/point",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "point"]
+            }
+          }
+        },
+        {
+          "name": "Finalizar Set",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has sets', function() {",
+                  "    pm.expect(json.sets).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"setNumber\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/set-finish",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "set-finish"]
+            }
+          }
+        },
+        {
+          "name": "Finalizar Partida",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Match is FINISHED', function() {",
+                  "    pm.expect(json.status).to.eql('FINISHED');",
+                  "    pm.expect(json.winnerId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/finish",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "finish"]
+            }
+          }
+        },
+        {
+          "name": "Declarar W.O.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Match is WALKOVER', function() {",
+                  "    pm.expect(json.status).to.eql('WALKOVER');",
+                  "    pm.expect(json.winnerId).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"winnerTeam\": \"A\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/walkover",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "walkover"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ranking",
+      "item": [
+        {
+          "name": "Ranking do Torneio",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has ranking data', function() {",
+                  "    pm.expect(json.tournamentId).to.be.a('string');",
+                  "    pm.expect(json.ranking).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/tournaments/{{tournament_id}}/ranking",
+              "host": ["{{base_url}}"],
+              "path": ["tournaments", "{{tournament_id}}", "ranking"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Friendlies",
+      "item": [
+        {
+          "name": "Criar Amistoso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has friendly fields', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.status).to.eql('PENDING');",
+                  "});",
+                  "pm.collectionVariables.set('friendly_id', json.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"challengedTeamId\": \"{{team_id}}\",\n    \"date\": \"2026-06-01\",\n    \"city\": \"Sao Paulo\",\n    \"state\": \"SP\",\n    \"address\": \"Arena Volei, Rua 1\",\n    \"latitude\": -23.5,\n    \"longitude\": -46.6,\n    \"regionRadius\": 30\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/friendlies",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies"]
+            }
+          }
+        },
+        {
+          "name": "Meus Amistosos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies"]
+            }
+          }
+        },
+        {
+          "name": "Amistosos Proximos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Returns array', function() {",
+                  "    pm.expect(json).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies/nearby?latitude=-23.5&longitude=-46.6&radius=50",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies", "nearby"],
+              "query": [
+                { "key": "latitude", "value": "-23.5" },
+                { "key": "longitude", "value": "-46.6" },
+                { "key": "radius", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detalhes Amistoso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has friendly details', function() {",
+                  "    pm.expect(json.id).to.be.a('string');",
+                  "    pm.expect(json.requester).to.be.an('object');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies/{{friendly_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies", "{{friendly_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Aceitar Amistoso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is ACCEPTED', function() {",
+                  "    pm.expect(json.status).to.eql('ACCEPTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies/{{friendly_id}}/accept",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies", "{{friendly_id}}", "accept"]
+            }
+          }
+        },
+        {
+          "name": "Rejeitar Amistoso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is REJECTED', function() {",
+                  "    pm.expect(json.status).to.eql('REJECTED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies/{{friendly_id}}/reject",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies", "{{friendly_id}}", "reject"]
+            }
+          }
+        },
+        {
+          "name": "Cancelar Amistoso",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Status is CANCELLED', function() {",
+                  "    pm.expect(json.status).to.eql('CANCELLED');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/friendlies/{{friendly_id}}/cancel",
+              "host": ["{{base_url}}"],
+              "path": ["friendlies", "{{friendly_id}}", "cancel"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Registrar Device Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 201', function() {",
+                  "    pm.response.to.have.status(201);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"fcm-device-token-example\",\n    \"platform\": \"android\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/devices/token",
+              "host": ["{{base_url}}"],
+              "path": ["devices", "token"]
+            }
+          }
+        },
+        {
+          "name": "Remover Device Token",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/devices/token/fcm-device-token-example",
+              "host": ["{{base_url}}"],
+              "path": ["devices", "token", "fcm-device-token-example"]
+            }
+          }
+        },
+        {
+          "name": "Listar Notificacoes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has pagination', function() {",
+                  "    pm.expect(json.data).to.be.an('array');",
+                  "    pm.expect(json.total).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Contador Nao Lidas",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has unreadCount', function() {",
+                  "    pm.expect(json.unreadCount).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Marcar como Lida",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}", "read"]
+            }
+          }
+        },
+        {
+          "name": "Marcar Todas como Lidas",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": {
+              "raw": "{{base_url}}/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Atualizar Localizacao",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function() {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Has location', function() {",
+                  "    pm.expect(json.latitude).to.be.a('number');",
+                  "    pm.expect(json.longitude).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"latitude\": -23.5505,\n    \"longitude\": -46.6333,\n    \"enableLocationNotifications\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/me/location",
+              "host": ["{{base_url}}"],
+              "path": ["users", "me", "location"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

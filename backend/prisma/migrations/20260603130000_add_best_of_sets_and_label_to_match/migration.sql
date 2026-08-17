@@ -1,0 +1,2 @@
+ALTER TABLE "Match" ADD COLUMN "bestOfSets" INTEGER;
+ALTER TABLE "Match" ADD COLUMN "label" TEXT;

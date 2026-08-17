@@ -1,0 +1,84 @@
+export enum TournamentType {
+  MALE = "MALE",
+  FEMALE = "FEMALE",
+  MIX = "MIX",
+}
+
+export enum TournamentFormat {
+  PAIR = "PAIR",
+  QUARTET = "QUARTET",
+  SEXTET = "SEXTET",
+}
+
+export enum TournamentModality {
+  BEACH = "BEACH",
+  COURT = "COURT",
+}
+
+export enum TournamentEventType {
+  SINGLE = "SINGLE",
+  CIRCUIT = "CIRCUIT",
+}
+
+export enum TournamentStatus {
+  DRAFT = "DRAFT",
+  PUBLISHED = "PUBLISHED",
+  REGISTRATION_OPEN = "REGISTRATION_OPEN",
+  REGISTRATION_CLOSED = "REGISTRATION_CLOSED",
+  BRACKET_GENERATED = "BRACKET_GENERATED",
+  IN_PROGRESS = "IN_PROGRESS",
+  FINISHED = "FINISHED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum RegistrationStatus {
+  PENDING_CONFIRMATION = "PENDING_CONFIRMATION",
+  CONFIRMED = "CONFIRMED",
+  CANCELLED = "CANCELLED",
+  REJECTED = "REJECTED",
+}
+
+export enum BracketType {
+  SINGLE_ELIMINATION = "SINGLE_ELIMINATION",
+  DOUBLE_ELIMINATION = "DOUBLE_ELIMINATION",
+  ROUND_ROBIN = "ROUND_ROBIN",
+  GROUPS_THEN_ELIMINATION = "GROUPS_THEN_ELIMINATION",
+}
+
+export enum MatchStatus {
+  SCHEDULED = "SCHEDULED",
+  IN_PROGRESS = "IN_PROGRESS",
+  FINISHED = "FINISHED",
+  WALKOVER = "WALKOVER",
+  CANCELLED = "CANCELLED",
+}
+
+export enum FriendlyStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  CANCELLED = "CANCELLED",
+  COMPLETED = "COMPLETED",
+}
+
+export enum Role {
+  ATLETA = "ATLETA",
+  ORGANIZADOR = "ORGANIZADOR",
+  SUPER_ADMIN = "SUPER_ADMIN",
+}
+
+export enum InvitationStatus {
+  PENDING = "PENDING",
+  ACCEPTED = "ACCEPTED",
+  REJECTED = "REJECTED",
+  CANCELLED = "CANCELLED",
+}
+
+export enum VolleyballPosition {
+  LEVANTADOR = "LEVANTADOR",
+  PONTEIRO = "PONTEIRO",
+  OPOSTO = "OPOSTO",
+  CENTRAL = "CENTRAL",
+  LIBERO = "LIBERO",
+  PONTA = "PONTA",
+}

@@ -1,0 +1,16 @@
+# Root-level files to exclude
+/FLUXOS_APP.md
+/ToquePlay Dashboard Design.zip
+/ToquePlay Dashboard Design/
+/assets/
+/ideas/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

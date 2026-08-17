@@ -1,0 +1,9 @@
+node_modules
+# Keep environment variables out of version control
+.env
+
+/generated/prisma
+dist
+
+# Throwaway spike script with hardcoded sandbox credentials
+/scripts/asaas-spike.ts

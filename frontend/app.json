@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "ToquePlay",
+    "slug": "toqueplay",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "scheme": "toqueplay",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.toqueplay.app"
+    },
+    "android": {
+      "package": "com.toqueplay.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0C0A12",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-secure-store"
+    ]
+  }
+}
