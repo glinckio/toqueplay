@@ -28,7 +28,7 @@ export type RootStackParamList = {
   ManageTeams: undefined;
   TeamDetail: { id: string };
   TeamInvite: { id: string };
-  Registration: { tournamentId: string };
+  Registration: { tournamentId: string; tournamentName?: string; tournamentLocation?: string };
   MyRegistrations: undefined;
   ManageRegistrations: { tournamentId: string };
   Bracket: { tournamentId: string };

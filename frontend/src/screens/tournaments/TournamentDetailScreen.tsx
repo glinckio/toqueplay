@@ -58,7 +58,7 @@ const PRIZES = [
   { emoji: "🥉", amount: "R$ 100", label: "3º lugar" },
 ];
 
-export function TournamentDetailScreen({ navigation }: any) {
+export function TournamentDetailScreen({ navigation, route }: any) {
   const { isDark, colors } = useTheme();
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
   const cardBg = isDark ? "#141019" : "#FFFFFF";
@@ -258,7 +258,11 @@ export function TournamentDetailScreen({ navigation }: any) {
         locations={[0, 0.32]}
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26 }}
       >
-        <Pressable style={{
+        <Pressable
+          onPress={() => navigation?.navigate("Registration", { tournamentId: route?.params?.id ?? "", tournamentName: "Copa Verão 2026", tournamentLocation: "Praia Grande" })}
+          accessibilityRole="button"
+          accessibilityLabel="Inscrever meu time"
+          style={{
           width: "100%", paddingVertical: 17, borderRadius: 18,
           backgroundColor: accentColor,
           flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,

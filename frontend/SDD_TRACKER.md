@@ -66,8 +66,10 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 4.9 Icons added (sliders, share) — 31 total
 
 ## FASE 5 — Inscrições
-- [ ] 5.1 Inscrição em Torneio (t7a)
-- [ ] 5.2 Minhas Inscrições (t21a)
+- [x] 5.0 registrationsService (listMine, findOne, cancel, registerTeam, getRegisteredMembers) — espelha backend
+- [x] 5.1 Inscrição em Torneio (t7a) — 3 steps: categoria+time → atletas+capitão → sucesso — 12 testes
+- [x] 5.2 Minhas Inscrições (t21a) — 4 status pills (PAGO/PENDENTE/RECUSADA/CANCELADA) — 7 testes
+- [x] 5.3 Navigation wired (TournamentDetail → Registration → MyRegistrations, RootNavigator)
 
 ## FASE 6 — Times
 - [ ] 6.1 Gerenciar Times (t14a)
