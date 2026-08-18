@@ -94,6 +94,11 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 8.5 Barrel export (screens/friendlies/index.ts)
 
 ## FASE 9 — Perfil & Secundários
-- [ ] 9.1 Perfil / Editar (t13a)
-- [ ] 9.2 Notificações (t15a)
-- [ ] 9.3 Privacidade & LGPD (t23a)
+- [x] 9.0 usersService (getProfile, getMyStats, updateProfile, updateLocation, notificationPrefs, uploadAvatar) — espelha backend
+- [x] 9.1 notificationsService (list, getUnreadCount, markAsRead, markAllAsRead, deviceToken) — espelha backend
+- [x] 9.2 privacyService (getConsents, updateConsents, acceptTerms, getDataSummary, exportData, deleteAccount, dpoRequest) — espelha backend
+- [x] 9.3 Perfil / Editar (t13a) — avatar + stats + contact info + edit form + menu navigation — 7 testes
+- [x] 9.4 Notificações (t15a) — grouped by date + unread count + type icons + mark read/all — 7 testes
+- [x] 9.5 Privacidade & LGPD (t23a) — consent toggles + data summary + export + DPO + delete account — 7 testes
+- [x] 9.6 Navigation wired (Notifications, Privacy → RootNavigator)
+- [x] 9.7 Barrel exports (screens/profile, notifications, privacy)

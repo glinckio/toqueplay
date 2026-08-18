@@ -14,6 +14,8 @@ import { MatchResultScreen } from "@/screens/matches/MatchResultScreen";
 import { CreateFriendlyScreen } from "@/screens/friendlies/CreateFriendlyScreen";
 import { MyFriendliesScreen } from "@/screens/friendlies/MyFriendliesScreen";
 import { FriendlyDetailScreen } from "@/screens/friendlies/FriendlyDetailScreen";
+import { NotificationsScreen } from "@/screens/notifications/NotificationsScreen";
+import { PrivacyScreen } from "@/screens/privacy/PrivacyScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -33,6 +35,8 @@ export function RootNavigator() {
       <Stack.Screen name="CreateFriendly" component={CreateFriendlyScreen} />
       <Stack.Screen name="MyFriendlies" component={MyFriendliesScreen} />
       <Stack.Screen name="FriendlyDetail" component={FriendlyDetailScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="Privacy" component={PrivacyScreen} />
     </Stack.Navigator>
   );
 }
