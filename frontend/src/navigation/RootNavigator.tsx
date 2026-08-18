@@ -9,6 +9,8 @@ import { ManageTeamsScreen } from "@/screens/teams/ManageTeamsScreen";
 import { TeamDetailScreen } from "@/screens/teams/TeamDetailScreen";
 import { TeamInviteScreen } from "@/screens/teams/TeamInviteScreen";
 import { CreateTeamScreen } from "@/screens/teams/CreateTeamScreen";
+import { RefereeScreen } from "@/screens/matches/RefereeScreen";
+import { MatchResultScreen } from "@/screens/matches/MatchResultScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -23,6 +25,8 @@ export function RootNavigator() {
       <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
       <Stack.Screen name="TeamInvite" component={TeamInviteScreen} />
       <Stack.Screen name="CreateTeam" component={CreateTeamScreen} />
+      <Stack.Screen name="Referee" component={RefereeScreen} />
+      <Stack.Screen name="MatchResult" component={MatchResultScreen} />
     </Stack.Navigator>
   );
 }

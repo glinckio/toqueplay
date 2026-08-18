@@ -80,8 +80,10 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 6.5 Navigation wired (ManageTeams, TeamDetail, TeamInvite, CreateTeam → RootNavigator)
 
 ## FASE 7 — Partidas & Arbitragem
-- [ ] 7.1 Arbitragem (t8a) — código + pré-jogo + placar ao vivo
-- [ ] 7.2 Fim de Partida (t11a)
+- [x] 7.0 matchesService (refereeEnter, findOne, startMatch, point, removePoint, setFinish, finish, walkover, timeout, substitution, timeline) — espelha backend
+- [x] 7.1 Arbitragem (t8a) — 4-step: código (OTP 6 dígitos) → pré-jogo (confronto + info) → placar ao vivo (score + PONTO buttons + action bar + undo) → fim de set (placar por set + match point) — 11 testes
+- [x] 7.2 Fim de Partida (t11a) — winner card + score final + stats comparativas + duração/timeouts/cartões + próximo jogo + ações — 8 testes
+- [x] 7.3 Navigation wired (Referee, MatchResult → RootNavigator)
 
 ## FASE 8 — Amistosos
 - [ ] 8.1 Criar Amistoso (t20a)

@@ -222,7 +222,9 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
 
           <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, padding: 14, paddingHorizontal: 22, paddingBottom: 26 }}>
             <Pressable
-              onPress={() => navigation?.navigate("MyRegistrations")}
+              onPress={() =>
+                navigation?.reset({ index: 0, routes: [{ name: "MainTabs" }] })
+              }
               disabled={submitting}
               style={{
                 backgroundColor: accentColor,
