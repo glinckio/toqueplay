@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Rect, Path, Circle } from "react-native-svg";
 import { useTheme } from "@/hooks/useTheme";
@@ -58,8 +59,10 @@ export function TwoFactorScreen({ navigation, route }: Props) {
   const iconStroke = hasError ? "#EF4444" : (isDark ? "#8B5CF6" : "#7C3AED");
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC", paddingHorizontal: 22, paddingTop: 20 }}>
-      <BackButton title="Voltar" onPress={() => navigation.goBack()} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }} edges={["top"]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
+          <BackButton title="Voltar" onPress={() => navigation.goBack()} />
 
       {/* Shield icon */}
       <View style={{ width: 72, height: 72, borderRadius: 22, backgroundColor: iconBg, alignItems: "center", justifyContent: "center", alignSelf: "center", marginTop: 32, marginBottom: 24 }}>
@@ -127,6 +130,8 @@ export function TwoFactorScreen({ navigation, route }: Props) {
           Use o código temporário do Google Authenticator ou app similar.
         </Text>
       </View>
-    </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

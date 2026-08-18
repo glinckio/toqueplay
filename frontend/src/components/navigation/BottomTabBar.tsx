@@ -15,7 +15,7 @@ const MAIN_TABS: TabConfig[] = [
   { label: "Início", icon: "home" },
   { label: "Explorar", icon: "search" },
   { label: "Criar", icon: "plus", isCentral: true },
-  { label: "Alertas", icon: "bell" },
+  { label: "Ao Vivo", icon: "pulse" },
   { label: "Perfil", icon: "user" },
 ];
 
@@ -79,7 +79,7 @@ export function BottomTabBar({
                   width: 44,
                   height: 44,
                   borderRadius: 14,
-                  backgroundColor: activeColor,
+                  backgroundColor: "#7C3AED",
                   alignItems: "center",
                   justifyContent: "center",
                   marginTop: -16,
@@ -90,7 +90,7 @@ export function BottomTabBar({
                 <Icon
                   name={tab.icon}
                   size={22}
-                  color={isDark ? "#12100A" : "#FFFFFF"}
+                  color="#FFFFFF"
                   strokeWidth={2.5}
                 />
               </Pressable>

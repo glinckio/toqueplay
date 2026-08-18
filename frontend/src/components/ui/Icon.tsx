@@ -30,7 +30,10 @@ export type IconName =
   | "edit"
   | "settings"
   | "info-circle"
-  | "filter";
+  | "pulse"
+  | "filter"
+  | "sliders"
+  | "share";
 
 export interface IconProps {
   name: IconName;
@@ -255,10 +258,31 @@ export function Icon({ name, size = 20, color = "#F5F3FA", strokeWidth = 2 }: Ic
           <Path d="M12 16h.01" {...s} />
         </Svg>
       );
+    case "pulse":
+      return (
+        <Svg {...props}>
+          <Polyline points="3 13 8 13 10 6 14 18 16 13 21 13" {...s} />
+        </Svg>
+      );
     case "filter":
       return (
         <Svg {...props}>
           <Path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" {...s} />
+        </Svg>
+      );
+    case "sliders":
+      return (
+        <Svg {...props}>
+          <Path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3" {...s} />
+          <Path d="M1 14h6M9 8h6M17 16h6" {...s} />
+        </Svg>
+      );
+    case "share":
+      return (
+        <Svg {...props}>
+          <Path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" {...s} />
+          <Polyline points="16 6 12 2 8 6" {...s} />
+          <Line x1={12} y1={2} x2={12} y2={15} {...s} />
         </Svg>
       );
     default:

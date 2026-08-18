@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from "react";
 import { View, Text, ScrollView, KeyboardAvoidingView, Platform, Pressable } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
 import { useTheme } from "@/hooks/useTheme";
@@ -55,7 +56,8 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
   // Success state
   if (success) {
     return (
-      <View style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC", paddingHorizontal: 22, paddingTop: 20 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }} edges={["top"]}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} showsVerticalScrollIndicator={false}>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
           {/* Check icon */}
           <View style={{
@@ -88,14 +90,15 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
             </Text>
           </Pressable>
         </View>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }} edges={["top"]}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
           <BackButton title="Nova senha" onPress={() => navigation.goBack()} />
 
           {/* Lock icon */}
@@ -164,6 +167,6 @@ export function ResetPasswordScreen({ navigation, route }: Props) {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </SafeAreaView>
   );
 }

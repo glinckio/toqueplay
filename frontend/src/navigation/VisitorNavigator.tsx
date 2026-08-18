@@ -2,6 +2,9 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { View, Text } from "react-native";
 import { VisitorTabParamList } from "./types";
+import { BottomTabBar } from "@/components/navigation/BottomTabBar";
+import { VisitorHomeScreen } from "@/screens/home/VisitorHomeScreen";
+import { ExploreScreen } from "@/screens/tournaments/ExploreScreen";
 
 function PlaceholderScreen({ name }: { name: string }) {
   return (
@@ -16,13 +19,11 @@ const Tab = createBottomTabNavigator<VisitorTabParamList>();
 export function VisitorNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: { display: "none" },
-      }}
+      tabBar={(props) => <BottomTabBar {...props} isVisitor />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="VisitorHome">{() => <PlaceholderScreen name="Início" />}</Tab.Screen>
-      <Tab.Screen name="VisitorExplore">{() => <PlaceholderScreen name="Explorar" />}</Tab.Screen>
+      <Tab.Screen name="VisitorHome" component={VisitorHomeScreen} />
+      <Tab.Screen name="VisitorExplore" component={ExploreScreen} />
       <Tab.Screen name="VisitorLogin">{() => <PlaceholderScreen name="Entrar" />}</Tab.Screen>
     </Tab.Navigator>
   );

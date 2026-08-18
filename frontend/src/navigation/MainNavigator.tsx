@@ -2,6 +2,9 @@ import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { View, Text } from "react-native";
 import { MainTabParamList } from "./types";
+import { BottomTabBar } from "@/components/navigation/BottomTabBar";
+import { HomeScreen } from "@/screens/home/HomeScreen";
+import { ExploreScreen } from "@/screens/tournaments/ExploreScreen";
 
 function PlaceholderScreen({ name }: { name: string }) {
   return (
@@ -16,13 +19,11 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 export function MainNavigator() {
   return (
     <Tab.Navigator
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: { display: "none" },
-      }}
+      tabBar={(props) => <BottomTabBar {...props} />}
+      screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="Home">{() => <PlaceholderScreen name="Home" />}</Tab.Screen>
-      <Tab.Screen name="Explore">{() => <PlaceholderScreen name="Explorar" />}</Tab.Screen>
+      <Tab.Screen name="Home" component={HomeScreen} />
+      <Tab.Screen name="Explore" component={ExploreScreen} />
       <Tab.Screen name="Create">{() => <PlaceholderScreen name="Criar" />}</Tab.Screen>
       <Tab.Screen name="Live">{() => <PlaceholderScreen name="Ao Vivo" />}</Tab.Screen>
       <Tab.Screen name="Profile">{() => <PlaceholderScreen name="Perfil" />}</Tab.Screen>

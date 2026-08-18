@@ -50,17 +50,20 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [ ] 2.9 Consent Gate LGPD (t16b)
 
 ## FASE 3 — Home & Navegação Principal
-- [ ] 3.1 Home Dashboard (t2a)
-- [ ] 3.2 Visitante Home (t24a)
-- [ ] 3.3 Bottom Tab Navigation integrada
+- [x] 3.1 Home Dashboard (t2a) — 6 testes
+- [x] 3.2 Visitante Home (t24a) — 7 testes
+- [x] 3.3 Bottom Tab Navigation integrada (MainNavigator + VisitorNavigator + BottomTabBar)
 
 ## FASE 4 — Torneios
-- [ ] 4.1 Explorar Torneios (t12a)
-- [ ] 4.2 Detalhe do Torneio (t9a)
-- [ ] 4.3 Criar Torneio Wizard (t5a) — 4 steps
-- [ ] 4.4 Meus Torneios (t18a)
-- [ ] 4.5 Gerenciar Inscrições (t19a)
-- [ ] 4.6 Chaveamento / Bracket (t10a)
+- [x] 4.1 Explorar Torneios (t12a) — 6 testes
+- [x] 4.2 Detalhe do Torneio (t9a) — 8 testes
+- [x] 4.3 Criar Torneio Wizard (t5a) — 4 steps + success — 7 testes
+- [x] 4.4 Meus Torneios (t18a) — 5 testes
+- [x] 4.5 Gerenciar Inscrições (t19a) — 6 testes
+- [x] 4.6 Chaveamento / Bracket (t10a) — 6 testes
+- [x] 4.7 Navigation wired (ExploreScreen → MainNavigator + VisitorNavigator)
+- [x] 4.8 Barrel export (screens/tournaments/index.ts)
+- [x] 4.9 Icons added (sliders, share) — 31 total
 
 ## FASE 5 — Inscrições
 - [ ] 5.1 Inscrição em Torneio (t7a)
