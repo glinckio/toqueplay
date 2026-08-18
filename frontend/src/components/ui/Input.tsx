@@ -76,7 +76,7 @@ export function Input({
           borderRadius: 14,
           paddingHorizontal: 15,
           paddingVertical: 13,
-          gap: 10,
+          gap: 8,
         }}
       >
         {leftIcon && <Icon name={leftIcon} size={15} color={iconColor} />}

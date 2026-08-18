@@ -102,11 +102,16 @@ function getContainerStyle(
     borderRadius: size === "sm" ? 12 : 16,
     paddingVertical: size === "sm" ? 11 : 16,
     paddingHorizontal: size === "sm" ? 16 : 24,
-    opacity: disabled ? 0.4 : 1,
   };
 
   switch (variant) {
     case "primary":
+      if (disabled) {
+        return {
+          ...base,
+          backgroundColor: isDark ? "rgba(198,248,42,0.25)" : "rgba(124,58,237,0.25)",
+        };
+      }
       return {
         ...base,
         backgroundColor: isDark ? "#C6F82A" : "#7C3AED",
@@ -117,11 +122,13 @@ function getContainerStyle(
         backgroundColor: "transparent",
         borderWidth: 1,
         borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(26,16,48,0.1)",
+        opacity: disabled ? 0.4 : 1,
       };
     case "tertiary":
       return {
         ...base,
         backgroundColor: isDark ? "rgba(139,92,246,0.12)" : "rgba(124,58,237,0.08)",
+        opacity: disabled ? 0.4 : 1,
       };
     case "danger":
       return {
@@ -129,6 +136,7 @@ function getContainerStyle(
         backgroundColor: isDark ? "rgba(239,68,68,0.08)" : "rgba(239,68,68,0.05)",
         borderWidth: 1,
         borderColor: isDark ? "rgba(239,68,68,0.3)" : "rgba(239,68,68,0.2)",
+        opacity: disabled ? 0.4 : 1,
       };
   }
 }
@@ -143,14 +151,18 @@ function getTextStyle(
     fontFamily: "SpaceGrotesk_700Bold",
     fontSize: size === "sm" ? 12 : 14,
     fontWeight: "700",
-    letterSpacing: size === "sm" ? 0.03 * 12 : 0.03 * 14,
   };
 
   switch (variant) {
-    case "primary":
-      return { ...base, color: isDark ? "#12100A" : "#FFFFFF" };
+    case "primary": {
+      const ls = size === "sm" ? 0.03 * 12 : 0.03 * 14;
+      if (_disabled) {
+        return { ...base, letterSpacing: ls, color: isDark ? "rgba(18,16,10,0.4)" : "rgba(255,255,255,0.5)" };
+      }
+      return { ...base, letterSpacing: ls, color: isDark ? "#12100A" : "#FFFFFF" };
+    }
     case "ghost":
-      return { ...base, color: isDark ? "#948CA8" : "#8A829E" };
+      return { ...base, color: isDark ? "#948CA8" : "#6B6480" };
     case "tertiary":
       return { ...base, color: isDark ? "#8B5CF6" : "#7C3AED" };
     case "danger":

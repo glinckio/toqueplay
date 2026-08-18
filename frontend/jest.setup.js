@@ -15,6 +15,8 @@ jest.mock("react-native-reanimated", () => {
     Easing: {
       bezier: () => (t) => t,
       inOut: (fn) => fn,
+      out: (fn) => fn,
+      in: (fn) => fn,
       ease: (t) => t,
     },
     createAnimatedComponent: (component) => component || View,

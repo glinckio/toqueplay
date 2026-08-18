@@ -24,6 +24,7 @@ import { useThemeStore } from "@/stores/themeStore";
 import { AuthNavigator } from "@/navigation/AuthNavigator";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { VisitorNavigator } from "@/navigation/VisitorNavigator";
+import { SplashScreen as AppSplash } from "@/screens/splash/SplashScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -68,7 +69,10 @@ export default function App() {
     }
   }, [appReady]);
 
-  if (!appReady) return null;
+  if (!appReady) {
+    if (!fontsLoaded) return null;
+    return <AppSplash />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>

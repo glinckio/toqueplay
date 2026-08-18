@@ -52,7 +52,7 @@ function getStatusColors(status: BadgeStatus, isDark: boolean) {
     case "cancelled":
       return isDark
         ? { color: "#6E6684", bg: "rgba(110,102,132,0.1)" }
-        : { color: "#8A829E", bg: "rgba(138,130,158,0.05)" };
+        : { color: "#8A829E", bg: "rgba(26,16,48,0.05)" };
     case "in_progress":
       return isDark
         ? { color: "#8B5CF6", bg: "rgba(139,92,246,0.1)" }

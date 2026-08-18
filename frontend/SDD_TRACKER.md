@@ -33,18 +33,21 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 1.14 InfoRow — 1 teste
 - [x] 1.15 BackButton
 - [x] 1.16 BottomTabBar (custom, 5 tabs + visitor mode)
-- [x] 1.17 Icons (28 SVG inline icons) — 30 testes
+- [x] 1.17 Icons (29 SVG inline icons, incl info-circle) — 30 testes
 - [x] 1.18 SearchInput — 3 testes
 - [x] 1.19 Barrel export (src/components/ui/index.ts)
 
 ## FASE 2 — Telas de Sistema (Splash, Auth, Consent)
-- [ ] 2.1 SplashScreen (t16a)
-- [ ] 2.2 Login (t3a)
-- [ ] 2.3 Registro (t3b)
-- [ ] 2.4 Verificação de Email (t17a)
-- [ ] 2.5 Recuperar Senha (t3c)
-- [ ] 2.6 2FA Screen
-- [ ] 2.7 Consent Gate LGPD (t16b)
+- [x] 2.0 Auth API service layer (authService.ts) — 10 testes
+- [x] 2.1 SplashScreen (t16a) — 2 testes
+- [x] 2.2 Login (t3a) — 4 testes
+- [x] 2.3 Registro (t3b) — 3 testes
+- [x] 2.4 Verificação de Email (t17a) — 3 testes
+- [x] 2.5 Recuperar Senha (t3c) — ForgotPassword 3 testes + ResetPassword 2 testes
+- [x] 2.6 2FA Screen — 2 testes
+- [x] 2.7 AuthNavigator wired (6 screens)
+- [x] 2.8 Design system audit — 8 components fixed vs HTML spec
+- [ ] 2.9 Consent Gate LGPD (t16b)
 
 ## FASE 3 — Home & Navegação Principal
 - [ ] 3.1 Home Dashboard (t2a)

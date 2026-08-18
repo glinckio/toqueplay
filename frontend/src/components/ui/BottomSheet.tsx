@@ -85,7 +85,7 @@ export function BottomSheet({ visible, onClose, title, children }: BottomSheetPr
               width: 40,
               height: 4,
               borderRadius: 2,
-              backgroundColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(26,16,48,0.1)",
+              backgroundColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(26,16,48,0.1)",
             }}
           />
         </View>
@@ -94,7 +94,7 @@ export function BottomSheet({ visible, onClose, title, children }: BottomSheetPr
           <Text
             style={{
               fontFamily: "SpaceGrotesk_700Bold",
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: "700",
               color: colors.text.primary,
               marginBottom: 16,

@@ -19,7 +19,7 @@ export interface User {
   email: string;
   name: string;
   role: "ATLETA" | "ORGANIZADOR" | "SUPER_ADMIN";
-  avatarUrl?: string;
+  avatarUrl?: string | null;
   phone?: string;
   bio?: string;
   isEmailVerified: boolean;

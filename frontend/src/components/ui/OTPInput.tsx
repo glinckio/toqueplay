@@ -31,7 +31,7 @@ export function OTPInput({ length = 6, value, onChange, error }: OTPInputProps) 
     <View>
       <Pressable
         onPress={handlePress}
-        style={{ flexDirection: "row", gap: 10, justifyContent: "center" }}
+        style={{ flexDirection: "row", gap: 8, justifyContent: "center" }}
       >
         {Array.from({ length }, (_, i) => {
           const isActive = i === value.length && !error;
@@ -40,7 +40,7 @@ export function OTPInput({ length = 6, value, onChange, error }: OTPInputProps) 
 
           const borderColor = hasError
             ? "#EF4444"
-            : isActive
+            : isActive || isFilled
               ? isDark ? "#C6F82A" : "rgba(124,58,237,0.3)"
               : isDark ? "rgba(255,255,255,0.08)" : "rgba(26,16,48,0.1)";
 
@@ -51,7 +51,7 @@ export function OTPInput({ length = 6, value, onChange, error }: OTPInputProps) 
                 width: 40,
                 height: 48,
                 borderRadius: 14,
-                borderWidth: isActive || hasError ? 2 : 1,
+                borderWidth: isActive || isFilled || hasError ? 2 : 1,
                 borderColor,
                 backgroundColor: isDark ? "#171320" : "#FFFFFF",
                 alignItems: "center",
