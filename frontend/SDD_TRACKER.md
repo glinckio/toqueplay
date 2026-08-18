@@ -86,9 +86,12 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 7.3 Navigation wired (Referee, MatchResult → RootNavigator)
 
 ## FASE 8 — Amistosos
-- [ ] 8.1 Criar Amistoso (t20a)
-- [ ] 8.2 Meus Amistosos (t20b)
-- [ ] 8.3 Detalhe Amistoso (t20c)
+- [x] 8.0 friendliesService (create, findMine, findOne, accept, reject, cancel, selectAthletes, generateRefereeCode, enterRefereeCode) — espelha backend
+- [x] 8.1 Criar Amistoso (t20a) — team selection + opponent search + date/time + local + modality/format — 6 testes
+- [x] 8.2 Meus Amistosos (t20b) — tabs Enviados/Recebidos + status pills + FAB — 7 testes
+- [x] 8.3 Detalhe Amistoso (t20c) — confronto + info cards + teams + referee code + actions — 8 testes
+- [x] 8.4 Navigation wired (CreateFriendly, MyFriendlies, FriendlyDetail → RootNavigator)
+- [x] 8.5 Barrel export (screens/friendlies/index.ts)
 
 ## FASE 9 — Perfil & Secundários
 - [ ] 9.1 Perfil / Editar (t13a)

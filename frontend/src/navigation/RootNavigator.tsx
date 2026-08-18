@@ -11,6 +11,9 @@ import { TeamInviteScreen } from "@/screens/teams/TeamInviteScreen";
 import { CreateTeamScreen } from "@/screens/teams/CreateTeamScreen";
 import { RefereeScreen } from "@/screens/matches/RefereeScreen";
 import { MatchResultScreen } from "@/screens/matches/MatchResultScreen";
+import { CreateFriendlyScreen } from "@/screens/friendlies/CreateFriendlyScreen";
+import { MyFriendliesScreen } from "@/screens/friendlies/MyFriendliesScreen";
+import { FriendlyDetailScreen } from "@/screens/friendlies/FriendlyDetailScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -27,6 +30,9 @@ export function RootNavigator() {
       <Stack.Screen name="CreateTeam" component={CreateTeamScreen} />
       <Stack.Screen name="Referee" component={RefereeScreen} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} />
+      <Stack.Screen name="CreateFriendly" component={CreateFriendlyScreen} />
+      <Stack.Screen name="MyFriendlies" component={MyFriendliesScreen} />
+      <Stack.Screen name="FriendlyDetail" component={FriendlyDetailScreen} />
     </Stack.Navigator>
   );
 }
