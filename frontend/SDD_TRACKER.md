@@ -72,8 +72,12 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 5.3 Navigation wired (TournamentDetail → Registration → MyRegistrations, RootNavigator)
 
 ## FASE 6 — Times
-- [ ] 6.1 Gerenciar Times (t14a)
-- [ ] 6.2 Convite de Time (t22a/b)
+- [x] 6.0 teamsService (list, findOne, create, update, remove, members, invitations) — espelha backend
+- [x] 6.1 Gerenciar Times (t14a) — list + stats + pending invites + FAB — 7 testes
+- [x] 6.2 Detalhe Time (t14a detail) — avatar + stats bar + members + history — 6 testes
+- [x] 6.3 Criar Time (t14a form) — name + format + surface + invite partner — 6 testes
+- [x] 6.4 Convite de Time (t22a/b) — invite view + success view — 6 testes
+- [x] 6.5 Navigation wired (ManageTeams, TeamDetail, TeamInvite, CreateTeam → RootNavigator)
 
 ## FASE 7 — Partidas & Arbitragem
 - [ ] 7.1 Arbitragem (t8a) — código + pré-jogo + placar ao vivo
