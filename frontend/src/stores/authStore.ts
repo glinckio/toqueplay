@@ -33,12 +33,14 @@ interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   visitorActive: boolean;
+  hasAcceptedTerms: boolean;
   _hasHydrated: boolean;
 
   setAuth: (data: { accessToken: string; refreshToken: string; user: User }) => void;
   setTokens: (tokens: { accessToken: string; refreshToken: string }) => void;
   setUser: (user: User) => void;
   setVisitorActive: (active: boolean) => void;
+  setHasAcceptedTerms: (accepted: boolean) => void;
   setHasHydrated: (hydrated: boolean) => void;
   logout: () => void;
 }
@@ -51,6 +53,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       visitorActive: false,
+      hasAcceptedTerms: false,
       _hasHydrated: false,
 
       setAuth: ({ accessToken, refreshToken, user }) =>
@@ -63,6 +66,8 @@ export const useAuthStore = create<AuthState>()(
 
       setVisitorActive: (active) => set({ visitorActive: active }),
 
+      setHasAcceptedTerms: (accepted) => set({ hasAcceptedTerms: accepted }),
+
       setHasHydrated: (hydrated) => set({ _hasHydrated: hydrated }),
 
       logout: () =>
@@ -71,6 +76,7 @@ export const useAuthStore = create<AuthState>()(
           refreshToken: null,
           user: null,
           isAuthenticated: false,
+          hasAcceptedTerms: false,
         }),
     }),
     {
@@ -81,6 +87,7 @@ export const useAuthStore = create<AuthState>()(
         refreshToken: state.refreshToken,
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        hasAcceptedTerms: state.hasAcceptedTerms,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

@@ -47,7 +47,7 @@ Fonte de verdade do progresso de desenvolvimento. Atualizado a cada conclusão d
 - [x] 2.6 2FA Screen — 2 testes
 - [x] 2.7 AuthNavigator wired (6 screens)
 - [x] 2.8 Design system audit — 8 components fixed vs HTML spec
-- [ ] 2.9 Consent Gate LGPD (t16b)
+- [x] 2.9 Consent Gate LGPD (t16b) — 7 testes
 
 ## FASE 3 — Home & Navegação Principal
 - [x] 3.1 Home Dashboard (t2a) — 6 testes

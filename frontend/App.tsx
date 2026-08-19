@@ -25,6 +25,7 @@ import { AuthNavigator } from "@/navigation/AuthNavigator";
 import { RootNavigator } from "@/navigation/RootNavigator";
 import { VisitorNavigator } from "@/navigation/VisitorNavigator";
 import { SplashScreen as AppSplash } from "@/screens/splash/SplashScreen";
+import { ConsentGateScreen } from "@/screens/consent/ConsentGateScreen";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,7 @@ export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
   const visitorActive = useAuthStore((s) => s.visitorActive);
+  const hasAcceptedTerms = useAuthStore((s) => s.hasAcceptedTerms);
   const themeMode = useThemeStore((s) => s.mode);
 
   const [appReady, setAppReady] = useState(false);
@@ -78,7 +80,9 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <NavigationContainer>
-          {isAuthenticated ? (
+          {isAuthenticated && !hasAcceptedTerms ? (
+            <ConsentGateScreen />
+          ) : isAuthenticated ? (
             <RootNavigator />
           ) : visitorActive ? (
             <VisitorNavigator />
