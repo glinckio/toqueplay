@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -7,27 +7,16 @@ import {
   StatusBar,
   Alert,
   Switch,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path } from "react-native-svg";
-
-interface ConsentToggle {
-  key: string;
-  label: string;
-  description: string;
-  value: boolean;
-}
-
-const MOCK_DATA_SUMMARY = {
-  teams: 3,
-  tournaments: 8,
-  matches: 24,
-  registrations: 12,
-  friendlies: 5,
-  notifications: 47,
-};
+import { useApi } from "@/hooks/useApi";
+import { privacyService, ConsentsDTO } from "@/services/privacyService";
+import { useAuthStore } from "@/stores/authStore";
 
 export function PrivacyScreen({ navigation }: any) {
   const { isDark } = useTheme();
@@ -41,16 +30,23 @@ export function PrivacyScreen({ navigation }: any) {
   const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
   const infoBg = isDark ? "#1C1630" : "#F0ECFA";
 
-  const [consents, setConsents] = useState<ConsentToggle[]>([
-    { key: "notificationsPush", label: "Notificações push", description: "Receber notificações sobre partidas e torneios", value: true },
-    { key: "locationDiscovery", label: "Localização", description: "Usar localização para descobrir torneios próximos", value: true },
-    { key: "marketingEmail", label: "Emails de marketing", description: "Receber novidades e promoções por email", value: false },
-  ]);
+  const user = useAuthStore(s => s.user);
+  const { data: consentsData, loading: loadingConsents, error, refetch: refetchConsents } = useApi(() => privacyService.getConsents(), []);
+  const { data: dataSummary, loading: loadingSummary } = useApi(() => privacyService.getDataSummary(), []);
+  const loading = loadingConsents || loadingSummary;
 
-  const handleToggleConsent = (key: string) => {
-    setConsents((prev) =>
-      prev.map((c) => c.key === key ? { ...c, value: !c.value } : c)
-    );
+  const consents = consentsData ? [
+    { key: "notificationsPush", label: "Notificações push", description: "Receber notificações sobre partidas e torneios", value: consentsData.notificationsPush },
+    { key: "locationDiscovery", label: "Localização", description: "Usar localização para descobrir torneios próximos", value: consentsData.locationDiscovery },
+    { key: "marketingEmail", label: "Emails de marketing", description: "Receber novidades e promoções por email", value: consentsData.marketingEmail },
+  ] : [];
+
+  const handleToggleConsent = async (key: string) => {
+    const current = consentsData?.[key as keyof ConsentsDTO];
+    try {
+      await privacyService.updateConsents({ [key]: !current });
+      refetchConsents();
+    } catch {}
   };
 
   const handleExportData = () => {
@@ -59,7 +55,12 @@ export function PrivacyScreen({ navigation }: any) {
       "Um arquivo com todos os seus dados será enviado para seu email. Deseja continuar?",
       [
         { text: "Cancelar", style: "cancel" },
-        { text: "Exportar", onPress: () => Alert.alert("Sucesso", "Exportação iniciada. Você receberá um email em breve.") },
+        { text: "Exportar", onPress: async () => {
+          try {
+            await privacyService.exportData();
+            Alert.alert("Sucesso", "Exportação iniciada. Você receberá um email em breve.");
+          } catch {}
+        }},
       ]
     );
   };
@@ -70,7 +71,9 @@ export function PrivacyScreen({ navigation }: any) {
       "Esta ação é irreversível. Todos os seus dados serão anonimizados. Deseja continuar?",
       [
         { text: "Cancelar", style: "cancel" },
-        { text: "Excluir minha conta", style: "destructive", onPress: () => {} },
+        { text: "Excluir minha conta", style: "destructive", onPress: async () => {
+          try { await privacyService.deleteAccount(user?.email ?? ""); } catch {}
+        }},
       ]
     );
   };
@@ -79,10 +82,34 @@ export function PrivacyScreen({ navigation }: any) {
     Alert.alert("Contato DPO", "Envie um email para dpo@toqueplay.com.br para exercer seus direitos LGPD.");
   };
 
+  if (loading && !consentsData && !dataSummary) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !consentsData) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetchConsents} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ paddingHorizontal: 22, paddingTop: 14 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetchConsents} tintColor={accentColor} />}
+      >
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }}>
           <Pressable
@@ -147,12 +174,12 @@ export function PrivacyScreen({ navigation }: any) {
         }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {[
-              { label: "Times", value: MOCK_DATA_SUMMARY.teams },
-              { label: "Torneios", value: MOCK_DATA_SUMMARY.tournaments },
-              { label: "Partidas", value: MOCK_DATA_SUMMARY.matches },
-              { label: "Inscrições", value: MOCK_DATA_SUMMARY.registrations },
-              { label: "Amistosos", value: MOCK_DATA_SUMMARY.friendlies },
-              { label: "Notificações", value: MOCK_DATA_SUMMARY.notifications },
+              { label: "Times", value: dataSummary?.teams ?? 0 },
+              { label: "Torneios", value: dataSummary?.tournaments ?? 0 },
+              { label: "Partidas", value: dataSummary?.matches ?? 0 },
+              { label: "Inscrições", value: dataSummary?.registrations ?? 0 },
+              { label: "Amistosos", value: dataSummary?.friendlies ?? 0 },
+              { label: "Notificações", value: dataSummary?.notifications ?? 0 },
             ].map((item) => (
               <View key={item.label} style={{
                 width: "30%", backgroundColor: infoBg,

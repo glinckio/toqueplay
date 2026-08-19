@@ -1,6 +1,7 @@
 import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { ManageTeamsScreen } from "@/screens/teams/ManageTeamsScreen";
+import { teamsService } from "@/services/teamsService";
 
 jest.mock("@/hooks/useTheme", () => ({
   useTheme: () => ({
@@ -65,14 +66,14 @@ describe("ManageTeamsScreen", () => {
   });
 
   it("handles accept invite", () => {
-    const { getByLabelText, queryByText } = render(<ManageTeamsScreen navigation={mockNavigation} />);
+    const { getByLabelText } = render(<ManageTeamsScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Aceitar convite Beach Titans"));
-    expect(queryByText("Beach Titans")).toBeNull();
+    expect(teamsService.acceptInvitation).toHaveBeenCalledWith("inv-1");
   });
 
   it("handles reject invite", () => {
-    const { getByLabelText, queryByText } = render(<ManageTeamsScreen navigation={mockNavigation} />);
+    const { getByLabelText } = render(<ManageTeamsScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Recusar convite Beach Titans"));
-    expect(queryByText("Beach Titans")).toBeNull();
+    expect(teamsService.rejectInvitation).toHaveBeenCalledWith("inv-1");
   });
 });

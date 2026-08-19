@@ -56,8 +56,7 @@ describe("TeamDetailScreen", () => {
   it("renders history section", () => {
     const { getByText } = render(<TeamDetailScreen navigation={mockNavigation} route={mockRoute} />);
     expect(getByText("HISTÓRICO")).toBeTruthy();
-    expect(getByText("Copa Verão 2026")).toBeTruthy();
-    expect(getByText("Copa Inverno 2026")).toBeTruthy();
+    expect(getByText("Sem histórico")).toBeTruthy();
   });
 
   it("renders edit button", () => {

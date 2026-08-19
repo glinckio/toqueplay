@@ -4,11 +4,15 @@ import {
   Text,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
+import { useApi } from "@/hooks/useApi";
+import { tournamentsService, TournamentDTO } from "@/services/tournamentsService";
 
 type FilterTab = "all" | "draft" | "active" | "finished";
 
@@ -118,6 +122,34 @@ function getStatusBadge(status: TournamentItem["status"], isDark: boolean) {
   }
 }
 
+function mapTournaments(data: TournamentDTO[], isDark: boolean): TournamentItem[] {
+  return data.map((t) => {
+    const statusMap: Record<string, TournamentItem["status"]> = {
+      DRAFT: "draft",
+      OPEN: "open",
+      IN_PROGRESS: "in_progress",
+      COMPLETED: "finished",
+    };
+    const status = statusMap[t.status] ?? "draft";
+    const actionMap: Record<TournamentItem["status"], string> = {
+      open: "Gerenciar →",
+      draft: "Editar →",
+      in_progress: "Ver partidas →",
+      finished: "Ver resultado →",
+    };
+    return {
+      id: t.id,
+      name: t.name,
+      date: t.date ? new Date(t.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" }) : "Sem data definida",
+      location: [t.city, t.state].filter(Boolean).join(", ") || "",
+      status,
+      enrolledCount: t._count?.registrations ?? 0,
+      actionLabel: actionMap[status],
+      gradientColors: isDark ? ["#2D1B69", "#1A1030"] : ["#E8DEFF", "#F6F4FC"],
+    };
+  });
+}
+
 export function MyTournamentsScreen({ navigation }: any) {
   const { isDark } = useTheme();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -127,11 +159,32 @@ export function MyTournamentsScreen({ navigation }: any) {
   const cardBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(26,16,48,0.06)";
   const metaColor = isDark ? "#948CA8" : "#6B6480";
   const metaIcon = isDark ? "#6E6684" : "#A29CB4";
-  const tournaments = isDark ? DARK_TOURNAMENTS : LIGHT_TOURNAMENTS;
+
+  const { data: rawTournaments, loading, error, refetch } = useApi(() => tournamentsService.findMine(), []);
+  const tournaments = mapTournaments(rawTournaments ?? [], isDark);
+
+  if (loading && !rawTournaments) {
+    return (
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !rawTournaments) {
+    return (
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 16 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 16 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>

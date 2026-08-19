@@ -4,12 +4,15 @@ import {
   Text,
   Pressable,
   StatusBar,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
+import { teamsService } from "@/services/teamsService";
 
 interface InviteMember {
   id: string;
@@ -41,12 +44,37 @@ export function TeamInviteScreen({ navigation, route }: any) {
   const cardBg = isDark ? "#141019" : "#FFFFFF";
   const cardBorder = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
 
+  const [submitting, setSubmitting] = useState(false);
+  const invitationId = route?.params?.invitationId ?? "";
   const teamName = route?.params?.teamName ?? "Beach Titans";
   const teamInitials = route?.params?.teamInitials ?? "BT";
   const inviterName = route?.params?.inviterName ?? "Marcos Silva";
 
-  const handleAccept = () => setStep("success");
-  const handleReject = () => navigation?.goBack();
+  const handleAccept = async () => {
+    if (!invitationId) { setStep("success"); return; }
+    setSubmitting(true);
+    try {
+      await teamsService.acceptInvitation(invitationId);
+      setStep("success");
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível aceitar o convite.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!invitationId) { navigation?.goBack(); return; }
+    setSubmitting(true);
+    try {
+      await teamsService.rejectInvitation(invitationId);
+      navigation?.goBack();
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível recusar o convite.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   // ============ SUCCESS ============
   if (step === "success") {

@@ -6,11 +6,16 @@ import {
   Image,
   Pressable,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuthStore } from "@/stores/authStore";
+import { useApi } from "@/hooks/useApi";
+import { homeService } from "@/services/homeService";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
 import Svg, { Path, Polyline } from "react-native-svg";
@@ -50,40 +55,53 @@ interface MyTournament {
   status: "paid" | "pending";
 }
 
-const MOCK_LIVE: LiveMatch = {
-  tournament: "Copa Verão",
-  subtitle: "SEMIFINAL · DUPLA MASCULINA",
-  court: "Quadra 1",
-  set: 3,
-  teamA: { initials: "SR", name: "Silva & Rocha", color: "#7C3AED" },
-  teamB: { initials: "CL", name: "Costa & Lima", color: "#241B38", borderOnly: true },
-  score: { a: 2, b: 1 },
-  setScores: "21-18 · 19-21 · 11-8",
-};
-
-const MOCK_NEARBY: NearbyTournament[] = [
-  { image: TOURNAMENT_IMAGES[0], badge: "DUPLA", badgeBg: "rgba(124,58,237,.92)", badgeColor: "#fff", name: "Copa Praia Grande", distance: "2,4 km · hoje" },
-  { image: TOURNAMENT_IMAGES[1], badge: "QUARTETO", badgeBg: "#C6F82A", badgeColor: "#12100A", name: "Circuito Litoral", distance: "5,1 km · sáb" },
-];
-
-const MOCK_MY: MyTournament[] = [
-  { image: TOURNAMENT_IMAGES[0], name: "Copa Praia Grande", detail: "Sáb, 09h · Dupla masculina", status: "paid" },
-  { image: TOURNAMENT_IMAGES[1], name: "Circuito Litoral · Et. 2", detail: "Dom, 08h · Quarteto misto", status: "pending" },
-];
-
 export function HomeScreen() {
   const { isDark, colors } = useTheme();
+  const navigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
   const firstName = user?.name?.split(" ")[0] ?? "Jogador";
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const hasLive = true;
-  const hasNearby = MOCK_NEARBY.length > 0;
-  const hasMyTournaments = MOCK_MY.length > 0;
+  const screenBg = isDark ? "#0E0B14" : "#F6F4FC";
+  const metaColor = isDark ? "#A9A2BC" : "#6B6480";
+
+  const { data: dashboard, loading, error, refetch } = useApi(() => homeService.getDashboard(), []);
+
+  const liveMatch = dashboard?.liveMatches?.[0] ?? null;
+  const hasLive = !!liveMatch;
+  const nearbyTournaments = dashboard?.nearbyTournaments ?? [];
+  const hasNearby = nearbyTournaments.length > 0;
+  const myTournaments = dashboard?.myTournaments ?? [];
+  const hasMyTournaments = myTournaments.length > 0;
+
+  if (loading && !dashboard) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={accentColor} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !dashboard) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, textAlign: "center", marginBottom: 16 }}>{error}</Text>
+          <Pressable onPress={refetch} style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: accentColor }}>
+            <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0E0B14" : "#F6F4FC" }} edges={["top"]}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 18, paddingBottom: 96 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 14 }}>
           <View>
@@ -96,6 +114,9 @@ export function HomeScreen() {
           </View>
           <View style={{ flexDirection: "row", gap: 8 }}>
             <Pressable
+              onPress={() => navigation.navigate("Notifications")}
+              accessibilityRole="button"
+              accessibilityLabel="Notificações"
               style={{
                 position: "relative",
                 width: 42, height: 42, borderRadius: 14,
@@ -107,17 +128,33 @@ export function HomeScreen() {
               }}
             >
               <Icon name="bell" size={18} color={isDark ? "#CFC8E0" : "#4A4460"} />
-              <View style={{ position: "absolute", top: 9, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: isDark ? "#FF4D5E" : "#E83A4C", borderWidth: 2, borderColor: isDark ? "#1C1630" : "#FFFFFF" }} />
+              {(dashboard?.unreadNotifications ?? 0) > 0 && (
+                <View style={{ position: "absolute", top: 9, right: 9, width: 8, height: 8, borderRadius: 4, backgroundColor: isDark ? "#FF4D5E" : "#E83A4C", borderWidth: 2, borderColor: isDark ? "#1C1630" : "#FFFFFF" }} />
+              )}
             </Pressable>
-            <View style={{ width: 42, height: 42, borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: "#7C3AED" }}>
+            <Pressable
+              onPress={() => navigation.getParent()?.navigate("Profile")}
+              accessibilityRole="button"
+              accessibilityLabel="Perfil"
+              style={{ width: 42, height: 42, borderRadius: 14, overflow: "hidden", borderWidth: 2, borderColor: "#7C3AED" }}
+            >
               <Image source={{ uri: "https://images.unsplash.com/photo-1748645288738-aadf398bcd3e?fm=jpg&w=120&q=60&auto=format&fit=crop&crop=faces" }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
-            </View>
+            </Pressable>
           </View>
         </View>
 
         {/* Live Hero or Empty State */}
-        {hasLive ? (
-          <LiveHeroSection match={MOCK_LIVE} isDark={isDark} accentColor={accentColor} />
+        {hasLive && liveMatch ? (
+          <LiveHeroSection match={{
+            tournament: liveMatch.tournament.name,
+            subtitle: liveMatch.round,
+            court: liveMatch.court,
+            set: liveMatch.currentSet,
+            teamA: { initials: liveMatch.teamA.initials, name: liveMatch.teamA.name, color: "#7C3AED" },
+            teamB: { initials: liveMatch.teamB.initials, name: liveMatch.teamB.name, color: "#241B38", borderOnly: true },
+            score: { a: liveMatch.scoreA, b: liveMatch.scoreB },
+            setScores: liveMatch.setScores,
+          }} isDark={isDark} accentColor={accentColor} />
         ) : (
           <EmptyLiveState isDark={isDark} />
         )}
@@ -125,6 +162,9 @@ export function HomeScreen() {
         {/* ASSISTIR AGORA button */}
         {hasLive && (
           <Pressable
+            onPress={() => navigation.navigate("MatchResult", { matchId: liveMatch?.id ?? "live-1" })}
+            accessibilityRole="button"
+            accessibilityLabel="Assistir agora"
             style={{
               width: "100%",
               backgroundColor: accentColor,
@@ -146,13 +186,22 @@ export function HomeScreen() {
         {/* Torneios próximos */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 13 }}>
           <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 16, fontWeight: "700" }}>Torneios próximos</Text>
-          <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>Ver todos</Text>
+          <Pressable onPress={() => navigation.getParent()?.navigate("Explore")} accessibilityRole="button" accessibilityLabel="Ver todos torneios">
+            <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>Ver todos</Text>
+          </Pressable>
         </View>
 
         {hasNearby ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -22, marginBottom: 16 }} contentContainerStyle={{ paddingHorizontal: 22, gap: 12 }}>
-            {MOCK_NEARBY.map((t, i) => (
-              <NearbyCard key={i} tournament={t} isDark={isDark} />
+            {nearbyTournaments.map((t) => (
+              <NearbyCard key={t.id} tournament={{
+                image: t.coverUrl || TOURNAMENT_IMAGES[0],
+                badge: t.categoryFormat,
+                badgeBg: "rgba(124,58,237,.92)",
+                badgeColor: "#fff",
+                name: t.name,
+                distance: `${t.distance} km · ${t.date}`,
+              }} isDark={isDark} onPress={() => navigation.navigate("TournamentDetail", { id: t.id })} />
             ))}
           </ScrollView>
         ) : (
@@ -162,12 +211,19 @@ export function HomeScreen() {
         {/* Meus torneios */}
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 }}>
           <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 16, fontWeight: "700" }}>Meus torneios</Text>
-          <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>Ver todos</Text>
+          <Pressable onPress={() => navigation.navigate("MyTournaments")} accessibilityRole="button" accessibilityLabel="Ver todos meus torneios">
+            <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>Ver todos</Text>
+          </Pressable>
         </View>
 
         {hasMyTournaments ? (
-          MOCK_MY.map((t, i) => (
-            <MyTournamentRow key={i} tournament={t} isDark={isDark} isLast={i === MOCK_MY.length - 1} />
+          myTournaments.map((t, i) => (
+            <MyTournamentRow key={t.id} tournament={{
+              image: t.coverUrl || TOURNAMENT_IMAGES[0],
+              name: t.name,
+              detail: `${t.date} · ${t.categoryFormat}`,
+              status: t.registrationStatus === "PAID" ? "paid" : "pending",
+            }} isDark={isDark} isLast={i === myTournaments.length - 1} onPress={() => navigation.navigate("TournamentDetail", { id: t.id })} />
           ))
         ) : (
           <EmptyMyTournamentsState isDark={isDark} />
@@ -273,9 +329,9 @@ function EmptyLiveState({ isDark }: { isDark: boolean }) {
   );
 }
 
-function NearbyCard({ tournament, isDark }: { tournament: NearbyTournament; isDark: boolean }) {
+function NearbyCard({ tournament, isDark, onPress }: { tournament: NearbyTournament; isDark: boolean; onPress?: () => void }) {
   return (
-    <Pressable style={{ width: 150 }}>
+    <Pressable style={{ width: 150 }} onPress={onPress} accessibilityRole="button" accessibilityLabel={tournament.name}>
       <View style={{ height: 82, borderRadius: 16, overflow: "hidden", position: "relative", marginBottom: 8 }}>
         <Image source={{ uri: tournament.image }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
         <View style={{ position: "absolute", top: 8, left: 8, backgroundColor: tournament.badgeBg, paddingVertical: 4, paddingHorizontal: 7, borderRadius: 7 }}>
@@ -313,9 +369,9 @@ function EmptyNearbyState({ isDark }: { isDark: boolean }) {
   );
 }
 
-function MyTournamentRow({ tournament, isDark, isLast }: { tournament: MyTournament; isDark: boolean; isLast: boolean }) {
+function MyTournamentRow({ tournament, isDark, isLast, onPress }: { tournament: MyTournament; isDark: boolean; isLast: boolean; onPress?: () => void }) {
   return (
-    <View style={{
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={tournament.name} style={{
       flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8,
       borderBottomWidth: isLast ? 0 : 1,
       borderBottomColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(26,16,48,0.08)",
@@ -328,7 +384,7 @@ function MyTournamentRow({ tournament, isDark, isLast }: { tournament: MyTournam
         <Text style={{ color: isDark ? "#A9A2BC" : "#6B6480", fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>{tournament.detail}</Text>
       </View>
       <Badge status={tournament.status} size="md" />
-    </View>
+    </Pressable>
   );
 }
 
@@ -347,10 +403,15 @@ function EmptyMyTournamentsState({ isDark }: { isDark: boolean }) {
       <Text style={{ color: isDark ? "#A9A2BC" : "#6B6480", fontFamily: "Manrope_500Medium", fontSize: 12.5, fontWeight: "500", lineHeight: 19, textAlign: "center", maxWidth: 250, marginBottom: 12 }}>
         Encontre um torneio e inscreva seu time para vê-lo aqui.
       </Text>
-      <Pressable style={{
-        backgroundColor: isDark ? "#7C3AED" : "#7C3AED",
-        paddingVertical: 10, paddingHorizontal: 18, borderRadius: 12,
-      }}>
+      <Pressable
+        onPress={() => {}}
+        accessibilityRole="button"
+        accessibilityLabel="Explorar torneios"
+        style={{
+          backgroundColor: "#7C3AED",
+          paddingVertical: 10, paddingHorizontal: 18, borderRadius: 12,
+        }}
+      >
         <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>Explorar torneios</Text>
       </Pressable>
     </View>

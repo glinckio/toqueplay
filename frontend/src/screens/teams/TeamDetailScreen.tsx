@@ -1,16 +1,20 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { teamsService } from "@/services/teamsService";
 
 interface Member {
   id: string;
@@ -23,27 +27,9 @@ interface Member {
   isGradient?: boolean;
 }
 
-interface HistoryEntry {
-  id: string;
-  tournament: string;
-  round: string;
-  date: string;
-  medal: string;
-  isWin: boolean;
-}
-
-const MOCK_MEMBERS: Member[] = [
-  { id: "m1", name: "Lucas Costa", initials: "LC", username: "@lucascosta", isCaptain: true, colorBg: "", colorText: "#fff", isGradient: true },
-  { id: "m2", name: "Rafael Silva", initials: "RS", username: "@rafasilva", isCaptain: false, colorBg: "#221B33", colorText: "#CFC8E0" },
-];
-
-const MOCK_HISTORY: HistoryEntry[] = [
-  { id: "h1", tournament: "Copa Verão 2026", round: "Semifinal · 12 Jul", date: "", medal: "🥇", isWin: true },
-  { id: "h2", tournament: "Copa Inverno 2026", round: "Quartas · 28 Jun", date: "", medal: "🥈", isWin: false },
-];
-
 export function TeamDetailScreen({ navigation, route }: any) {
   const { isDark } = useTheme();
+  const id = route?.params?.id;
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
   const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
   const titleColor = isDark ? "#F5F3FA" : "#1A1428";
@@ -53,14 +39,52 @@ export function TeamDetailScreen({ navigation, route }: any) {
   const cardBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.07)";
   const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
 
-  const teamName = "Silva & Rocha";
-  const teamInitials = "SR";
-  const teamFormat = "Dupla · Areia";
+  const { data: team, loading, error, refetch } = useApi(() => teamsService.findOne(id), [id]);
+
+  const teamName = team?.name ?? "";
+  const teamInitials = teamName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const teamFormat = team?.description ?? "Dupla · Areia";
+
+  const members: Member[] = (team?.members ?? []).map((m, i) => ({
+    id: m.id,
+    name: m.user.name,
+    initials: m.user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+    username: m.user.username ? `@${m.user.username}` : m.user.email,
+    isCaptain: m.isCaptain,
+    colorBg: i === 0 ? "" : "#221B33",
+    colorText: i === 0 ? "#fff" : "#CFC8E0",
+    isGradient: i === 0,
+  }));
+
+  const stats = [
+    { value: String(team?.stats?.tournaments ?? 0), label: "Torneios" },
+    { value: String(team?.stats?.wins ?? 0), label: "Vitórias" },
+    { value: team?.stats?.winRate != null ? `${team.stats.winRate}%` : "0%", label: "Win rate" },
+  ];
+
+  if (loading && !team) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !team) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
         {/* Header with back + edit */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <Pressable
@@ -121,11 +145,7 @@ export function TeamDetailScreen({ navigation, route }: any) {
           borderRadius: 18, marginBottom: 20,
           ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.2)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
         }}>
-          {[
-            { value: "3", label: "Torneios" },
-            { value: "2", label: "Vitórias" },
-            { value: "67%", label: "Win rate" },
-          ].map((stat, i, arr) => (
+          {stats.map((stat, i, arr) => (
             <View key={stat.label} style={{
               flex: 1, alignItems: "center", paddingVertical: 16,
               borderRightWidth: i < arr.length - 1 ? 1 : 0,
@@ -145,7 +165,7 @@ export function TeamDetailScreen({ navigation, route }: any) {
           </Pressable>
         </View>
         <View style={{ gap: 10, marginBottom: 20 }}>
-          {MOCK_MEMBERS.map((m) => (
+          {members.map((m) => (
             <View
               key={m.id}
               style={{
@@ -199,40 +219,11 @@ export function TeamDetailScreen({ navigation, route }: any) {
         {/* History */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, fontWeight: "700", letterSpacing: 0.1 * 10 }}>HISTÓRICO</Text>
-          <Pressable onPress={() => {}} accessibilityRole="button" accessibilityLabel="Ver todos">
-            <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600" }}>Ver todos →</Text>
-          </Pressable>
         </View>
         <View style={{ gap: 10, marginBottom: 24 }}>
-          {MOCK_HISTORY.map((h) => (
-            <View
-              key={h.id}
-              style={{
-                flexDirection: "row", alignItems: "center", gap: 12,
-                backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
-                borderRadius: 14, padding: 12, paddingHorizontal: 14,
-                ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.18)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 1 }),
-              }}
-            >
-              <View style={{
-                width: 38, height: 38, borderRadius: 12,
-                backgroundColor: h.isWin
-                  ? (isDark ? "rgba(198,248,42,.12)" : "rgba(124,58,237,.1)")
-                  : "rgba(192,192,192,.08)",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={h.isWin ? accentColor : (isDark ? "#6E6684" : "#C3BCD4")} strokeWidth={2}>
-                  <Path d="M6 9V2h12v7a6 6 0 01-12 0z" />
-                  <Path d="M9 21h6M12 15v6" />
-                </Svg>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, fontWeight: "700" }}>{h.tournament}</Text>
-                <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>{h.round}</Text>
-              </View>
-              <Text style={{ color: h.isWin ? accentColor : labelColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>{h.medal}</Text>
-            </View>
-          ))}
+          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500", textAlign: "center", paddingVertical: 20 }}>
+            Sem histórico
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

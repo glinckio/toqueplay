@@ -8,6 +8,8 @@ import {
   Image,
   StatusBar,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +19,8 @@ import { Icon } from "@/components/ui/Icon";
 import Svg, { Circle, Path } from "react-native-svg";
 import { RootStackParamList } from "@/navigation/types";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useApi } from "@/hooks/useApi";
+import { tournamentsService } from "@/services/tournamentsService";
 
 const HERO_IMAGE =
   "https://images.unsplash.com/photo-1748645288738-aadf398bcd3e?fm=jpg&w=720&q=68&auto=format&fit=crop";
@@ -24,6 +28,7 @@ const HERO_IMAGE =
 const FILTER_CHIPS = ["Todos", "Dupla", "Quarteto", "Perto de mim", "Esta semana"];
 
 interface OpenTournament {
+  id: string;
   featured?: boolean;
   image?: string;
   name: string;
@@ -35,23 +40,13 @@ interface OpenTournament {
 }
 
 interface ClosedTournament {
+  id: string;
   name: string;
   date: string;
   location: string;
   teams: string;
   category: string;
 }
-
-const MOCK_OPEN: OpenTournament[] = [
-  { featured: true, image: HERO_IMAGE, name: "Copa Verão 2026", date: "12 Jul", location: "Praia Grande, SP", distance: "2,4 km", categories: ["DUPLA", "MISTO"], slots: "3/8 vagas" },
-  { name: "Circuito Paulista", date: "19 Jul", location: "Santos, SP", distance: "8 km", categories: ["DUPLA"], slots: "6/16 vagas" },
-  { name: "Torneio da Amizade", date: "26 Jul", location: "Guarujá, SP", distance: "15 km", categories: ["QUARTETO"], slots: "2/8 vagas" },
-];
-
-const MOCK_CLOSED: ClosedTournament[] = [
-  { name: "Copa Inverno 2026", date: "28 Jun", location: "São Vicente, SP", teams: "16 times", category: "Dupla" },
-  { name: "Beach Open Series", date: "14 Jun", location: "Ubatuba, SP", teams: "12 times", category: "Quarteto" },
-];
 
 export function ExploreScreen() {
   const { isDark, colors } = useTheme();
@@ -70,32 +65,82 @@ export function ExploreScreen() {
   const categoryBg = isDark ? "#1C1630" : "#F0ECFA";
   const categoryText = isDark ? "#8B5CF6" : "#7C3AED";
 
+  const { data: result, loading, error, refetch } = useApi(() => tournamentsService.explore(), []);
+
+  const allTournaments = result?.data ?? [];
+  const openTournaments = allTournaments.filter(t => t.status === "OPEN" || t.status === "PUBLISHED" || t.status === "REGISTRATION_OPEN");
+  const closedTournaments = allTournaments.filter(t => t.status === "FINISHED" || t.status === "CANCELLED");
+
+  const mappedOpen: OpenTournament[] = openTournaments.map((t, i) => ({
+    id: t.id,
+    featured: i === 0,
+    image: t.coverUrl || HERO_IMAGE,
+    name: t.name,
+    date: t.date ? new Date(t.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }) : "Sem data",
+    location: t.city && t.state ? `${t.city}, ${t.state}` : t.address || "",
+    distance: undefined,
+    categories: t.categories?.map(c => c.format) || [],
+    slots: t._count?.registrations != null && t.maxTeams ? `${t._count.registrations}/${t.maxTeams} vagas` : "",
+  }));
+
+  const mappedClosed: ClosedTournament[] = closedTournaments.map(t => ({
+    id: t.id,
+    name: t.name,
+    date: t.date ? new Date(t.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }) : "",
+    location: t.city && t.state ? `${t.city}, ${t.state}` : "",
+    teams: t._count?.registrations ? `${t._count.registrations} times` : "",
+    category: t.categories?.[0]?.format || "",
+  }));
+
   const filteredOpen = useMemo(() => {
     const chip = FILTER_CHIPS[activeFilter];
     const q = query.trim().toLowerCase();
-    return MOCK_OPEN.filter((t) => {
+    return mappedOpen.filter((t) => {
       const matchesQuery =
         !q ||
         t.name.toLowerCase().includes(q) ||
         t.location.toLowerCase().includes(q);
       const matchesChip =
         chip === "Todos" ||
-        (chip === "Dupla" && t.categories.includes("DUPLA")) ||
-        (chip === "Quarteto" && t.categories.includes("QUARTETO")) ||
+        (chip === "Dupla" && t.categories.some(c => c.toUpperCase().includes("DUPLA") || c.toUpperCase().includes("DOUBLES"))) ||
+        (chip === "Quarteto" && t.categories.some(c => c.toUpperCase().includes("QUARTETO") || c.toUpperCase().includes("QUARTET"))) ||
         (chip === "Perto de mim" && t.distance !== undefined) ||
-        (chip === "Esta semana" && t.date === "12 Jul");
+        chip === "Esta semana";
       return matchesQuery && matchesChip;
     });
-  }, [activeFilter, query]);
+  }, [activeFilter, query, mappedOpen]);
 
-  const goToDetail = (name: string) => {
-    navigation.navigate("TournamentDetail", { id: name });
+  const goToDetail = (id: string) => {
+    navigation.navigate("TournamentDetail", { id });
   };
+
+  if (loading && !result) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F7F5FC", alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !result) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F7F5FC", alignItems: "center", justifyContent: "center", paddingHorizontal: 22 }} edges={["top"]}>
+        <Text style={{ color: colors.text.primary, fontFamily: "Manrope_500Medium", fontSize: 14, textAlign: "center", marginBottom: 16 }}>{error}</Text>
+        <Pressable onPress={refetch} style={{ paddingVertical: 12, paddingHorizontal: 24, borderRadius: 12, backgroundColor: accentColor }}>
+          <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F7F5FC" }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView contentContainerStyle={{ paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 96 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}
+      >
         <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
           {/* Title */}
           <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 24, fontWeight: "700", letterSpacing: -0.02 * 24, marginBottom: 16 }}>
@@ -176,12 +221,12 @@ export function ExploreScreen() {
 
           {/* Featured card */}
           {filteredOpen.filter((t) => t.featured).map((t, i) => (
-            <FeaturedCard key={i} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} metaIconColor={metaIconColor} metaTextColor={metaTextColor} categoryBg={categoryBg} categoryText={categoryText} accentColor={accentColor} onPress={() => goToDetail(t.name)} />
+            <FeaturedCard key={t.id} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} metaIconColor={metaIconColor} metaTextColor={metaTextColor} categoryBg={categoryBg} categoryText={categoryText} accentColor={accentColor} onPress={() => goToDetail(t.id)} />
           ))}
 
           {/* Regular cards */}
           {filteredOpen.filter((t) => !t.featured).map((t, i) => (
-            <RegularCard key={i} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} metaTextColor={metaTextColor} categoryBg={categoryBg} categoryText={categoryText} accentColor={accentColor} onPress={() => goToDetail(t.name)} />
+            <RegularCard key={t.id} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} metaTextColor={metaTextColor} categoryBg={categoryBg} categoryText={categoryText} accentColor={accentColor} onPress={() => goToDetail(t.id)} />
           ))}
 
           {/* Section: Closed */}
@@ -194,8 +239,8 @@ export function ExploreScreen() {
             </Text>
           </View>
 
-          {MOCK_CLOSED.map((t, i) => (
-            <ClosedCard key={i} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} />
+          {mappedClosed.map((t) => (
+            <ClosedCard key={t.id} tournament={t} isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} />
           ))}
         </View>
       </ScrollView>

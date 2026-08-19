@@ -28,6 +28,18 @@ jest.mock("@react-navigation/native", () => ({
   useNavigation: () => ({ navigate: jest.fn(), goBack: jest.fn() }),
 }));
 
+jest.mock("@/services/tournamentsService", () => ({
+  tournamentsService: {
+    findOne: jest.fn().mockReturnValue(null),
+  },
+}));
+
+jest.mock("@/services/teamsService", () => ({
+  teamsService: {
+    list: jest.fn().mockReturnValue(null),
+  },
+}));
+
 const mockRegisterTeam = jest.fn();
 
 jest.mock("@/services/registrationsService", () => ({
@@ -38,6 +50,7 @@ jest.mock("@/services/registrationsService", () => ({
     registerTeam: (...args: unknown[]) => mockRegisterTeam(...args),
     getRegisteredMembers: jest.fn(),
   },
+  RegistrationDTO: {},
 }));
 
 const mockNavigation = { goBack: jest.fn(), navigate: jest.fn() } as any;

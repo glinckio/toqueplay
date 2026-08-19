@@ -5,12 +5,17 @@ import {
   ScrollView,
   Pressable,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { friendliesService } from "@/services/friendliesService";
+import { useAuthStore } from "@/stores/authStore";
 
 type TabOption = "Enviados" | "Recebidos";
 
@@ -36,33 +41,6 @@ const STATUS_CONFIG = {
   COMPLETED: { label: "CONCLUÍDO", darkColor: "#C6F82A", darkBg: "rgba(198,248,42,.1)", lightColor: "#059669", lightBg: "rgba(5,150,105,.08)" },
 };
 
-const MOCK_FRIENDLIES: FriendlyCard[] = [
-  {
-    id: "f1", opponentName: "Beach Titans", opponentInitials: "BT",
-    myTeamName: "Silva & Rocha", date: "22 Ago", time: "16:00",
-    location: "Praia de Copacabana", modality: "Areia", format: "Dupla",
-    status: "PENDING", direction: "sent",
-  },
-  {
-    id: "f2", opponentName: "Vôlei Sul", opponentInitials: "VS",
-    myTeamName: "Silva & Rocha", date: "25 Ago", time: "10:00",
-    location: "Arena Norte", modality: "Quadra", format: "Quarteto",
-    status: "ACCEPTED", direction: "sent",
-  },
-  {
-    id: "f3", opponentName: "Sand Storm", opponentInitials: "SS",
-    myTeamName: "Silva & Rocha", date: "18 Ago", time: "14:00",
-    location: "Barra da Tijuca", modality: "Areia", format: "Dupla",
-    status: "PENDING", direction: "received",
-  },
-  {
-    id: "f4", opponentName: "Ace Team", opponentInitials: "AT",
-    myTeamName: "Vôlei Norte", date: "15 Ago", time: "09:00",
-    location: "Clube Central", modality: "Quadra", format: "Quarteto",
-    status: "COMPLETED", direction: "received",
-  },
-];
-
 export function MyFriendliesScreen({ navigation }: any) {
   const { isDark } = useTheme();
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
@@ -79,9 +57,50 @@ export function MyFriendliesScreen({ navigation }: any) {
 
   const [activeTab, setActiveTab] = useState<TabOption>("Enviados");
 
-  const filtered = MOCK_FRIENDLIES.filter((f) =>
+  const user = useAuthStore(s => s.user);
+  const { data: friendlies, loading, error, refetch } = useApi(() => friendliesService.findMine(), []);
+
+  const mapped: FriendlyCard[] = (friendlies ?? []).map(f => {
+    const isSender = f.requesterId === user?.id;
+    const opponentTeam = isSender ? f.challengedTeam : f.requesterTeam;
+    const myTeam = isSender ? f.requesterTeam : f.challengedTeam;
+    return {
+      id: f.id,
+      opponentName: opponentTeam?.name ?? "Adversário",
+      opponentInitials: (opponentTeam?.name ?? "??").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+      myTeamName: myTeam?.name ?? "",
+      date: f.date ? new Date(f.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short" }) : "",
+      time: f.startTime ?? "",
+      location: f.city ?? f.address ?? "",
+      modality: f.modality ?? "",
+      format: f.categoryFormat ?? "",
+      status: f.status,
+      direction: isSender ? "sent" as const : "received" as const,
+    };
+  });
+
+  const filtered = mapped.filter((f) =>
     activeTab === "Enviados" ? f.direction === "sent" : f.direction === "received"
   );
+
+  if (loading && !friendlies) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !friendlies) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
@@ -158,7 +177,12 @@ export function MyFriendliesScreen({ navigation }: any) {
         </View>
       </View>
 
-      <ScrollView style={{ paddingHorizontal: 22 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ paddingHorizontal: 22 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}
+      >
         {filtered.length === 0 ? (
           <View style={{ alignItems: "center", paddingTop: 60 }}>
             <View style={{

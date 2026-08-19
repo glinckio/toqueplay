@@ -15,7 +15,7 @@ const MAIN_TABS: TabConfig[] = [
   { label: "Início", icon: "home" },
   { label: "Explorar", icon: "search" },
   { label: "Criar", icon: "plus", isCentral: true },
-  { label: "Ao Vivo", icon: "pulse" },
+  { label: "Amistosos", icon: "volleyball" },
   { label: "Perfil", icon: "user" },
 ];
 

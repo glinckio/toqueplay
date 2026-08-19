@@ -66,6 +66,7 @@ function getCardBorder(status: RegistrationStatus, isDark: boolean) {
   }
 }
 
+// TODO: Replace mock data when admin registrations endpoint is available
 export function ManageRegistrationsScreen({ navigation }: any) {
   const { isDark } = useTheme();
   const bgBase = isDark ? "#0C0A12" : "#F6F4FC";

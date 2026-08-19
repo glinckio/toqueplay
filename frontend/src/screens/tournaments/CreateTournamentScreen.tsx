@@ -8,11 +8,14 @@ import {
   Platform,
   KeyboardAvoidingView,
   TextInput,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
+import { tournamentsService } from "@/services/tournamentsService";
 
 const STEPS = ["Básico", "Estrutura", "Categorias", "Revisão"];
 const BANNER_IMAGE = "https://images.unsplash.com/photo-1748645288738-aadf398bcd3e?fm=jpg&w=680&q=68&auto=format&fit=crop";
@@ -46,6 +49,32 @@ export function CreateTournamentScreen({ navigation }: any) {
   const [selectedModality, setSelectedModality] = useState("Areia");
   const [selectedFormat, setSelectedFormat] = useState("Dupla");
   const [selectedSets, setSelectedSets] = useState("3 sets");
+  const [submitting, setSubmitting] = useState(false);
+  const [tournamentName, setTournamentName] = useState("Copa Verão 2026");
+
+  const handlePublish = async () => {
+    setSubmitting(true);
+    try {
+      await tournamentsService.create({ name: tournamentName || "Novo Torneio" });
+      setShowSuccess(true);
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível publicar o torneio.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    setSubmitting(true);
+    try {
+      await tournamentsService.create({ name: tournamentName || "Novo Torneio" });
+      navigation?.goBack();
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível salvar o rascunho.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (showSuccess) {
     return (
@@ -163,13 +192,17 @@ export function CreateTournamentScreen({ navigation }: any) {
             </>
           ) : (
             <>
-              <Pressable onPress={() => setShowSuccess(true)} style={{
+              <Pressable onPress={handlePublish} disabled={submitting} style={{
                 width: "100%", paddingVertical: 16, borderRadius: 16, backgroundColor: accentColor, alignItems: "center",
                 ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 24, elevation: 12 }),
               }}>
-                <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700", letterSpacing: 0.03 * 14 }}>PUBLICAR TORNEIO</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color={isDark ? "#12100A" : "#fff"} />
+                ) : (
+                  <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700", letterSpacing: 0.03 * 14 }}>PUBLICAR TORNEIO</Text>
+                )}
               </Pressable>
-              <Pressable style={{
+              <Pressable onPress={handleSaveDraft} disabled={submitting} style={{
                 width: "100%", paddingVertical: 13, borderRadius: 16,
                 borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.14)" : "rgba(26,16,48,0.16)",
                 alignItems: "center",

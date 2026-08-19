@@ -8,26 +8,20 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { teamsService } from "@/services/teamsService";
+import { friendliesService } from "@/services/friendliesService";
 
 type ModalityOption = "Areia" | "Quadra";
 type FormatOption = "Dupla" | "Quarteto" | "Sexteto";
-
-interface MockTeam {
-  id: string;
-  name: string;
-  initials: string;
-}
-
-const MOCK_MY_TEAMS: MockTeam[] = [
-  { id: "team-1", name: "Silva & Rocha", initials: "SR" },
-  { id: "team-2", name: "Vôlei Norte", initials: "VN" },
-];
 
 export function CreateFriendlyScreen({ navigation }: any) {
   const { isDark } = useTheme();
@@ -57,12 +51,43 @@ export function CreateFriendlyScreen({ navigation }: any) {
   const [modality, setModality] = useState<ModalityOption>("Areia");
   const [format, setFormat] = useState<FormatOption>("Dupla");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const { data: myTeams, loading: loadingTeams } = useApi(() => teamsService.list(), []);
+
+  const teams = (myTeams ?? []).map(t => ({
+    id: t.id,
+    name: t.name,
+    initials: t.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+  }));
 
   const canCreate = selectedTeam && date.trim().length > 0;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!canCreate) return;
-    navigation?.goBack();
+    setSubmitting(true);
+    try {
+      // Parse DD/MM/AAAA to ISO date
+      let isoDate = date;
+      const parts = date.split("/");
+      if (parts.length === 3) {
+        isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+      }
+      await friendliesService.create({
+        requesterTeamId: selectedTeam!,
+        date: isoDate,
+        startTime: time || undefined,
+        address: address || undefined,
+        city: city || undefined,
+        modality: modality === "Areia" ? "BEACH" : "INDOOR",
+        categoryFormat: format,
+      });
+      navigation?.goBack();
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Erro ao criar amistoso");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -96,48 +121,54 @@ export function CreateFriendlyScreen({ navigation }: any) {
             <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginBottom: 8 }}>
               SEU TIME
             </Text>
-            <View style={{ gap: 8, marginBottom: 20 }}>
-              {MOCK_MY_TEAMS.map((team) => {
-                const isSelected = selectedTeam === team.id;
-                return (
-                  <Pressable
-                    key={team.id}
-                    onPress={() => setSelectedTeam(team.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Selecionar ${team.name}`}
-                    style={{
-                      flexDirection: "row", alignItems: "center", gap: 12,
-                      backgroundColor: isSelected ? (isDark ? "rgba(198,248,42,.08)" : "rgba(124,58,237,.06)") : cardBg,
-                      borderWidth: isSelected ? 1.5 : 1,
-                      borderColor: isSelected ? accentColor : cardBorder,
-                      borderRadius: 14, padding: 12, paddingHorizontal: 14,
-                    }}
-                  >
-                    <View style={{
-                      width: 40, height: 40, borderRadius: 13,
-                      backgroundColor: avatarBg,
-                      alignItems: "center", justifyContent: "center",
-                    }}>
-                      <Text style={{ color: avatarText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>
-                        {team.initials}
-                      </Text>
-                    </View>
-                    <Text style={{ flex: 1, color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14, fontWeight: "700" }}>
-                      {team.name}
-                    </Text>
-                    {isSelected && (
+            {loadingTeams ? (
+              <View style={{ alignItems: "center", paddingVertical: 20, marginBottom: 20 }}>
+                <ActivityIndicator size="small" color={accentColor} />
+              </View>
+            ) : (
+              <View style={{ gap: 8, marginBottom: 20 }}>
+                {teams.map((team) => {
+                  const isSelected = selectedTeam === team.id;
+                  return (
+                    <Pressable
+                      key={team.id}
+                      onPress={() => setSelectedTeam(team.id)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Selecionar ${team.name}`}
+                      style={{
+                        flexDirection: "row", alignItems: "center", gap: 12,
+                        backgroundColor: isSelected ? (isDark ? "rgba(198,248,42,.08)" : "rgba(124,58,237,.06)") : cardBg,
+                        borderWidth: isSelected ? 1.5 : 1,
+                        borderColor: isSelected ? accentColor : cardBorder,
+                        borderRadius: 14, padding: 12, paddingHorizontal: 14,
+                      }}
+                    >
                       <View style={{
-                        width: 22, height: 22, borderRadius: 11,
-                        backgroundColor: accentColor,
+                        width: 40, height: 40, borderRadius: 13,
+                        backgroundColor: avatarBg,
                         alignItems: "center", justifyContent: "center",
                       }}>
-                        <Icon name="check" size={13} color={isDark ? "#12100A" : "#fff"} strokeWidth={2.6} />
+                        <Text style={{ color: avatarText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>
+                          {team.initials}
+                        </Text>
                       </View>
-                    )}
-                  </Pressable>
-                );
-              })}
-            </View>
+                      <Text style={{ flex: 1, color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14, fontWeight: "700" }}>
+                        {team.name}
+                      </Text>
+                      {isSelected && (
+                        <View style={{
+                          width: 22, height: 22, borderRadius: 11,
+                          backgroundColor: accentColor,
+                          alignItems: "center", justifyContent: "center",
+                        }}>
+                          <Icon name="check" size={13} color={isDark ? "#12100A" : "#fff"} strokeWidth={2.6} />
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
 
             {/* Opponent search */}
             <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginBottom: 6 }}>
@@ -322,10 +353,10 @@ export function CreateFriendlyScreen({ navigation }: any) {
           locations={[0, 0.32]}
           style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26 }}
         >
-          <View style={{ opacity: canCreate ? 1 : 0.25 }}>
+          <View style={{ opacity: (canCreate && !submitting) ? 1 : 0.25 }}>
             <Pressable
               onPress={handleCreate}
-              disabled={!canCreate}
+              disabled={!canCreate || submitting}
               accessibilityRole="button"
               accessibilityLabel="Enviar convite"
               style={{
@@ -335,12 +366,18 @@ export function CreateFriendlyScreen({ navigation }: any) {
                 ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 24, elevation: 12 }),
               }}
             >
-              <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, fontWeight: "700", letterSpacing: 0.02 * 15 }}>
-                Enviar convite
-              </Text>
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#12100A" : "#fff"} strokeWidth={2.6}>
-                <Path d="m9 6 6 6-6 6" />
-              </Svg>
+              {submitting ? (
+                <ActivityIndicator size="small" color={isDark ? "#12100A" : "#fff"} />
+              ) : (
+                <>
+                  <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, fontWeight: "700", letterSpacing: 0.02 * 15 }}>
+                    Enviar convite
+                  </Text>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#12100A" : "#fff"} strokeWidth={2.6}>
+                    <Path d="m9 6 6 6-6 6" />
+                  </Svg>
+                </>
+              )}
             </Pressable>
           </View>
         </LinearGradient>

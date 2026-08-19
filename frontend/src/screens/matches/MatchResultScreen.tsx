@@ -5,11 +5,15 @@ import {
   Pressable,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import Svg, { Path, Circle, Rect, Polyline, Line } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { matchesService } from "@/services/matchesService";
 
 interface StatRow {
   label: string;
@@ -17,13 +21,6 @@ interface StatRow {
   teamB: number;
   invertWinner?: boolean;
 }
-
-const MOCK_STATS: StatRow[] = [
-  { label: "Pontos totais", teamA: 42, teamB: 33 },
-  { label: "Aces", teamA: 8, teamB: 5 },
-  { label: "Erros", teamA: 3, teamB: 7, invertWinner: true },
-  { label: "Bloqueios", teamA: 12, teamB: 6 },
-];
 
 export function MatchResultScreen({ navigation, route }: any) {
   const { isDark } = useTheme();
@@ -51,6 +48,23 @@ export function MatchResultScreen({ navigation, route }: any) {
   const nextMatchBg = isDark ? "rgba(139,92,246,.1)" : "rgba(124,58,237,.07)";
   const nextMatchBorder = isDark ? "rgba(139,92,246,.2)" : "rgba(124,58,237,.15)";
 
+  const matchId = route?.params?.matchId;
+  const { data: match, loading, error, refetch } = useApi(() => matchesService.findOne(matchId), [matchId]);
+
+  const winner = match?.winnerId === match?.teamA?.id ? match?.teamA : match?.teamB;
+  const loser = match?.winnerId === match?.teamA?.id ? match?.teamB : match?.teamA;
+
+  const stats: StatRow[] = match?.stats ? [
+    { label: "Pontos totais", teamA: match.stats.totalPoints.A, teamB: match.stats.totalPoints.B },
+    { label: "Aces", teamA: match.stats.aces.A, teamB: match.stats.aces.B },
+    { label: "Erros", teamA: match.stats.errors.A, teamB: match.stats.errors.B, invertWinner: true },
+    { label: "Bloqueios", teamA: match.stats.blocks.A, teamB: match.stats.blocks.B },
+  ] : [];
+
+  const durationText = match?.duration ? `${match.duration}min` : "--";
+  const timeoutsText = match?.timeouts ? `${match.timeouts.A + match.timeouts.B}` : "0";
+  const cardsText = match?.cards ? `${match.cards.A + match.cards.B}` : "0";
+
   const renderTeamAvatar = (initials: string, isTeamA: boolean, size: number) => {
     if (isTeamA) {
       return (
@@ -73,15 +87,39 @@ export function MatchResultScreen({ navigation, route }: any) {
     );
   };
 
+  if (loading && !match) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !match) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 20, paddingBottom: 40 }}>
+      <ScrollView
+        contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 20, paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}
+      >
 
         {/* Header */}
         <View style={{ alignItems: "center", marginBottom: 6 }}>
           <Text style={{ color: labelColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 12 }}>PARTIDA ENCERRADA</Text>
-          <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 10, opacity: 0.6, marginBottom: 18 }}>Copa Verão 2026 · Semifinal</Text>
+          <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 10, opacity: 0.6, marginBottom: 18 }}>
+            {match?.tournamentName ?? ""}{match?.round ? ` · ${match.round}` : ""}
+          </Text>
         </View>
 
         {/* Winner card */}
@@ -98,8 +136,8 @@ export function MatchResultScreen({ navigation, route }: any) {
 
           <Text style={{ fontSize: 22, marginBottom: 10 }}>🏆</Text>
           <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 11, letterSpacing: 0.88, marginBottom: 10 }}>VENCEDOR</Text>
-          {renderTeamAvatar("SR", true, 56)}
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, letterSpacing: -0.22, marginTop: 10 }}>Silva & Rocha</Text>
+          {renderTeamAvatar(winner?.initials ?? "", winner?.id === match?.teamA?.id, 56)}
+          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, letterSpacing: -0.22, marginTop: 10 }}>{winner?.name ?? ""}</Text>
         </LinearGradient>
 
         {/* Score final card */}
@@ -110,33 +148,30 @@ export function MatchResultScreen({ navigation, route }: any) {
         }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 20, marginBottom: 18 }}>
             <View style={{ alignItems: "center" }}>
-              {renderTeamAvatar("SR", true, 44)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 12, marginTop: 6 }}>Silva & Rocha</Text>
+              {renderTeamAvatar(match?.teamA?.initials ?? "", true, 44)}
+              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 12, marginTop: 6 }}>{match?.teamA?.name ?? ""}</Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-              <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 48, lineHeight: 48 }}>2</Text>
+              <Text style={{ color: match?.winnerId === match?.teamA?.id ? accentColor : loserScoreColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 48, lineHeight: 48 }}>{match?.scoreTeamA ?? 0}</Text>
               <Text style={{ color: separatorColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 24 }}>:</Text>
-              <Text style={{ color: loserScoreColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 48, lineHeight: 48 }}>0</Text>
+              <Text style={{ color: match?.winnerId === match?.teamB?.id ? accentColor : loserScoreColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 48, lineHeight: 48 }}>{match?.scoreTeamB ?? 0}</Text>
             </View>
             <View style={{ alignItems: "center" }}>
-              {renderTeamAvatar("PA", false, 44)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 12, marginTop: 6 }}>Praia Aces</Text>
+              {renderTeamAvatar(match?.teamB?.initials ?? "", false, 44)}
+              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 12, marginTop: 6 }}>{match?.teamB?.name ?? ""}</Text>
             </View>
           </View>
 
           <View style={{ flexDirection: "row", justifyContent: "center", gap: 20, paddingTop: 14, borderTopWidth: 1, borderTopColor: dividerColor }}>
-            {[
-              { set: 1, a: 21, b: 18 },
-              { set: 2, a: 21, b: 15 },
-            ].map((s, i) => (
-              <React.Fragment key={s.set}>
+            {(match?.sets ?? []).map((s, i) => (
+              <React.Fragment key={s.setNumber}>
                 {i > 0 && <View style={{ width: 1, backgroundColor: dividerColor }} />}
                 <View style={{ alignItems: "center" }}>
-                  <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 9, letterSpacing: 0.72, marginBottom: 3 }}>SET {s.set}</Text>
+                  <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 9, letterSpacing: 0.72, marginBottom: 3 }}>SET {s.setNumber}</Text>
                   <Text style={{ fontFamily: "SpaceGrotesk_700Bold", fontSize: 14 }}>
-                    <Text style={{ color: accentColor }}>{s.a}</Text>
+                    <Text style={{ color: accentColor }}>{s.scoreA}</Text>
                     <Text style={{ color: separatorColor }}>  :  </Text>
-                    <Text style={{ color: loserScoreColor }}>{s.b}</Text>
+                    <Text style={{ color: loserScoreColor }}>{s.scoreB}</Text>
                   </Text>
                 </View>
               </React.Fragment>
@@ -145,45 +180,47 @@ export function MatchResultScreen({ navigation, route }: any) {
         </View>
 
         {/* Stats */}
-        <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 10 }}>ESTATÍSTICAS</Text>
-        <View style={{
-          borderRadius: 18, backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
-          padding: 16, marginBottom: 16, gap: 14,
-          ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.2, shadowOffset: { width: 0, height: 6 }, shadowRadius: 8, elevation: 4 }),
-        }}>
-          {MOCK_STATS.map((stat) => {
-            const aWins = stat.invertWinner ? stat.teamA < stat.teamB : stat.teamA > stat.teamB;
-            const aColor = aWins ? accentColor : (stat.invertWinner && stat.teamA > stat.teamB ? loserScoreColor : loserScoreColor);
-            const bColor = !aWins ? (stat.invertWinner ? "#EF4444" : accentColor) : (stat.invertWinner ? "#EF4444" : loserScoreColor);
-            const barAColor = stat.invertWinner ? barBgColor : accentColor;
-            const barBColor = stat.invertWinner ? "#EF4444" : barBgColor;
+        {stats.length > 0 && (
+          <>
+            <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 10 }}>ESTATÍSTICAS</Text>
+            <View style={{
+              borderRadius: 18, backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
+              padding: 16, marginBottom: 16, gap: 14,
+              ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.2, shadowOffset: { width: 0, height: 6 }, shadowRadius: 8, elevation: 4 }),
+            }}>
+              {stats.map((stat) => {
+                const aWins = stat.invertWinner ? stat.teamA < stat.teamB : stat.teamA > stat.teamB;
+                const aColor = aWins ? accentColor : (stat.invertWinner && stat.teamA > stat.teamB ? loserScoreColor : loserScoreColor);
+                const bColor = !aWins ? (stat.invertWinner ? "#EF4444" : accentColor) : (stat.invertWinner ? "#EF4444" : loserScoreColor);
 
-            return (
-              <View key={stat.label} style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ color: stat.invertWinner && stat.teamA > stat.teamB ? loserScoreColor : (aWins ? accentColor : loserScoreColor), fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, width: 36 }}>
-                  {stat.teamA}
-                </Text>
-                <View style={{ flex: 1, marginHorizontal: 12 }}>
-                  <Text style={{ color: statLabelColor, fontFamily: "Manrope_500Medium", fontSize: 11, textAlign: "center", marginBottom: 4 }}>{stat.label}</Text>
-                  <View style={{ flexDirection: "row", gap: 3, height: 6, borderRadius: 3, overflow: "hidden" }}>
-                    <View style={{ flex: stat.teamA, backgroundColor: stat.invertWinner ? barBgColor : accentColor, borderRadius: 3 }} />
-                    <View style={{ flex: stat.teamB, backgroundColor: stat.invertWinner ? "#EF4444" : barBgColor, borderRadius: 3 }} />
+                return (
+                  <View key={stat.label} style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Text style={{ color: stat.invertWinner && stat.teamA > stat.teamB ? loserScoreColor : (aWins ? accentColor : loserScoreColor), fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, width: 36 }}>
+                      {stat.teamA}
+                    </Text>
+                    <View style={{ flex: 1, marginHorizontal: 12 }}>
+                      <Text style={{ color: statLabelColor, fontFamily: "Manrope_500Medium", fontSize: 11, textAlign: "center", marginBottom: 4 }}>{stat.label}</Text>
+                      <View style={{ flexDirection: "row", gap: 3, height: 6, borderRadius: 3, overflow: "hidden" }}>
+                        <View style={{ flex: stat.teamA, backgroundColor: stat.invertWinner ? barBgColor : accentColor, borderRadius: 3 }} />
+                        <View style={{ flex: stat.teamB, backgroundColor: stat.invertWinner ? "#EF4444" : barBgColor, borderRadius: 3 }} />
+                      </View>
+                    </View>
+                    <Text style={{ color: stat.invertWinner && stat.teamB > stat.teamA ? "#EF4444" : (!aWins && !stat.invertWinner ? accentColor : loserScoreColor), fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, width: 36, textAlign: "right" }}>
+                      {stat.teamB}
+                    </Text>
                   </View>
-                </View>
-                <Text style={{ color: stat.invertWinner && stat.teamB > stat.teamA ? "#EF4444" : (!aWins && !stat.invertWinner ? accentColor : loserScoreColor), fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, width: 36, textAlign: "right" }}>
-                  {stat.teamB}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* Duration / Timeouts / Cards */}
         <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
           {[
-            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={9} stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /><Path d="M12 6v6l4 2" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /></Svg>, value: "48min", label: "Duração" },
-            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M10 2h4v7l3-2v10l-3-2v7h-4z" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /></Svg>, value: "2", label: "Timeouts" },
-            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Rect x={6} y={3} width={12} height={18} rx={2} stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} fill="none" /></Svg>, value: "0", label: "Cartões" },
+            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={9} stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /><Path d="M12 6v6l4 2" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /></Svg>, value: durationText, label: "Duração" },
+            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M10 2h4v7l3-2v10l-3-2v7h-4z" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} /></Svg>, value: timeoutsText, label: "Timeouts" },
+            { icon: <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Rect x={6} y={3} width={12} height={18} rx={2} stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} fill="none" /></Svg>, value: cardsText, label: "Cartões" },
           ].map((item) => (
             <View key={item.label} style={{
               flex: 1, backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
@@ -198,25 +235,29 @@ export function MatchResultScreen({ navigation, route }: any) {
         </View>
 
         {/* Next match */}
-        <Pressable
-          style={{
-            flexDirection: "row", alignItems: "center", gap: 12,
-            backgroundColor: nextMatchBg, borderWidth: 1, borderColor: nextMatchBorder,
-            borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 16,
-          }}
-          accessibilityLabel="Próximo jogo"
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="m9 6 6 6-6 6" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} />
-          </Svg>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Próximo: Final</Text>
-            <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>Silva & Rocha vs Vôlei Norte · 17:00</Text>
-          </View>
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path d="m9 6 6 6-6 6" stroke={isDark ? "#6E6684" : "#C3BCD4"} strokeWidth={2} />
-          </Svg>
-        </Pressable>
+        {match?.nextMatch && (
+          <Pressable
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 12,
+              backgroundColor: nextMatchBg, borderWidth: 1, borderColor: nextMatchBorder,
+              borderRadius: 16, paddingVertical: 14, paddingHorizontal: 16, marginBottom: 16,
+            }}
+            accessibilityLabel="Próximo jogo"
+          >
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="m9 6 6 6-6 6" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} />
+            </Svg>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Próximo: {match.nextMatch.round}</Text>
+              <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>
+                {winner?.name ?? ""} vs {match.nextMatch.opponentName}{match.nextMatch.scheduledAt ? ` · ${match.nextMatch.scheduledAt}` : ""}
+              </Text>
+            </View>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path d="m9 6 6 6-6 6" stroke={isDark ? "#6E6684" : "#C3BCD4"} strokeWidth={2} />
+            </Svg>
+          </Pressable>
+        )}
 
         {/* Action buttons */}
         <View style={{ flexDirection: "row", gap: 10 }}>

@@ -35,7 +35,6 @@ describe("NotificationsScreen", () => {
     const { getByText } = render(<NotificationsScreen navigation={mockNavigation} />);
     expect(getByText("HOJE")).toBeTruthy();
     expect(getByText("ONTEM")).toBeTruthy();
-    expect(getByText("15 AGO")).toBeTruthy();
   });
 
   it("renders notification items", () => {

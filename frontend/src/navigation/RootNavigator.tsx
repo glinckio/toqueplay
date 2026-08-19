@@ -3,6 +3,10 @@ import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MainNavigator } from "./MainNavigator";
 import { RootStackParamList } from "./types";
 import { TournamentDetailScreen } from "@/screens/tournaments/TournamentDetailScreen";
+import { CreateTournamentScreen } from "@/screens/tournaments/CreateTournamentScreen";
+import { MyTournamentsScreen } from "@/screens/tournaments/MyTournamentsScreen";
+import { ManageRegistrationsScreen } from "@/screens/tournaments/ManageRegistrationsScreen";
+import { BracketScreen } from "@/screens/tournaments/BracketScreen";
 import { MyRegistrationsScreen } from "@/screens/registrations/MyRegistrationsScreen";
 import { TournamentRegistrationScreen } from "@/screens/registrations/TournamentRegistrationScreen";
 import { ManageTeamsScreen } from "@/screens/teams/ManageTeamsScreen";
@@ -37,6 +41,10 @@ export function RootNavigator() {
       <Stack.Screen name="FriendlyDetail" component={FriendlyDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
+      <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
+      <Stack.Screen name="MyTournaments" component={MyTournamentsScreen} />
+      <Stack.Screen name="ManageRegistrations" component={ManageRegistrationsScreen} />
+      <Stack.Screen name="Bracket" component={BracketScreen} />
     </Stack.Navigator>
   );
 }

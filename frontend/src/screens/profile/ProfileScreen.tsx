@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,24 +8,17 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
+import { useApi } from "@/hooks/useApi";
+import { usersService } from "@/services/usersService";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
-
-const MOCK_PROFILE = {
-  name: "Lucas Costa",
-  username: "@lucascosta",
-  email: "lucas@email.com",
-  phone: "(21) 99999-0000",
-  bio: "Jogador de vôlei de praia apaixonado",
-  city: "Rio de Janeiro",
-  state: "RJ",
-  initials: "LC",
-  stats: { tournaments: 8, wins: 5, winRate: "63%", teams: 3 },
-};
 
 export function ProfileScreen({ navigation }: any) {
   const { isDark } = useTheme();
@@ -39,19 +32,41 @@ export function ProfileScreen({ navigation }: any) {
   const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
   const infoBg = isDark ? "#1C1630" : "#F0ECFA";
 
+  const { data: profile, loading: loadingProfile, error: errorProfile, refetch: refetchProfile } = useApi(() => usersService.getProfile(), []);
+  const { data: stats, loading: loadingStats, refetch: refetchStats } = useApi(() => usersService.getMyStats(), []);
+  const loading = loadingProfile || loadingStats;
+  const refetch = async () => { await Promise.all([refetchProfile(), refetchStats()]); };
+
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(MOCK_PROFILE.name);
-  const [bio, setBio] = useState(MOCK_PROFILE.bio);
-  const [phone, setPhone] = useState(MOCK_PROFILE.phone);
+  const [name, setName] = useState("");
+  const [bio, setBio] = useState("");
+  const [phone, setPhone] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (profile) {
+      setName(profile.name);
+      setBio(profile.bio ?? "");
+      setPhone(profile.phone ?? "");
+    }
+  }, [profile]);
 
   const inputBg = isDark ? "#141019" : "#FFFFFF";
   const inputBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)";
   const inputText = isDark ? "#F5F3FA" : "#1A1030";
   const placeholderColor = isDark ? "#6E6684" : "#A29CB4";
 
-  const handleSave = () => {
-    setIsEditing(false);
+  const initials = profile?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() ?? "??";
+  const displayUsername = profile?.username ? `@${profile.username}` : profile?.email;
+
+  const handleSave = async () => {
+    try {
+      await usersService.updateProfile({ name, bio, phone });
+      await refetchProfile();
+      setIsEditing(false);
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Erro ao salvar perfil");
+    }
   };
 
   const menuItems = [
@@ -62,11 +77,36 @@ export function ProfileScreen({ navigation }: any) {
     { icon: "shield" as const, label: "Privacidade & LGPD", screen: "Privacy" },
   ];
 
+  if (loading && !profile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={accentColor} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (errorProfile && !profile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, textAlign: "center", marginBottom: 16 }}>{errorProfile}</Text>
+          <Pressable onPress={refetch} style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: accentColor }}>
+            <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
           {/* Header */}
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
@@ -113,18 +153,18 @@ export function ProfileScreen({ navigation }: any) {
                 }}
               >
                 <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 28, fontWeight: "700" }}>
-                  {MOCK_PROFILE.initials}
+                  {initials}
                 </Text>
               </LinearGradient>
               {!isEditing ? (
                 <>
-                  <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700" }}>{MOCK_PROFILE.name}</Text>
-                  <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500", marginTop: 2 }}>{MOCK_PROFILE.username}</Text>
-                  {MOCK_PROFILE.bio && (
+                  <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700" }}>{profile?.name}</Text>
+                  <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500", marginTop: 2 }}>{displayUsername}</Text>
+                  {profile?.bio ? (
                     <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500", marginTop: 6, textAlign: "center", paddingHorizontal: 20 }}>
-                      {MOCK_PROFILE.bio}
+                      {profile.bio}
                     </Text>
-                  )}
+                  ) : null}
                 </>
               ) : null}
             </View>
@@ -137,10 +177,10 @@ export function ProfileScreen({ navigation }: any) {
               ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.2)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
             }}>
               {[
-                { value: MOCK_PROFILE.stats.tournaments, label: "Torneios" },
-                { value: MOCK_PROFILE.stats.wins, label: "Vitórias" },
-                { value: MOCK_PROFILE.stats.winRate, label: "Win rate" },
-                { value: MOCK_PROFILE.stats.teams, label: "Times" },
+                { value: stats?.tournaments ?? 0, label: "Torneios" },
+                { value: stats?.wins ?? 0, label: "Vitórias" },
+                { value: stats?.winRate != null ? `${stats.winRate}%` : "0%", label: "Win rate" },
+                { value: stats?.teams ?? 0, label: "Times" },
               ].map((stat, i, arr) => (
                 <View key={stat.label} style={{
                   flex: 1, alignItems: "center", paddingVertical: 14,
@@ -224,9 +264,9 @@ export function ProfileScreen({ navigation }: any) {
                 ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.18)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
               }}>
                 {[
-                  { icon: "mail" as const, label: "Email", value: MOCK_PROFILE.email },
-                  { icon: "user" as const, label: "Telefone", value: MOCK_PROFILE.phone },
-                  { icon: "location" as const, label: "Cidade", value: `${MOCK_PROFILE.city}, ${MOCK_PROFILE.state}` },
+                  { icon: "mail" as const, label: "Email", value: profile?.email ?? "-" },
+                  { icon: "user" as const, label: "Telefone", value: profile?.phone ?? "-" },
+                  { icon: "location" as const, label: "Cidade", value: profile?.city && profile?.state ? `${profile.city}, ${profile.state}` : "-" },
                 ].map((item, i, arr) => (
                   <View key={item.label}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 }}>

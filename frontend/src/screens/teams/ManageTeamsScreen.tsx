@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,12 +6,17 @@ import {
   Pressable,
   StatusBar,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { teamsService } from "@/services/teamsService";
+import { useAuthStore } from "@/stores/authStore";
 
 interface TeamCard {
   id: string;
@@ -33,25 +38,9 @@ interface PendingInvite {
   inviterUsername: string;
 }
 
-const MOCK_TEAMS: TeamCard[] = [
-  {
-    id: "team-1", name: "Silva & Rocha", initials: "SR", format: "Dupla", modality: "Areia",
-    isOwner: true, stats: { tournaments: 3, wins: 2, winRate: "67%" },
-    memberInitials: ["LC", "RS"], memberCount: 2,
-  },
-  {
-    id: "team-2", name: "Vôlei Norte", initials: "VN", format: "Quarteto", modality: "Areia",
-    isOwner: false, stats: { tournaments: 2, wins: 1, winRate: "50%" },
-    memberInitials: ["LC", "MR", "AF", "JP"], memberCount: 4,
-  },
-];
-
-const MOCK_INVITES: PendingInvite[] = [
-  { id: "inv-1", teamName: "Beach Titans", teamInitials: "BT", format: "Dupla", inviterUsername: "@marcos" },
-];
-
 export function ManageTeamsScreen({ navigation }: any) {
   const { isDark } = useTheme();
+  const user = useAuthStore((s) => s.user);
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
   const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
   const titleColor = isDark ? "#F5F3FA" : "#1A1428";
@@ -64,16 +53,61 @@ export function ManageTeamsScreen({ navigation }: any) {
   const avatarBg = isDark ? "#221B33" : "#F0ECFA";
   const avatarText = isDark ? "#CFC8E0" : "#7C3AED";
 
-  const [teams] = useState(MOCK_TEAMS);
-  const [invites, setInvites] = useState(MOCK_INVITES);
+  const { data: teamsData, loading: loadingTeams, error, refetch: refetchTeams } = useApi(() => teamsService.list(), []);
+  const { data: invitesData, loading: loadingInvites, refetch: refetchInvites } = useApi(() => teamsService.getPendingInvitations(), []);
+  const loading = loadingTeams || loadingInvites;
+  const refetch = async () => { await Promise.all([refetchTeams(), refetchInvites()]); };
 
-  const handleAcceptInvite = (id: string) => {
-    setInvites((prev) => prev.filter((i) => i.id !== id));
+  const teams: TeamCard[] = (teamsData ?? []).map(t => ({
+    id: t.id,
+    name: t.name,
+    initials: t.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+    format: "Dupla",
+    modality: "Areia",
+    isOwner: t.ownerId === user?.id,
+    stats: {
+      tournaments: t.stats?.tournaments ?? 0,
+      wins: t.stats?.wins ?? 0,
+      winRate: t.stats?.winRate != null ? `${t.stats.winRate}%` : "0%",
+    },
+    memberInitials: t.members?.slice(0, 4).map(m => m.user.name.split(" ").map(w => w[0]).join("").slice(0, 2)) ?? [],
+    memberCount: t._count?.members ?? t.members?.length ?? 0,
+  }));
+
+  const invites: PendingInvite[] = (invitesData ?? []).map(inv => ({
+    id: inv.id,
+    teamName: inv.team.name,
+    teamInitials: inv.team.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+    format: "Dupla",
+    inviterUsername: inv.inviter.username ? `@${inv.inviter.username}` : inv.inviter.name,
+  }));
+
+  const handleAcceptInvite = async (id: string) => {
+    try { await teamsService.acceptInvitation(id); refetch(); } catch {}
   };
 
-  const handleRejectInvite = (id: string) => {
-    setInvites((prev) => prev.filter((i) => i.id !== id));
+  const handleRejectInvite = async (id: string) => {
+    try { await teamsService.rejectInvitation(id); refetch(); } catch {}
   };
+
+  if (loading && !teamsData) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !teamsData) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
@@ -119,7 +153,7 @@ export function ManageTeamsScreen({ navigation }: any) {
         </View>
       </View>
 
-      <ScrollView style={{ paddingHorizontal: 22 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ paddingHorizontal: 22 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
         {/* Team cards */}
         {teams.map((team) => (
           <Pressable

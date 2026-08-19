@@ -1,32 +1,47 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { View, Text } from "react-native";
 import { MainTabParamList } from "./types";
 import { BottomTabBar } from "@/components/navigation/BottomTabBar";
 import { HomeScreen } from "@/screens/home/HomeScreen";
 import { ExploreScreen } from "@/screens/tournaments/ExploreScreen";
+import { MyFriendliesScreen } from "@/screens/friendlies/MyFriendliesScreen";
+import { ProfileScreen } from "@/screens/profile/ProfileScreen";
+import { CreateActionSheet } from "@/components/composed/CreateActionSheet";
+import { View } from "react-native";
 
-function PlaceholderScreen({ name }: { name: string }) {
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#0C0A12" }}>
-      <Text style={{ color: "#F5F3FA", fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{name}</Text>
-    </View>
-  );
+function CreatePlaceholder() {
+  return <View style={{ flex: 1, backgroundColor: "#0C0A12" }} />;
 }
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 
 export function MainNavigator() {
+  const [showCreateSheet, setShowCreateSheet] = useState(false);
+
   return (
-    <Tab.Navigator
-      tabBar={(props) => <BottomTabBar {...props} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Explore" component={ExploreScreen} />
-      <Tab.Screen name="Create">{() => <PlaceholderScreen name="Criar" />}</Tab.Screen>
-      <Tab.Screen name="Live">{() => <PlaceholderScreen name="Ao Vivo" />}</Tab.Screen>
-      <Tab.Screen name="Profile">{() => <PlaceholderScreen name="Perfil" />}</Tab.Screen>
-    </Tab.Navigator>
+    <>
+      <Tab.Navigator
+        tabBar={(props) => <BottomTabBar {...props} />}
+        screenOptions={{ headerShown: false }}
+        screenListeners={{
+          tabPress: (e) => {
+            if (e.target?.startsWith("Create")) {
+              e.preventDefault();
+              setShowCreateSheet(true);
+            }
+          },
+        }}
+      >
+        <Tab.Screen name="Home" component={HomeScreen} />
+        <Tab.Screen name="Explore" component={ExploreScreen} />
+        <Tab.Screen name="Create" component={CreatePlaceholder} />
+        <Tab.Screen name="Friendlies" component={MyFriendliesScreen} />
+        <Tab.Screen name="Profile" component={ProfileScreen} />
+      </Tab.Navigator>
+      <CreateActionSheet
+        visible={showCreateSheet}
+        onClose={() => setShowCreateSheet(false)}
+      />
+    </>
   );
 }

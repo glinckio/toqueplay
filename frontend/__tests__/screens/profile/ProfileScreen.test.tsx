@@ -1,5 +1,5 @@
 import React from "react";
-import { render, fireEvent } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { ProfileScreen } from "@/screens/profile/ProfileScreen";
 
 jest.mock("@/hooks/useTheme", () => ({
@@ -76,10 +76,10 @@ describe("ProfileScreen", () => {
     expect(getByLabelText("Telefone")).toBeTruthy();
   });
 
-  it("saves and exits edit mode", () => {
+  it("saves and exits edit mode", async () => {
     const { getByLabelText, queryByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Editar perfil"));
     fireEvent.press(getByLabelText("Salvar perfil"));
-    expect(queryByLabelText("Nome")).toBeNull();
+    await waitFor(() => expect(queryByLabelText("Nome")).toBeNull());
   });
 });

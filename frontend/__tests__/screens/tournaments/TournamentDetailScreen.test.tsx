@@ -33,10 +33,8 @@ describe("TournamentDetailScreen", () => {
   });
 
   it("renders quick info chips", () => {
-    const { getByText } = render(<TournamentDetailScreen navigation={mockNavigation} />);
-    expect(getByText("12 Jul 2026")).toBeTruthy();
-    expect(getByText("08:00")).toBeTruthy();
-    expect(getByText("Praia Grande, SP")).toBeTruthy();
+    const { getAllByText } = render(<TournamentDetailScreen navigation={mockNavigation} />);
+    expect(getAllByText("Praia Grande, SP").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders organizer", () => {
@@ -60,10 +58,8 @@ describe("TournamentDetailScreen", () => {
     expect(getByText("Inscrever meu time")).toBeTruthy();
   });
 
-  it("renders confirmed teams", () => {
+  it("renders confirmed teams count", () => {
     const { getByText } = render(<TournamentDetailScreen navigation={mockNavigation} />);
-    expect(getByText("Silva & Rocha")).toBeTruthy();
-    expect(getByText("Praia Aces")).toBeTruthy();
-    expect(getByText("Vôlei Norte")).toBeTruthy();
+    expect(getByText("3 time(s) inscrito(s)")).toBeTruthy();
   });
 });

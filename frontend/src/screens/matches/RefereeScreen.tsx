@@ -6,11 +6,14 @@ import {
   TextInput,
   StatusBar,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import Svg, { Path, Circle, Rect, Polyline, Polygon, Line } from "react-native-svg";
+import { matchesService, MatchDTO } from "@/services/matchesService";
 
 type RefereeStep = "code" | "pregame" | "live" | "setEnd";
 
@@ -36,7 +39,17 @@ export function RefereeScreen({ navigation }: any) {
   const [setHistory, setSetHistory] = useState<{ scoreA: number; scoreB: number }[]>([]);
   const [lastSetScore, setLastSetScore] = useState({ scoreA: 0, scoreB: 0 });
 
+  const [matchData, setMatchData] = useState<MatchDTO | null>(null);
+  const [matchId, setMatchId] = useState<string | null>(null);
+  const [enteringCode, setEnteringCode] = useState(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
+
+  const teamA: TeamInfo = matchData
+    ? { initials: matchData.teamA.initials || matchData.teamA.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(), name: matchData.teamA.name, seed: "" }
+    : TEAM_A;
+  const teamB: TeamInfo = matchData
+    ? { initials: matchData.teamB.initials || matchData.teamB.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(), name: matchData.teamB.name, seed: "" }
+    : TEAM_B;
 
   const accentColor = isDark ? "#C6F82A" : "#7C3AED";
   const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
@@ -93,41 +106,65 @@ export function RefereeScreen({ navigation }: any) {
     }
   };
 
-  const handleEnterMatch = () => {
-    if (codeComplete) setStep("pregame");
+  const handleEnterMatch = async () => {
+    if (!codeComplete) return;
+    setEnteringCode(true);
+    try {
+      const fullCode = code.join("");
+      const match = await matchesService.refereeEnter(fullCode);
+      setMatchData(match);
+      setMatchId(match.id);
+      setStep("pregame");
+    } catch (err: any) {
+      Alert.alert("Código inválido", err?.response?.data?.message || "Não foi possível entrar na partida.");
+    } finally {
+      setEnteringCode(false);
+    }
   };
 
-  const handleStartMatch = () => setStep("live");
+  const handleStartMatch = async () => {
+    if (matchId) {
+      try {
+        await matchesService.startMatch(matchId);
+      } catch {}
+    }
+    setStep("live");
+  };
 
-  const handlePointA = () => {
+  const handlePointA = async () => {
     const newScore = scoreA + 1;
     setScoreA(newScore);
+    if (matchId) matchesService.registerPoint(matchId, { team: "A" }).catch(() => {});
     if (newScore >= 21 && newScore - scoreB >= 2) {
       setLastSetScore({ scoreA: newScore, scoreB });
       const newSetsA = setsA + 1;
       setSetsA(newSetsA);
       setSetHistory([...setHistory, { scoreA: newScore, scoreB }]);
+      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(() => {});
       setStep("setEnd");
     }
   };
 
-  const handlePointB = () => {
+  const handlePointB = async () => {
     const newScore = scoreB + 1;
     setScoreB(newScore);
+    if (matchId) matchesService.registerPoint(matchId, { team: "B" }).catch(() => {});
     if (newScore >= 21 && newScore - scoreA >= 2) {
       setLastSetScore({ scoreA, scoreB: newScore });
       const newSetsB = setsB + 1;
       setSetsB(newSetsB);
       setSetHistory([...setHistory, { scoreA, scoreB: newScore }]);
+      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(() => {});
       setStep("setEnd");
     }
   };
 
   const handleUndo = () => {
     if (scoreA === 0 && scoreB === 0) return;
-    if (scoreA > scoreB) setScoreA(scoreA - 1);
-    else if (scoreB > 0) setScoreB(scoreB - 1);
-    else setScoreA(scoreA - 1);
+    const team = scoreA > scoreB ? "A" : scoreB > 0 ? "B" : "A";
+    if (team === "A") setScoreA(scoreA - 1);
+    else setScoreB(scoreB - 1);
+    if (matchId) matchesService.removePoint(matchId, { team }).catch(() => {});
   };
 
   const handleToggleServe = () => setServingTeam(servingTeam === "A" ? "B" : "A");
@@ -139,8 +176,11 @@ export function RefereeScreen({ navigation }: any) {
     setStep("live");
   };
 
-  const handleFinishMatch = () => {
-    navigation?.navigate("MatchResult", { matchId: "mock-match-1" });
+  const handleFinishMatch = async () => {
+    if (matchId) {
+      try { await matchesService.finishMatch(matchId); } catch {}
+    }
+    navigation?.navigate("MatchResult", { matchId: matchId ?? "mock-match-1" });
   };
 
   const matchWon = setsA >= 2 || setsB >= 2;
@@ -266,19 +306,23 @@ export function RefereeScreen({ navigation }: any) {
 
         <View style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
           <LinearGradient colors={[...gradientBg]} style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 26 }}>
-            <View style={{ opacity: codeComplete ? 1 : 0.5 }}>
+            <View style={{ opacity: codeComplete && !enteringCode ? 1 : 0.5 }}>
               <Pressable
                 onPress={handleEnterMatch}
-                disabled={!codeComplete}
+                disabled={!codeComplete || enteringCode}
                 style={{
                   backgroundColor: ctaBg, paddingVertical: 16, borderRadius: 18,
                   flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
                   ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOpacity: 0.5, shadowOffset: { width: 0, height: 12 }, shadowRadius: 12, elevation: 8 }),
                 }}
               >
-                <Text style={{ color: ctaText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, letterSpacing: 0.28 }}>
-                  Entrar na partida
-                </Text>
+                {enteringCode ? (
+                  <ActivityIndicator size="small" color={ctaText} />
+                ) : (
+                  <Text style={{ color: ctaText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, letterSpacing: 0.28 }}>
+                    Entrar na partida
+                  </Text>
+                )}
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path d="m9 6 6 6-6 6" stroke={ctaText} strokeWidth={2.6} />
                 </Svg>
@@ -317,13 +361,13 @@ export function RefereeScreen({ navigation }: any) {
             <Text style={{ color: isDark ? "#6E6684" : "rgba(255,255,255,.6)", fontFamily: "Manrope_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 14 }}>CONFRONTO</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={{ flex: 1, alignItems: "center" }}>
-                {isDark ? renderTeamAvatar(TEAM_A.initials, true, 52) : (
+                {isDark ? renderTeamAvatar(teamA.initials, true, 52) : (
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: pregameTeamABg, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{TEAM_A.initials}</Text>
+                    <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{teamA.initials}</Text>
                   </View>
                 )}
-                <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{TEAM_A.name}</Text>
-                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{TEAM_A.seed}</Text>
+                <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{teamA.name}</Text>
+                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamA.seed}</Text>
               </View>
               <View style={{ alignItems: "center" }}>
                 <View style={{ backgroundColor: pregameVsBg, borderWidth: isDark ? 1 : 0, borderColor: pregameVsBorder, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10 }}>
@@ -331,13 +375,13 @@ export function RefereeScreen({ navigation }: any) {
                 </View>
               </View>
               <View style={{ flex: 1, alignItems: "center" }}>
-                {isDark ? renderTeamAvatar(TEAM_B.initials, false, 52) : (
+                {isDark ? renderTeamAvatar(teamB.initials, false, 52) : (
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: pregameTeamBBg, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: pregameTeamBText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{TEAM_B.initials}</Text>
+                    <Text style={{ color: pregameTeamBText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{teamB.initials}</Text>
                   </View>
                 )}
-                <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{TEAM_B.name}</Text>
-                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{TEAM_B.seed}</Text>
+                <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{teamB.name}</Text>
+                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamB.seed}</Text>
               </View>
             </View>
           </LinearGradient>
@@ -405,7 +449,7 @@ export function RefereeScreen({ navigation }: any) {
   // ─── STEP 4: SET END ───
   if (step === "setEnd") {
     const winnerIsA = lastSetScore.scoreA > lastSetScore.scoreB;
-    const winnerName = winnerIsA ? TEAM_A.name : TEAM_B.name;
+    const winnerName = winnerIsA ? teamA.name : teamB.name;
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }}>
@@ -444,8 +488,8 @@ export function RefereeScreen({ navigation }: any) {
             {/* Team A row */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {renderTeamAvatar(TEAM_A.initials, true, 34)}
-                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{TEAM_A.name}</Text>
+                {renderTeamAvatar(teamA.initials, true, 34)}
+                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{teamA.name}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: accentColor, alignItems: "center", justifyContent: "center" }}>
@@ -458,8 +502,8 @@ export function RefereeScreen({ navigation }: any) {
             {/* Team B row */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {renderTeamAvatar(TEAM_B.initials, false, 34)}
-                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{TEAM_B.name}</Text>
+                {renderTeamAvatar(teamB.initials, false, 34)}
+                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{teamB.name}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: isDark ? "#2A2340" : "#E4DEF2", alignItems: "center", justifyContent: "center" }}>
@@ -504,7 +548,7 @@ export function RefereeScreen({ navigation }: any) {
               <View>
                 <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Match point!</Text>
                 <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 15.4, marginTop: 2 }}>
-                  {setsA > setsB ? TEAM_A.name : TEAM_B.name} precisa de mais 1 set para vencer a partida.
+                  {setsA > setsB ? teamA.name : teamB.name} precisa de mais 1 set para vencer a partida.
                 </Text>
               </View>
             </View>
@@ -585,8 +629,8 @@ export function RefereeScreen({ navigation }: any) {
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <View style={{ flex: 1, alignItems: "center" }}>
-              {renderTeamAvatar(TEAM_A.initials, true, 48)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{TEAM_A.name}</Text>
+              {renderTeamAvatar(teamA.initials, true, 48)}
+              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{teamA.name}</Text>
               {servingTeam === "A" && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, backgroundColor: isDark ? "rgba(198,248,42,.14)" : "rgba(124,58,237,.1)", paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 }}>
                   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
@@ -605,8 +649,8 @@ export function RefereeScreen({ navigation }: any) {
             </View>
 
             <View style={{ flex: 1, alignItems: "center" }}>
-              {renderTeamAvatar(TEAM_B.initials, false, 48)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{TEAM_B.name}</Text>
+              {renderTeamAvatar(teamB.initials, false, 48)}
+              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{teamB.name}</Text>
               {servingTeam === "B" && (
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, backgroundColor: isDark ? "rgba(198,248,42,.14)" : "rgba(124,58,237,.1)", paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 }}>
                   <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
@@ -655,7 +699,7 @@ export function RefereeScreen({ navigation }: any) {
               flex: 1, paddingVertical: 20, borderRadius: 18, alignItems: "center", gap: 4,
               overflow: "hidden",
             }}
-            accessibilityLabel={`Ponto ${TEAM_A.name}`}
+            accessibilityLabel={`Ponto ${teamA.name}`}
           >
             <LinearGradient
               colors={[...teamAGradient]}
@@ -668,7 +712,7 @@ export function RefereeScreen({ navigation }: any) {
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
               <Path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth={2.4} />
             </Svg>
-            <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {TEAM_A.initials}</Text>
+            <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {teamA.initials}</Text>
           </Pressable>
 
           <Pressable
@@ -679,12 +723,12 @@ export function RefereeScreen({ navigation }: any) {
               borderWidth: 1.5, borderColor: isDark ? "rgba(255,255,255,.1)" : "rgba(26,16,48,.1)",
               ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 6 }, shadowRadius: 8, elevation: 4 }),
             }}
-            accessibilityLabel={`Ponto ${TEAM_B.name}`}
+            accessibilityLabel={`Ponto ${teamB.name}`}
           >
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
               <Path d="M12 5v14M5 12h14" stroke={titleColor} strokeWidth={2.4} />
             </Svg>
-            <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {TEAM_B.initials}</Text>
+            <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {teamB.initials}</Text>
           </Pressable>
         </View>
 

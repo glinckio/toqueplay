@@ -4,11 +4,15 @@ import {
   Text,
   ScrollView,
   Pressable,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
+import { useApi } from "@/hooks/useApi";
+import { tournamentsService, BracketMatchDTO } from "@/services/tournamentsService";
 
 type Phase = "quarters" | "semis" | "final";
 type GameStatus = "completed" | "live" | "pending";
@@ -76,8 +80,35 @@ function getDotColor(status: GameStatus, isDark: boolean) {
   }
 }
 
-export function BracketScreen({ navigation }: any) {
+function mapBracketToGames(matches: BracketMatchDTO[]): BracketGame[] {
+  return matches.map((m, i) => {
+    const status: GameStatus = m.status === "COMPLETED" ? "completed" : m.status === "IN_PROGRESS" ? "live" : "pending";
+    const label = status === "completed" ? "CONCLUÍDO" : status === "live" ? "AO VIVO" : "PENDENTE";
+    return {
+      id: m.id,
+      status,
+      label,
+      court: `Jogo ${i + 1} · R${m.round}P${m.position}`,
+      team1: {
+        initials: (m.teamA?.name ?? "??").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+        name: m.teamA?.name ?? "A definir",
+        sets: m.scoreA != null ? [m.scoreA] : [null],
+        isWinner: m.winnerId === m.teamAId,
+      },
+      team2: {
+        initials: (m.teamB?.name ?? "??").split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+        name: m.teamB?.name ?? "A definir",
+        sets: m.scoreB != null ? [m.scoreB] : [null],
+        isWinner: m.winnerId === m.teamBId,
+      },
+    };
+  });
+}
+
+export function BracketScreen({ navigation, route }: any) {
   const { isDark } = useTheme();
+  const tournamentId = route?.params?.tournamentId;
+  const tournamentName = route?.params?.tournamentName ?? "";
   const [activePhase, setActivePhase] = useState<Phase>("quarters");
   const bgBase = isDark ? "#0C0A12" : "#F7F5FC";
   const cardBg = isDark ? "#141019" : "#FFFFFF";
@@ -90,6 +121,21 @@ export function BracketScreen({ navigation }: any) {
   const scoreColorActive = isDark ? "#F5F3FA" : "#1A1428";
   const courtColor = isDark ? "#6E6684" : "#9488A6";
   const pendingDash = isDark ? "#3A3350" : "#C3BCD4";
+
+  const { data: bracketData, loading, error, refetch } = useApi(
+    () => tournamentId ? tournamentsService.getBracket(tournamentId) : Promise.resolve([] as BracketMatchDTO[]),
+    [tournamentId]
+  );
+  const apiGames = bracketData ? mapBracketToGames(bracketData) : [];
+  const displayGames = apiGames.length > 0 ? apiGames : GAMES;
+
+  if (loading && !bracketData) {
+    return (
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase }}>
@@ -110,7 +156,7 @@ export function BracketScreen({ navigation }: any) {
           </Pressable>
           <View style={{ flex: 1 }}>
             <Text style={{ color: isDark ? "#F5F3FA" : "#1A1428", fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, fontWeight: "700", letterSpacing: -0.01 * 20 }}>Chaveamento</Text>
-            <Text style={{ color: isDark ? "#948CA8" : "#847B98", fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>Copa Verão 2026 · Masc Dupla</Text>
+            <Text style={{ color: isDark ? "#948CA8" : "#847B98", fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>{tournamentName || "Chaveamento"}</Text>
           </View>
         </View>
       </View>
@@ -145,8 +191,8 @@ export function BracketScreen({ navigation }: any) {
         ))}
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
-        {GAMES.map((game) => {
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 32 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
+        {displayGames.map((game) => {
           const statusColor = getStatusColor(game.status, isDark);
           const dotColor = getDotColor(game.status, isDark);
           const isLive = game.status === "live";

@@ -9,12 +9,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
+import { teamsService } from "@/services/teamsService";
 
 type FormatOption = "Dupla" | "Quarteto";
 type SurfaceOption = "Areia" | "Quadra";
@@ -37,12 +39,24 @@ export function CreateTeamScreen({ navigation }: any) {
   const [format, setFormat] = useState<FormatOption>("Dupla");
   const [surface, setSurface] = useState<SurfaceOption>("Areia");
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
-  const canCreate = name.trim().length > 0;
+  const canCreate = name.trim().length > 0 && !submitting;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!canCreate) return;
-    navigation?.goBack();
+    setSubmitting(true);
+    try {
+      await teamsService.create({
+        name: name.trim(),
+        description: `${format} · ${surface}`,
+      });
+      navigation?.goBack();
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível criar o time.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -231,9 +245,13 @@ export function CreateTeamScreen({ navigation }: any) {
                 ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 24, elevation: 12 }),
               }}
             >
-              <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, fontWeight: "700", letterSpacing: 0.02 * 15 }}>
-                Criar time
-              </Text>
+              {submitting ? (
+                <ActivityIndicator size="small" color={isDark ? "#12100A" : "#fff"} />
+              ) : (
+                <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, fontWeight: "700", letterSpacing: 0.02 * 15 }}>
+                  Criar time
+                </Text>
+              )}
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#12100A" : "#fff"} strokeWidth={2.6}>
                 <Path d="m9 6 6 6-6 6" />
               </Svg>

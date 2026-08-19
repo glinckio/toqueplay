@@ -6,6 +6,7 @@ import {
   Pressable,
   StatusBar,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,6 +17,9 @@ import {
   registrationsService,
   RegistrationDTO,
 } from "@/services/registrationsService";
+import { tournamentsService } from "@/services/tournamentsService";
+import { teamsService } from "@/services/teamsService";
+import { useApi } from "@/hooks/useApi";
 import { TournamentType, TournamentFormat, TournamentModality } from "@/types/enums";
 
 interface CategoryOption {
@@ -106,8 +110,46 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
   const titleColor = isDark ? "#F5F3FA" : "#1A1030";
   const metaColor = isDark ? "#948CA8" : "#6B6480";
 
-  const selectedTeam = useMemo(() => MOCK_TEAMS.find((t) => t.id === teamId) ?? null, [teamId]);
-  const selectedCategory = useMemo(() => MOCK_CATEGORIES.find((c) => c.id === categoryId) ?? null, [categoryId]);
+  const { data: tournamentData, loading: loadingTournament } = useApi(
+    () => tournamentId ? tournamentsService.findOne(tournamentId) : Promise.resolve(null),
+    [tournamentId]
+  );
+  const { data: userTeams, loading: loadingTeams } = useApi(() => teamsService.list(), []);
+
+  const apiCategories: CategoryOption[] = useMemo(() => {
+    if (!tournamentData?.categories) return MOCK_CATEGORIES;
+    return tournamentData.categories.map((c) => ({
+      id: c.id,
+      type: c.type,
+      format: c.format,
+      modality: tournamentData.modality ?? TournamentModality.BEACH,
+      price: tournamentData.entryFee ?? 0,
+    }));
+  }, [tournamentData]);
+
+  const apiTeams: TeamOption[] = useMemo(() => {
+    if (!userTeams) return MOCK_TEAMS;
+    return userTeams.map((t) => ({
+      id: t.id,
+      name: t.name,
+      initials: t.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+      memberInitials: (t.members ?? []).slice(0, 3).map(m => m.user.name[0]),
+      memberCount: t.members?.length ?? t._count?.members ?? 0,
+      minPlayers: 2,
+      members: (t.members ?? []).map(m => ({
+        id: m.id,
+        name: m.user.name,
+        initials: m.user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+        isTeamCaptain: m.isCaptain,
+      })),
+    }));
+  }, [userTeams]);
+
+  const categories = apiCategories;
+  const teams = apiTeams;
+
+  const selectedTeam = useMemo(() => teams.find((t) => t.id === teamId) ?? null, [teamId, teams]);
+  const selectedCategory = useMemo(() => categories.find((c) => c.id === categoryId) ?? null, [categoryId, categories]);
 
   const playersNeeded = selectedCategory
     ? selectedCategory.format === TournamentFormat.PAIR
@@ -285,7 +327,7 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
                 CATEGORIA
               </Text>
               <View style={{ flexDirection: "row", gap: 11, marginBottom: 28 }}>
-                {MOCK_CATEGORIES.map((cat) => {
+                {categories.map((cat) => {
                   const isActive = cat.id === categoryId;
                   return (
                     <Pressable
@@ -328,7 +370,7 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
                 SEU TIME
               </Text>
               <View style={{ gap: 12 }}>
-                {MOCK_TEAMS.map((team) => {
+                {teams.map((team) => {
                   const isActive = team.id === teamId;
                   const incomplete = team.memberCount < team.minPlayers;
                   const cardBgDark = isActive ? "#151020" : incomplete ? "#0E0D15" : "#111019";

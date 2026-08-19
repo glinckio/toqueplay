@@ -1,5 +1,5 @@
 import React from "react";
-import { render, fireEvent } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { CreateTournamentScreen } from "@/screens/tournaments/CreateTournamentScreen";
 
 jest.mock("@/hooks/useTheme", () => ({
@@ -73,13 +73,15 @@ describe("CreateTournamentScreen", () => {
     expect(getByText("Salvar como rascunho")).toBeTruthy();
   });
 
-  it("shows success screen on publish", () => {
+  it("shows success screen on publish", async () => {
     const { getByText } = render(<CreateTournamentScreen navigation={mockNavigation} />);
     fireEvent.press(getByText("Continuar"));
     fireEvent.press(getByText("Continuar"));
     fireEvent.press(getByText("Continuar"));
     fireEvent.press(getByText("PUBLICAR TORNEIO"));
-    expect(getByText("TUDO PRONTO")).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText("TUDO PRONTO")).toBeTruthy();
+    });
     expect(getByText("Torneio\npublicado!")).toBeTruthy();
     expect(getByText("VER TORNEIO")).toBeTruthy();
     expect(getByText("Compartilhar")).toBeTruthy();

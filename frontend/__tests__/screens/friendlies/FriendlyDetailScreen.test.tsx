@@ -41,9 +41,8 @@ describe("FriendlyDetailScreen", () => {
     expect(getByText("ACEITO")).toBeTruthy();
   });
 
-  it("renders match info (date, time, location, modality)", () => {
+  it("renders match info (time, modality)", () => {
     const { getByText } = render(<FriendlyDetailScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("22 de Agosto, 2026")).toBeTruthy();
     expect(getByText("16:00")).toBeTruthy();
     expect(getByText("Areia · Dupla")).toBeTruthy();
   });

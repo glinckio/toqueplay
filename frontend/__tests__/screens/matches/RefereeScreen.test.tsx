@@ -1,5 +1,5 @@
 import React from "react";
-import { render, fireEvent } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { RefereeScreen } from "@/screens/matches/RefereeScreen";
 
 jest.mock("@/hooks/useTheme", () => ({
@@ -30,6 +30,16 @@ jest.mock("@react-navigation/native", () => ({
 
 const mockNavigation = { navigate: jest.fn(), goBack: jest.fn() };
 
+async function enterCodeAndSubmit(getAllByLabelText: any, getByText: any) {
+  for (let i = 1; i <= 6; i++) {
+    fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
+  }
+  fireEvent.press(getByText("Entrar na partida"));
+  await waitFor(() => {
+    expect(getByText("Pré-jogo")).toBeTruthy();
+  });
+}
+
 describe("RefereeScreen", () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -46,35 +56,24 @@ describe("RefereeScreen", () => {
     expect(digits).toHaveLength(6);
   });
 
-  it("transitions to pregame on valid code entry", () => {
+  it("transitions to pregame on valid code entry", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      const input = getAllByLabelText(`Dígito ${i}`)[0];
-      fireEvent.changeText(input, String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
-    expect(getByText("Pré-jogo")).toBeTruthy();
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     expect(getByText("CONECTADO")).toBeTruthy();
   });
 
-  it("renders pregame matchup info", () => {
+  it("renders pregame matchup info", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     expect(getByText("CONFRONTO")).toBeTruthy();
     expect(getByText("Silva & Rocha")).toBeTruthy();
     expect(getByText("Praia Aces")).toBeTruthy();
     expect(getByText("VS")).toBeTruthy();
   });
 
-  it("renders pregame info rows", () => {
+  it("renders pregame info rows", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     expect(getByText("Copa Verão 2026 · Praia Grande")).toBeTruthy();
     expect(getByText("12/07")).toBeTruthy();
     expect(getByText("14:30")).toBeTruthy();
@@ -82,25 +81,24 @@ describe("RefereeScreen", () => {
     expect(getByText("Melhor de 3")).toBeTruthy();
   });
 
-  it("transitions to live scoring on start", () => {
+  it("transitions to live scoring on start", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     fireEvent.press(getByText("Iniciar partida"));
-    expect(getByText("AO VIVO")).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText("AO VIVO")).toBeTruthy();
+    });
     expect(getByText("PONTO SR")).toBeTruthy();
     expect(getByText("PONTO PA")).toBeTruthy();
   });
 
-  it("renders live scoring action bar", () => {
+  it("renders live scoring action bar", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     fireEvent.press(getByText("Iniciar partida"));
+    await waitFor(() => {
+      expect(getByText("AO VIVO")).toBeTruthy();
+    });
     expect(getByText("Timeout")).toBeTruthy();
     expect(getByText("Cartão")).toBeTruthy();
     expect(getByText("Trocar saque")).toBeTruthy();
@@ -108,14 +106,13 @@ describe("RefereeScreen", () => {
     expect(getByText("Desfazer último ponto")).toBeTruthy();
   });
 
-  it("increments score on point press", () => {
+  it("increments score on point press", async () => {
     const { getAllByLabelText, getByText, getByLabelText, getAllByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     fireEvent.press(getByText("Iniciar partida"));
-
+    await waitFor(() => {
+      expect(getByText("AO VIVO")).toBeTruthy();
+    });
     fireEvent.press(getByLabelText("Ponto Silva & Rocha"));
     fireEvent.press(getByLabelText("Ponto Praia Aces"));
     expect(getAllByText("1").length).toBeGreaterThanOrEqual(1);
@@ -126,22 +123,19 @@ describe("RefereeScreen", () => {
     expect(getByText("Peça o código ao organizador da partida")).toBeTruthy();
   });
 
-  it("renders live broadcast warning in pregame", () => {
+  it("renders live broadcast warning in pregame", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     expect(getByText(/placar será transmitido/)).toBeTruthy();
   });
 
-  it("renders SAQUE indicator", () => {
+  it("renders SAQUE indicator", async () => {
     const { getAllByLabelText, getByText } = render(<RefereeScreen navigation={mockNavigation} />);
-    for (let i = 1; i <= 6; i++) {
-      fireEvent.changeText(getAllByLabelText(`Dígito ${i}`)[0], String(i));
-    }
-    fireEvent.press(getByText("Entrar na partida"));
+    await enterCodeAndSubmit(getAllByLabelText, getByText);
     fireEvent.press(getByText("Iniciar partida"));
+    await waitFor(() => {
+      expect(getByText("AO VIVO")).toBeTruthy();
+    });
     expect(getByText("SAQUE")).toBeTruthy();
   });
 });

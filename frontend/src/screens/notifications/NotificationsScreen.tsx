@@ -1,24 +1,18 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
   StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
+import { useApi } from "@/hooks/useApi";
+import { notificationsService } from "@/services/notificationsService";
 import { Icon } from "@/components/ui/Icon";
-
-interface NotificationItem {
-  id: string;
-  title: string;
-  body: string;
-  type: string;
-  read: boolean;
-  createdAt: string;
-  dateGroup: string;
-}
 
 const TYPE_ICONS: Record<string, { icon: "trophy" | "users" | "volleyball" | "bell" | "shield"; color: string }> = {
   TOURNAMENT: { icon: "trophy", color: "#8B5CF6" },
@@ -28,14 +22,14 @@ const TYPE_ICONS: Record<string, { icon: "trophy" | "users" | "volleyball" | "be
   SYSTEM: { icon: "bell", color: "#948CA8" },
 };
 
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
-  { id: "n1", title: "Inscrição confirmada", body: "Sua inscrição na Copa Verão 2026 foi confirmada.", type: "TOURNAMENT", read: false, createdAt: "14:30", dateGroup: "Hoje" },
-  { id: "n2", title: "Novo convite de time", body: "Beach Titans convidou você para a dupla.", type: "TEAM", read: false, createdAt: "11:15", dateGroup: "Hoje" },
-  { id: "n3", title: "Amistoso aceito", body: "Vôlei Sul aceitou seu convite de amistoso.", type: "FRIENDLY", read: true, createdAt: "09:00", dateGroup: "Hoje" },
-  { id: "n4", title: "Partida encerrada", body: "Silva & Rocha venceu por 2×0 contra Sand Storm.", type: "MATCH", read: true, createdAt: "18:45", dateGroup: "Ontem" },
-  { id: "n5", title: "Torneio publicado", body: "Copa Inverno 2026 está com inscrições abertas.", type: "TOURNAMENT", read: true, createdAt: "10:00", dateGroup: "Ontem" },
-  { id: "n6", title: "Atualização de privacidade", body: "Nossos termos de uso foram atualizados.", type: "SYSTEM", read: true, createdAt: "08:00", dateGroup: "15 Ago" },
-];
+function getDateGroup(createdAt: string): string {
+  const date = new Date(createdAt);
+  const now = new Date();
+  const diff = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diff === 0) return "Hoje";
+  if (diff === 1) return "Ontem";
+  return date.toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+}
 
 export function NotificationsScreen({ navigation }: any) {
   const { isDark } = useTheme();
@@ -49,23 +43,56 @@ export function NotificationsScreen({ navigation }: any) {
   const unreadDot = accentColor;
   const infoBg = isDark ? "#1C1630" : "#F0ECFA";
 
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const { data: page, loading, error, refetch } = useApi(() => notificationsService.list(1, 50), []);
+  const notifications = page?.data ?? [];
 
-  const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsService.markAllAsRead();
+      refetch();
+    } catch {}
   };
 
-  const handleMarkRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const handleMarkRead = async (id: string) => {
+    try {
+      await notificationsService.markAsRead(id);
+      refetch();
+    } catch {}
   };
 
-  const groups = notifications.reduce<Record<string, NotificationItem[]>>((acc, n) => {
-    if (!acc[n.dateGroup]) acc[n.dateGroup] = [];
-    acc[n.dateGroup].push(n);
+  const groups = notifications.reduce<Record<string, typeof notifications>>((acc, n) => {
+    const group = getDateGroup(n.createdAt);
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(n);
     return acc;
   }, {});
 
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  if (loading && !page) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={accentColor} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !page) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
+        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, textAlign: "center", marginBottom: 16 }}>{error}</Text>
+          <Pressable onPress={refetch} style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 12, backgroundColor: accentColor }}>
+            <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Tentar novamente</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
@@ -119,7 +146,7 @@ export function NotificationsScreen({ navigation }: any) {
         </View>
       </View>
 
-      <ScrollView style={{ paddingHorizontal: 22 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ paddingHorizontal: 22 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
         {Object.entries(groups).map(([dateGroup, items]) => (
           <View key={dateGroup}>
             <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, fontWeight: "700", letterSpacing: 0.1 * 10, marginBottom: 10, marginTop: 8 }}>

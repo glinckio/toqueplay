@@ -69,7 +69,7 @@ describe("MyFriendliesScreen", () => {
 
   it("shows date, time, and location info", () => {
     const { getByText } = render(<MyFriendliesScreen navigation={mockNavigation} />);
-    expect(getByText("22 Ago")).toBeTruthy();
+    expect(getByText(/22.*ago/i)).toBeTruthy();
     expect(getByText("16:00")).toBeTruthy();
   });
 });

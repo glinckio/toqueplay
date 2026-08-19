@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -6,47 +6,23 @@ import {
   Pressable,
   StatusBar,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
+import { friendliesService } from "@/services/friendliesService";
+import { useAuthStore } from "@/stores/authStore";
 
 interface TeamInfo {
   name: string;
   initials: string;
   members: { name: string; initials: string; isCaptain: boolean }[];
 }
-
-const MOCK_DATA = {
-  id: "f1",
-  status: "ACCEPTED" as const,
-  direction: "sent" as const,
-  date: "22 de Agosto, 2026",
-  time: "16:00",
-  address: "Praia de Copacabana, Posto 6",
-  city: "Rio de Janeiro, RJ",
-  modality: "Areia",
-  format: "Dupla",
-  refereeCode: "483927",
-  requesterTeam: {
-    name: "Silva & Rocha",
-    initials: "SR",
-    members: [
-      { name: "Lucas Costa", initials: "LC", isCaptain: true },
-      { name: "Rafael Silva", initials: "RS", isCaptain: false },
-    ],
-  } as TeamInfo,
-  challengedTeam: {
-    name: "Beach Titans",
-    initials: "BT",
-    members: [
-      { name: "Pedro Alves", initials: "PA", isCaptain: true },
-      { name: "João Mendes", initials: "JM", isCaptain: false },
-    ],
-  } as TeamInfo,
-};
 
 const STATUS_CONFIG = {
   PENDING: { label: "PENDENTE", darkColor: "#FBBF24", darkBg: "rgba(251,191,36,.12)", lightColor: "#D97706", lightBg: "rgba(217,119,6,.08)" },
@@ -70,19 +46,95 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
   const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
   const infoBg = isDark ? "#1C1630" : "#F0ECFA";
 
-  const [data] = useState(MOCK_DATA);
-  const statusConf = STATUS_CONFIG[data.status];
+  const id = route?.params?.id;
+  const user = useAuthStore(s => s.user);
+  const { data: friendly, loading, error, refetch } = useApi(() => friendliesService.findOne(id), [id]);
+
+  const status = friendly?.status ?? "PENDING";
+  const direction = friendly?.requesterId === user?.id ? "sent" as const : "received" as const;
+  const statusConf = STATUS_CONFIG[status];
+
+  const dateFormatted = friendly?.date
+    ? new Date(friendly.date).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+    : "";
+  const timeFormatted = friendly?.startTime ?? "";
+  const addressFormatted = friendly?.address ?? "";
+  const cityFormatted = friendly?.city && friendly?.state ? `${friendly.city}, ${friendly.state}` : "";
+  const modalityFormatted = friendly?.modality ?? "";
+  const formatFormatted = friendly?.categoryFormat ?? "";
+  const refereeCode = friendly?.refereeCode ?? "";
+
+  const getInitials = (name: string) => name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+
+  const requesterTeam: TeamInfo = {
+    name: friendly?.requesterTeam?.name ?? "",
+    initials: getInitials(friendly?.requesterTeam?.name ?? "??"),
+    members: (friendly?.athletes ?? [])
+      .filter(a => a.side === "REQUESTER")
+      .map(a => ({
+        name: a.teamMember?.user?.name ?? "",
+        initials: getInitials(a.teamMember?.user?.name ?? "??"),
+        isCaptain: a.isCaptain,
+      })),
+  };
+
+  const challengedTeam: TeamInfo = {
+    name: friendly?.challengedTeam?.name ?? "",
+    initials: getInitials(friendly?.challengedTeam?.name ?? "??"),
+    members: (friendly?.athletes ?? [])
+      .filter(a => a.side === "CHALLENGED")
+      .map(a => ({
+        name: a.teamMember?.user?.name ?? "",
+        initials: getInitials(a.teamMember?.user?.name ?? "??"),
+        isCaptain: a.isCaptain,
+      })),
+  };
 
   const handleCancel = () => {
     Alert.alert("Cancelar amistoso", "Tem certeza?", [
       { text: "Não", style: "cancel" },
-      { text: "Sim, cancelar", style: "destructive", onPress: () => navigation?.goBack() },
+      { text: "Sim, cancelar", style: "destructive", onPress: async () => {
+        try { await friendliesService.cancel(id); navigation?.goBack(); } catch {}
+      }},
     ]);
   };
 
-  const handleGenerateCode = () => {
-    Alert.alert("Código de árbitro", `Código: ${data.refereeCode}`);
+  const handleGenerateCode = async () => {
+    try {
+      const result = await friendliesService.generateRefereeCode(id);
+      Alert.alert("Código de árbitro", `Código: ${result.refereeCode}`);
+      refetch();
+    } catch (err: any) {
+      Alert.alert("Erro", err?.response?.data?.message || "Erro ao gerar código");
+    }
   };
+
+  const handleAccept = async () => {
+    try { await friendliesService.accept(id, []); refetch(); } catch {}
+  };
+
+  const handleReject = async () => {
+    try { await friendliesService.reject(id); navigation?.goBack(); } catch {}
+  };
+
+  if (loading && !friendly) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <ActivityIndicator size="large" color={accentColor} />
+      </SafeAreaView>
+    );
+  }
+
+  if (error && !friendly) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={refetch} accessibilityRole="button">
+          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
 
   const renderTeamCard = (team: TeamInfo, label: string) => (
     <View style={{
@@ -147,7 +199,12 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ paddingHorizontal: 22, paddingTop: 14 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}
+      >
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <Pressable
@@ -178,13 +235,13 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
         {/* Title */}
         <View style={{ alignItems: "center", marginBottom: 24 }}>
           <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700", marginBottom: 4 }}>
-            {data.requesterTeam.name}
+            {requesterTeam.name}
           </Text>
           <Text style={{ color: metaColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, fontWeight: "600" }}>
             vs
           </Text>
           <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700", marginTop: 4 }}>
-            {data.challengedTeam.name}
+            {challengedTeam.name}
           </Text>
         </View>
 
@@ -195,10 +252,10 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
           ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.18)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
         }}>
           {[
-            { icon: "calendar" as const, label: "Data", value: data.date },
-            { icon: "clock" as const, label: "Horário", value: data.time },
-            { icon: "location" as const, label: "Local", value: `${data.address}\n${data.city}` },
-            { icon: "volleyball" as const, label: "Modalidade", value: `${data.modality} · ${data.format}` },
+            { icon: "calendar" as const, label: "Data", value: dateFormatted },
+            { icon: "clock" as const, label: "Horário", value: timeFormatted },
+            { icon: "location" as const, label: "Local", value: `${addressFormatted}${cityFormatted ? `\n${cityFormatted}` : ""}` },
+            { icon: "volleyball" as const, label: "Modalidade", value: `${modalityFormatted}${formatFormatted ? ` · ${formatFormatted}` : ""}` },
           ].map((item, i, arr) => (
             <View key={item.label}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 }}>
@@ -220,11 +277,11 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
         </View>
 
         {/* Teams */}
-        {renderTeamCard(data.requesterTeam, "TIME SOLICITANTE")}
-        {renderTeamCard(data.challengedTeam, "TIME DESAFIADO")}
+        {renderTeamCard(requesterTeam, "TIME SOLICITANTE")}
+        {renderTeamCard(challengedTeam, "TIME DESAFIADO")}
 
         {/* Referee code (only for accepted) */}
-        {data.status === "ACCEPTED" && data.refereeCode && (
+        {status === "ACCEPTED" && refereeCode ? (
           <View style={{
             backgroundColor: isDark ? "rgba(139,92,246,.08)" : "rgba(124,58,237,.06)",
             borderWidth: 1, borderColor: isDark ? "rgba(139,92,246,.2)" : "rgba(124,58,237,.15)",
@@ -234,16 +291,16 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
               CÓDIGO DO ÁRBITRO
             </Text>
             <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 32, fontWeight: "700", letterSpacing: 6 }}>
-              {data.refereeCode}
+              {refereeCode}
             </Text>
             <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500", marginTop: 6 }}>
               Compartilhe com o árbitro para iniciar a partida
             </Text>
           </View>
-        )}
+        ) : null}
 
         {/* Actions */}
-        {data.status === "ACCEPTED" && (
+        {status === "ACCEPTED" && (
           <View style={{ gap: 10, marginBottom: 16 }}>
             <Pressable
               onPress={handleGenerateCode}
@@ -281,10 +338,10 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
           </View>
         )}
 
-        {data.status === "PENDING" && data.direction === "received" && (
+        {status === "PENDING" && direction === "received" && (
           <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
             <Pressable
-              onPress={() => navigation?.goBack()}
+              onPress={handleAccept}
               accessibilityRole="button"
               accessibilityLabel="Aceitar amistoso"
               style={{
@@ -297,7 +354,7 @@ export function FriendlyDetailScreen({ navigation, route }: any) {
               <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Aceitar</Text>
             </Pressable>
             <Pressable
-              onPress={() => navigation?.goBack()}
+              onPress={handleReject}
               accessibilityRole="button"
               accessibilityLabel="Recusar amistoso"
               style={{
