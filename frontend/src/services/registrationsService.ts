@@ -39,7 +39,7 @@ export interface RegistrationDTO {
     modality: TournamentModality;
     registrationPrice: number;
   };
-  team: { id: string; name: string };
+  team: { id: string; name: string; avatarUrl: string | null };
   user: { id: string; name: string; email: string };
   members: RegistrationMemberDTO[];
 }

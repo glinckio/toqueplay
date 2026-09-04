@@ -33,7 +33,12 @@ export type IconName =
   | "pulse"
   | "filter"
   | "sliders"
-  | "share";
+  | "share"
+  | "camera"
+  | "more-vertical"
+  | "circle"
+  | "check-circle"
+  | "log-out";
 
 export interface IconProps {
   name: IconName;
@@ -283,6 +288,42 @@ export function Icon({ name, size = 20, color = "#F5F3FA", strokeWidth = 2 }: Ic
           <Path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" {...s} />
           <Polyline points="16 6 12 2 8 6" {...s} />
           <Line x1={12} y1={2} x2={12} y2={15} {...s} />
+        </Svg>
+      );
+    case "camera":
+      return (
+        <Svg {...props}>
+          <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" {...s} />
+          <Circle cx="12" cy="13" r="4" {...s} />
+        </Svg>
+      );
+    case "more-vertical":
+      return (
+        <Svg {...props}>
+          <Circle cx="12" cy="3" r="1" stroke={color} fill={color} />
+          <Circle cx="12" cy="12" r="1" stroke={color} fill={color} />
+          <Circle cx="12" cy="21" r="1" stroke={color} fill={color} />
+        </Svg>
+      );
+    case "circle":
+      return (
+        <Svg {...props}>
+          <Circle cx="12" cy="12" r="9" {...s} />
+        </Svg>
+      );
+    case "check-circle":
+      return (
+        <Svg {...props}>
+          <Circle cx="12" cy="12" r="9" {...s} />
+          <Path d="M8 12l3 3 5-6" {...s} />
+        </Svg>
+      );
+    case "log-out":
+      return (
+        <Svg {...props}>
+          <Path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" {...s} />
+          <Polyline points="16 17 21 12 16 7" {...s} />
+          <Line x1="21" y1="12" x2="9" y2="12" {...s} />
         </Svg>
       );
     default:

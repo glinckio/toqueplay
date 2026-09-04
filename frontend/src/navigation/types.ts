@@ -24,16 +24,19 @@ export type VisitorTabParamList = {
 export type RootStackParamList = {
   MainTabs: undefined;
   TournamentDetail: { id: string };
-  CreateTournament: undefined;
+  CreateTournament: { tournamentId?: string } | undefined;
   ManageTeams: undefined;
   TeamDetail: { id: string };
   TeamInvite: { id: string; teamName?: string; teamInitials?: string; inviterName?: string; teamId?: string };
-  CreateTeam: undefined;
+  AddTeamMember: { teamId: string; teamName?: string };
+  CreateTeam: { teamId?: string } | undefined;
   Registration: { tournamentId: string; tournamentName?: string; tournamentLocation?: string };
   MyRegistrations: undefined;
   ManageRegistrations: { tournamentId: string };
   Bracket: { tournamentId: string };
-  Referee: undefined;
+  GenerateBracket: { tournamentId: string; categories: any[] };
+  BracketReveal: { tournamentId: string };
+  Referee: { matchId: string };
   MatchLive: { matchId: string };
   MatchResult: { matchId: string };
   CreateFriendly: undefined;
@@ -42,5 +45,8 @@ export type RootStackParamList = {
   Notifications: undefined;
   EditProfile: undefined;
   Privacy: undefined;
+  ConsentHistory: undefined;
+  Settings: undefined;
   MyTournaments: undefined;
+  AthleteProfile: { id: string };
 };

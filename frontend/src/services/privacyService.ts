@@ -1,11 +1,10 @@
 import { api } from "./api";
 
 export interface ConsentsDTO {
+  terms: boolean;
   notificationsPush: boolean;
   locationDiscovery: boolean;
   marketingEmail: boolean;
-  termsVersion: string;
-  termsAcceptedAt: string | null;
 }
 
 export interface DataSummaryDTO {
@@ -17,10 +16,25 @@ export interface DataSummaryDTO {
   notifications: number;
 }
 
+export interface TermsStatusDTO {
+  version: string;
+  lastAcceptedAt: string | null;
+  lastAcceptedVersion: string | null;
+  termsOutdated: boolean;
+}
+
 export interface UpdateConsentsParams {
   notificationsPush?: boolean;
   locationDiscovery?: boolean;
   marketingEmail?: boolean;
+}
+
+export interface ConsentHistoryEntry {
+  id: string;
+  version: string;
+  purpose: "TERMS" | "NOTIFICATIONS_PUSH" | "LOCATION_DISCOVERY" | "MARKETING_EMAIL";
+  accepted: boolean;
+  createdAt: string;
 }
 
 export interface DpoRequestParams {
@@ -33,17 +47,30 @@ export interface DpoRequestParams {
 
 export const privacyService = {
   async getConsents(): Promise<ConsentsDTO> {
-    const { data } = await api.get<ConsentsDTO>("/me/consents");
-    return data;
+    const { data } = await api.get<{ consents: ConsentsDTO }>("/me/consents");
+    return data.consents;
   },
 
   async updateConsents(params: UpdateConsentsParams): Promise<ConsentsDTO> {
-    const { data } = await api.put<ConsentsDTO>("/me/consents", params);
+    const { data } = await api.put<{ consents: ConsentsDTO }>("/me/consents", params);
+    return data.consents;
+  },
+
+  async getConsentHistory(): Promise<ConsentHistoryEntry[]> {
+    const { data } = await api.get<ConsentHistoryEntry[]>("/me/consents/history");
     return data;
   },
 
   async acceptTerms(): Promise<void> {
     await api.post("/me/consents/accept-terms");
+  },
+
+  // Real backend shape of GET /me/consents (nested under `consents`, includes
+  // `termsOutdated`). Kept separate from getConsents()'s (legacy, flat) return
+  // type so existing callers of getConsents() aren't affected.
+  async getTermsStatus(): Promise<TermsStatusDTO> {
+    const { data } = await api.get<TermsStatusDTO>("/me/consents");
+    return data;
   },
 
   async getDataSummary(): Promise<DataSummaryDTO> {

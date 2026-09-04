@@ -19,6 +19,7 @@ export interface NearbyTournamentDTO {
   name: string;
   coverUrl: string | null;
   categoryFormat: string;
+  status: string;
   distance: number;
   date: string;
   city: string;
@@ -33,10 +34,33 @@ export interface MyTournamentSummaryDTO {
   registrationStatus: string;
 }
 
+export interface PendingFriendlyDTO {
+  id: string;
+  title: string;
+  teamAName: string;
+  teamBName: string;
+  date: string;
+  status: string;
+}
+
+export interface AcceptedFriendlyDTO {
+  id: string;
+  title: string;
+  date: string;
+  city: string | null;
+  status: string;
+  requester: { id: string; name: string; avatarUrl: string | null } | null;
+  requesterTeam: { id: string; name: string; avatarUrl: string | null } | null;
+  challenged: { id: string; name: string; avatarUrl: string | null } | null;
+  challengedTeam: { id: string; name: string; avatarUrl: string | null } | null;
+}
+
 export interface DashboardDTO {
   liveMatches: LiveMatchDTO[];
   nearbyTournaments: NearbyTournamentDTO[];
   myTournaments: MyTournamentSummaryDTO[];
+  pendingFriendlies: PendingFriendlyDTO[];
+  acceptedFriendlies: AcceptedFriendlyDTO[];
   unreadNotifications: number;
 }
 

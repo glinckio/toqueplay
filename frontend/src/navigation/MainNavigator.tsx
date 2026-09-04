@@ -22,7 +22,7 @@ export function MainNavigator() {
     <>
       <Tab.Navigator
         tabBar={(props) => <BottomTabBar {...props} />}
-        screenOptions={{ headerShown: false }}
+        screenOptions={{ headerShown: false, animation: "fade" }}
         screenListeners={{
           tabPress: (e) => {
             if (e.target?.startsWith("Create")) {

@@ -114,4 +114,23 @@ export const teamsService = {
     const { data } = await api.patch<TeamInvitationDTO>(`/team-invitations/${invitationId}/reject`);
     return data;
   },
+
+  async search(params: {
+    q?: string;
+    city?: string;
+    state?: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<{ items: TeamDTO[]; hasMore: boolean; nextOffset: number | null }> {
+    const { data } = await api.get("/teams/search", { params });
+    return data;
+  },
+
+  async uploadAvatar(teamId: string, formData: FormData): Promise<{ avatarUrl: string }> {
+    const { data } = await api.post<{ avatarUrl: string }>(`/teams/${teamId}/avatar`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      transformRequest: (data) => data,
+    });
+    return data;
+  },
 };

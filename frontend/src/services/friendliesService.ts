@@ -29,6 +29,9 @@ export interface FriendlyDTO {
   startTime: string | null;
   address: string | null;
   addressNumber: string | null;
+  complement: string | null;
+  neighborhood: string | null;
+  cep: string | null;
   city: string | null;
   state: string | null;
   latitude: number | null;
@@ -56,6 +59,9 @@ export interface CreateFriendlyParams {
   startTime?: string;
   address?: string;
   addressNumber?: string;
+  complement?: string;
+  neighborhood?: string;
+  cep?: string;
   city?: string;
   state?: string;
   latitude?: number;

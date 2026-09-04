@@ -1,10 +1,12 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
   Pressable,
   Modal,
   Animated,
+  Easing,
+  Dimensions,
 } from "react-native";
 import { useTheme } from "@/hooks/useTheme";
 import { useNavigation } from "@react-navigation/native";
@@ -46,19 +48,45 @@ export function CreateActionSheet({ visible, onClose }: CreateActionSheetProps) 
     setTimeout(() => navigation.navigate(screen), 150);
   };
 
+  const screenHeight = Dimensions.get("window").height;
+  const [rendered, setRendered] = useState(visible);
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(screenHeight)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setRendered(true);
+      overlayOpacity.setValue(0);
+      sheetTranslateY.setValue(screenHeight);
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(sheetTranslateY, { toValue: 0, duration: 280, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+    } else if (rendered) {
+      Animated.parallel([
+        Animated.timing(overlayOpacity, { toValue: 0, duration: 180, easing: Easing.in(Easing.ease), useNativeDriver: true }),
+        Animated.timing(sheetTranslateY, { toValue: screenHeight, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      ]).start(() => setRendered(false));
+    }
+  }, [visible]);
+
+  if (!rendered) return null;
+
   return (
     <Modal
-      visible={visible}
+      visible={rendered}
       transparent
-      animationType="slide"
+      animationType="none"
       onRequestClose={onClose}
     >
-      <Pressable
-        style={{ flex: 1, backgroundColor: "rgba(6,4,10,.6)", justifyContent: "flex-end" }}
-        onPress={onClose}
-        accessibilityRole="button"
-        accessibilityLabel="Fechar"
-      >
+      <Animated.View style={{ flex: 1, backgroundColor: "rgba(6,4,10,.6)", justifyContent: "flex-end", opacity: overlayOpacity }}>
+        <Pressable
+          style={{ flex: 1, justifyContent: "flex-end" }}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Fechar"
+        >
+        <Animated.View style={{ transform: [{ translateY: sheetTranslateY }] }}>
         <Pressable
           onPress={(e) => e.stopPropagation()}
           style={{
@@ -145,7 +173,9 @@ export function CreateActionSheet({ visible, onClose }: CreateActionSheetProps) 
             ))}
           </View>
         </Pressable>
-      </Pressable>
+        </Animated.View>
+        </Pressable>
+      </Animated.View>
     </Modal>
   );
 }

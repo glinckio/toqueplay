@@ -1,7 +1,33 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/authStore";
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.7:3000/api";
+import { messageForCode } from "./errorMessages";
+
+const GENERIC_MESSAGES = new Set([
+  "Bad Request Exception",
+  "Internal Server Error",
+  "Unauthorized",
+  "Forbidden resource",
+  "Not Found",
+]);
+
+export function getErrorMessage(err: any, fallback: string): string {
+  const data = err?.response?.data;
+  // Prefer the mapped friendly message for the backend error code.
+  const mapped = messageForCode(data?.code);
+  if (mapped) return mapped;
+  const msg = data?.message;
+  if (Array.isArray(msg)) return msg.join("\n");
+  if (typeof msg === "string" && !GENERIC_MESSAGES.has(msg)) return msg;
+  return fallback;
+}
+
+if (!process.env.EXPO_PUBLIC_API_URL && !__DEV__) {
+  throw new Error(
+    "EXPO_PUBLIC_API_URL not set — set it in eas.json's build profile env before building for production/preview.",
+  );
+}
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://192.168.1.6:3000/api";
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

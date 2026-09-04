@@ -7,6 +7,7 @@ export interface TournamentDTO {
   description: string | null;
   coverUrl: string | null;
   bannerUrl: string | null;
+  imageUrl?: string | null;
   status: TournamentStatus;
   type: TournamentType;
   modality: TournamentModality;
@@ -23,10 +24,14 @@ export interface TournamentDTO {
   entryFee: number | null;
   prizePot: number | null;
   rules: string | null;
+  ownerId: string;
   organizerId: string;
+  owner?: { id: string; name: string; avatarUrl: string | null };
   organizer: { id: string; name: string; avatarUrl: string | null };
   categories: TournamentCategoryDTO[];
+  stages?: any[];
   _count?: { registrations: number };
+  refereeCode?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -37,6 +42,8 @@ export interface TournamentCategoryDTO {
   format: TournamentFormat;
   type: TournamentType;
   bracketType: BracketType;
+  modality?: string;
+  registrationPrice?: number | null;
   maxTeams: number | null;
   minPlayers: number;
   maxPlayers: number;
@@ -83,11 +90,12 @@ export interface BracketMatchDTO {
   position: number;
   teamAId: string | null;
   teamBId: string | null;
-  teamA: { id: string; name: string } | null;
-  teamB: { id: string; name: string } | null;
+  teamA: { id: string; name: string; avatarUrl: string | null } | null;
+  teamB: { id: string; name: string; avatarUrl: string | null } | null;
   scoreA: number | null;
   scoreB: number | null;
   winnerId: string | null;
+  refereeId: string | null;
   status: string;
 }
 
@@ -122,11 +130,6 @@ export const tournamentsService = {
     return data;
   },
 
-  async list(params?: ExploreQueryParams): Promise<{ data: TournamentDTO[]; total: number }> {
-    const { data } = await api.get<{ data: TournamentDTO[]; total: number }>("/tournaments", { params });
-    return data;
-  },
-
   async visitorNearby(latitude: number, longitude: number, radius?: number): Promise<TournamentDTO[]> {
     const { data } = await api.get<TournamentDTO[]>("/tournaments/visitor-nearby", {
       params: { latitude, longitude, radius },
@@ -141,6 +144,21 @@ export const tournamentsService = {
 
   async saveDraft(id: string): Promise<TournamentDTO> {
     const { data } = await api.patch<TournamentDTO>(`/tournaments/${id}/draft`);
+    return data;
+  },
+
+  async openRegistration(id: string): Promise<TournamentDTO> {
+    const { data } = await api.patch<TournamentDTO>(`/tournaments/${id}/open-registration`);
+    return data;
+  },
+
+  async closeRegistration(id: string): Promise<TournamentDTO> {
+    const { data } = await api.patch<TournamentDTO>(`/tournaments/${id}/close-registration`);
+    return data;
+  },
+
+  async generateBracket(id: string, categoryId: string, type: string, groupsCount?: number): Promise<any> {
+    const { data } = await api.post(`/tournaments/${id}/generate-bracket`, { categoryId, type, groupsCount });
     return data;
   },
 
@@ -168,13 +186,37 @@ export const tournamentsService = {
     return data;
   },
 
-  async getBracket(id: string): Promise<BracketMatchDTO[]> {
-    const { data } = await api.get<BracketMatchDTO[]>(`/tournaments/${id}/bracket`);
+  async getBracket(id: string): Promise<any[]> {
+    const { data } = await api.get<any[]>(`/tournaments/${id}/bracket`);
     return data;
   },
 
   async generateRefereeCode(id: string): Promise<{ refereeCode: string; expiresAt: string }> {
     const { data } = await api.post<{ refereeCode: string; expiresAt: string }>(`/tournaments/${id}/generate-referee-code`);
+    return data;
+  },
+
+  async enterRefereeCode(code: string): Promise<{ tournamentId: string; tournamentName: string }> {
+    const { data } = await api.post<{ tournamentId: string; tournamentName: string }>("/tournaments/referee-enter", { code });
+    return data;
+  },
+
+  async getReferees(id: string): Promise<any[]> {
+    const { data } = await api.get<any[]>(`/tournaments/${id}/referees`);
+    return data;
+  },
+
+  async addReferee(id: string, email: string): Promise<any> {
+    const { data } = await api.post(`/tournaments/${id}/referees`, { email });
+    return data;
+  },
+
+  async removeReferee(id: string, refereeId: string): Promise<void> {
+    await api.delete(`/tournaments/${id}/referees/${refereeId}`);
+  },
+
+  async findRefereeMine(): Promise<any[]> {
+    const { data } = await api.get<any[]>("/tournaments/referee-mine");
     return data;
   },
 

@@ -9,6 +9,14 @@ type TypographyPreset = {
 };
 
 export const typography = {
+  // --- Condensed display (Widelab DNA): Anton for oversized caps/numbers, Oswald for tracked labels ---
+  heroName: { fontFamily: "Anton_400Regular", fontSize: 34, fontWeight: "400", letterSpacing: 0.2, lineHeight: 34 } as TypographyPreset,
+  statNumber: { fontFamily: "Anton_400Regular", fontSize: 32, fontWeight: "400", letterSpacing: 0.3, lineHeight: 32 } as TypographyPreset,
+  bignumber: { fontFamily: "Anton_400Regular", fontSize: 56, fontWeight: "400", letterSpacing: 0.5, lineHeight: 54 } as TypographyPreset,
+  ghostName: { fontFamily: "Anton_400Regular", fontSize: 74, fontWeight: "400", letterSpacing: 1, lineHeight: 66 } as TypographyPreset,
+  overline: { fontFamily: "Oswald_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 1.4, lineHeight: 14 } as TypographyPreset,
+  ctaCaps: { fontFamily: "Oswald_700Bold", fontSize: 14, fontWeight: "700", letterSpacing: 1.2, lineHeight: 16 } as TypographyPreset,
+
   display: { fontFamily: "SpaceGrotesk_700Bold", fontSize: 36, fontWeight: "800", letterSpacing: -0.03 * 36 } as TypographyPreset,
   splash: { fontFamily: "SpaceGrotesk_700Bold", fontSize: 28, fontWeight: "700", letterSpacing: -0.02 * 28 } as TypographyPreset,
   h1: { fontFamily: "SpaceGrotesk_700Bold", fontSize: 24, fontWeight: "700", letterSpacing: -0.02 * 24 } as TypographyPreset,

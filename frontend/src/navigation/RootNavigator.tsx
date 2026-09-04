@@ -7,25 +7,32 @@ import { CreateTournamentScreen } from "@/screens/tournaments/CreateTournamentSc
 import { MyTournamentsScreen } from "@/screens/tournaments/MyTournamentsScreen";
 import { ManageRegistrationsScreen } from "@/screens/tournaments/ManageRegistrationsScreen";
 import { BracketScreen } from "@/screens/tournaments/BracketScreen";
+import { GenerateBracketScreen } from "@/screens/tournaments/GenerateBracketScreen";
+import { BracketRevealScreen } from "@/screens/tournaments/BracketRevealScreen";
 import { MyRegistrationsScreen } from "@/screens/registrations/MyRegistrationsScreen";
 import { TournamentRegistrationScreen } from "@/screens/registrations/TournamentRegistrationScreen";
 import { ManageTeamsScreen } from "@/screens/teams/ManageTeamsScreen";
 import { TeamDetailScreen } from "@/screens/teams/TeamDetailScreen";
 import { TeamInviteScreen } from "@/screens/teams/TeamInviteScreen";
+import { AddTeamMemberScreen } from "@/screens/teams/AddTeamMemberScreen";
 import { CreateTeamScreen } from "@/screens/teams/CreateTeamScreen";
 import { RefereeScreen } from "@/screens/matches/RefereeScreen";
 import { MatchResultScreen } from "@/screens/matches/MatchResultScreen";
+import { MatchLiveScreen } from "@/screens/matches/MatchLiveScreen";
 import { CreateFriendlyScreen } from "@/screens/friendlies/CreateFriendlyScreen";
 import { MyFriendliesScreen } from "@/screens/friendlies/MyFriendliesScreen";
 import { FriendlyDetailScreen } from "@/screens/friendlies/FriendlyDetailScreen";
 import { NotificationsScreen } from "@/screens/notifications/NotificationsScreen";
 import { PrivacyScreen } from "@/screens/privacy/PrivacyScreen";
+import { ConsentHistoryScreen } from "@/screens/privacy/ConsentHistoryScreen";
+import { SettingsScreen } from "@/screens/settings/SettingsScreen";
+import { AthleteProfileScreen } from "@/screens/profile/AthleteProfileScreen";
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator screenOptions={{ headerShown: false, animation: "fade" }}>
       <Stack.Screen name="MainTabs" component={MainNavigator} />
       <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} />
       <Stack.Screen name="Registration" component={TournamentRegistrationScreen} />
@@ -33,18 +40,25 @@ export function RootNavigator() {
       <Stack.Screen name="ManageTeams" component={ManageTeamsScreen} />
       <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
       <Stack.Screen name="TeamInvite" component={TeamInviteScreen} />
+      <Stack.Screen name="AddTeamMember" component={AddTeamMemberScreen} />
       <Stack.Screen name="CreateTeam" component={CreateTeamScreen} />
       <Stack.Screen name="Referee" component={RefereeScreen} />
       <Stack.Screen name="MatchResult" component={MatchResultScreen} />
+      <Stack.Screen name="MatchLive" component={MatchLiveScreen} />
       <Stack.Screen name="CreateFriendly" component={CreateFriendlyScreen} />
       <Stack.Screen name="MyFriendlies" component={MyFriendliesScreen} />
       <Stack.Screen name="FriendlyDetail" component={FriendlyDetailScreen} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} />
       <Stack.Screen name="Privacy" component={PrivacyScreen} />
+      <Stack.Screen name="ConsentHistory" component={ConsentHistoryScreen} />
+      <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="CreateTournament" component={CreateTournamentScreen} />
       <Stack.Screen name="MyTournaments" component={MyTournamentsScreen} />
       <Stack.Screen name="ManageRegistrations" component={ManageRegistrationsScreen} />
       <Stack.Screen name="Bracket" component={BracketScreen} />
+      <Stack.Screen name="GenerateBracket" component={GenerateBracketScreen} />
+      <Stack.Screen name="BracketReveal" component={BracketRevealScreen} options={{ animation: "fade" }} />
+      <Stack.Screen name="AthleteProfile" component={AthleteProfileScreen} />
     </Stack.Navigator>
   );
 }

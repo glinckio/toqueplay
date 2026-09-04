@@ -143,4 +143,9 @@ export const matchesService = {
     const { data } = await api.patch<MatchDTO>(`/matches/${id}/substitution`, params);
     return data;
   },
+
+  async claimMatch(id: string): Promise<MatchDTO> {
+    const { data } = await api.post<MatchDTO>(`/matches/${id}/claim`);
+    return data;
+  },
 };

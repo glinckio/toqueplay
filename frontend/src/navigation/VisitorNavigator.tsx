@@ -20,7 +20,7 @@ export function VisitorNavigator() {
   return (
     <Tab.Navigator
       tabBar={(props) => <BottomTabBar {...props} isVisitor />}
-      screenOptions={{ headerShown: false }}
+      screenOptions={{ headerShown: false, animation: "fade" }}
     >
       <Tab.Screen name="VisitorHome" component={VisitorHomeScreen} />
       <Tab.Screen name="VisitorExplore" component={ExploreScreen} />

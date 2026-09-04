@@ -1,5 +1,6 @@
 import React from "react";
-import { View, Text, Image, ViewStyle } from "react-native";
+import { View, Text, ViewStyle } from "react-native";
+import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useTheme } from "@/hooks/useTheme";
 import { avatarPoolDark, avatarPoolLight } from "@/theme/colors";
@@ -52,7 +53,8 @@ export function Avatar({
         <Image
           source={{ uri: imageUrl }}
           style={{ width: dim.box, height: dim.box }}
-          resizeMode="cover"
+          contentFit="cover"
+          cachePolicy="memory-disk"
         />
       </View>
     );
