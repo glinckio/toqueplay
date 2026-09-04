@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,10 +9,38 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
+import { useFocusEffect } from "@react-navigation/native";
 import { Icon } from "@/components/ui/Icon";
 import { useApi } from "@/hooks/useApi";
 import { tournamentsService, TournamentDTO } from "@/services/tournamentsService";
+import { formatDate } from "@/utils/dateFormat";
+import { useTheme } from "@/hooks/useTheme";
+
+function useScreenColors() {
+  const { isDark, colors } = useTheme();
+  return useMemo(() => ({
+    isDark,
+    bg: colors.bg.base,
+    card: isDark ? "#16181C" : colors.bg.card,
+    cardBorder: colors.border.card,
+    purple: "#7C3AED",
+    purpleDeep: "#2D1B69",
+    lime: "#C6F82A",
+    limeInk: "#12100A",
+    tx: colors.text.primary,
+    tx2: colors.text.tertiary,
+    tx3: colors.text.disabled,
+    limeTintBg: isDark ? "rgba(198,248,42,0.16)" : "#EFF9D4",
+    // Always white — sits on a solid purple/lime fill, not the card bg, so
+    // it must NOT flip with theme like regular text does.
+    onAccent: "#FFFFFF",
+    // Lime nearly disappears on a white card in light mode — links/"ver
+    // todos" swap to purple there, dark mode keeps the lime accent.
+    link: isDark ? "#C6F82A" : "#7C3AED",
+  }), [isDark, colors]);
+}
+
+type ScreenColors = ReturnType<typeof useScreenColors>;
 
 type FilterTab = "all" | "draft" | "active" | "finished";
 
@@ -23,66 +51,9 @@ interface TournamentItem {
   location: string;
   status: "open" | "draft" | "in_progress" | "finished";
   enrolledCount: number;
-  teamAvatars?: { initials: string; bg: string; color: string }[];
   actionLabel: string;
   gradientColors: [string, string];
 }
-
-const DARK_TOURNAMENTS: TournamentItem[] = [
-  {
-    id: "1", name: "Copa Verão Beach 2026", date: "15 Ago 2026", location: "Praia Grande, SP",
-    status: "open", enrolledCount: 12, actionLabel: "Gerenciar →",
-    gradientColors: ["#2D1B69", "#1A1030"],
-    teamAvatars: [
-      { initials: "AB", bg: "#2D1B69", color: "#C6F82A" },
-      { initials: "TP", bg: "#1C4A3D", color: "#34D399" },
-      { initials: "RJ", bg: "#4A1942", color: "#F472B6" },
-    ],
-  },
-  {
-    id: "2", name: "Circuito Indoor SP", date: "Sem data definida", location: "São Paulo, SP",
-    status: "draft", enrolledCount: 0, actionLabel: "Editar →",
-    gradientColors: ["#1A1030", "#0E0B14"],
-  },
-  {
-    id: "3", name: "Liga Municipal Vôlei", date: "10 Ago 2026", location: "Guarujá, SP",
-    status: "in_progress", enrolledCount: 8, actionLabel: "Ver partidas →",
-    gradientColors: ["#1B3A2D", "#0E1A14"],
-    teamAvatars: [
-      { initials: "VB", bg: "#2D1B69", color: "#C6F82A" },
-      { initials: "PA", bg: "#1C4A3D", color: "#34D399" },
-      { initials: "+5", bg: "#3D2A1A", color: "#FBBF24" },
-    ],
-  },
-];
-
-const LIGHT_TOURNAMENTS: TournamentItem[] = [
-  {
-    id: "1", name: "Copa Verão Beach 2026", date: "15 Ago 2026", location: "Praia Grande, SP",
-    status: "open", enrolledCount: 12, actionLabel: "Gerenciar →",
-    gradientColors: ["#E8DEFF", "#F6F4FC"],
-    teamAvatars: [
-      { initials: "AB", bg: "#E8DEFF", color: "#7C3AED" },
-      { initials: "TP", bg: "#D1FAE5", color: "#059669" },
-      { initials: "RJ", bg: "#FCE7F3", color: "#DB2777" },
-    ],
-  },
-  {
-    id: "2", name: "Circuito Indoor SP", date: "Sem data definida", location: "São Paulo, SP",
-    status: "draft", enrolledCount: 0, actionLabel: "Editar →",
-    gradientColors: ["#ECEAF4", "#F6F4FC"],
-  },
-  {
-    id: "3", name: "Liga Municipal Vôlei", date: "10 Ago 2026", location: "Guarujá, SP",
-    status: "in_progress", enrolledCount: 8, actionLabel: "Ver partidas →",
-    gradientColors: ["#D1FAE5", "#F0FDF4"],
-    teamAvatars: [
-      { initials: "VB", bg: "#E8DEFF", color: "#7C3AED" },
-      { initials: "PA", bg: "#D1FAE5", color: "#059669" },
-      { initials: "+5", bg: "#FEF3C7", color: "#D97706" },
-    ],
-  },
-];
 
 const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "all", label: "Todos" },
@@ -91,44 +62,30 @@ const FILTER_TABS: { key: FilterTab; label: string }[] = [
   { key: "finished", label: "Encerrado" },
 ];
 
-function getStatusBadge(status: TournamentItem["status"], isDark: boolean) {
+function getStatusBadge(status: TournamentItem["status"], C: ScreenColors) {
   switch (status) {
     case "open":
-      return {
-        label: "INSCRIÇÕES ABERTAS",
-        bg: isDark ? "rgba(198,248,42,0.15)" : "rgba(124,58,237,0.1)",
-        color: isDark ? "#C6F82A" : "#7C3AED",
-        dot: isDark ? "#C6F82A" : "#7C3AED",
-      };
+      return { label: "INSCRIÇÕES ABERTAS", bg: C.limeTintBg, color: C.isDark ? C.lime : C.purple, dot: C.isDark ? C.lime : C.purple };
     case "draft":
-      return {
-        label: "RASCUNHO",
-        bg: isDark ? "rgba(110,102,132,0.15)" : "rgba(26,16,48,0.06)",
-        color: isDark ? "#948CA8" : "#8A829E",
-      };
+      return { label: "RASCUNHO", bg: "rgba(255,255,255,0.1)", color: C.tx2 };
     case "in_progress":
-      return {
-        label: "EM ANDAMENTO",
-        bg: isDark ? "rgba(52,211,153,0.12)" : "rgba(5,150,105,0.1)",
-        color: isDark ? "#34D399" : "#059669",
-        dot: isDark ? "#34D399" : "#059669",
-      };
+      return { label: "EM ANDAMENTO", bg: "rgba(52,211,153,0.16)", color: "#34D399", dot: "#34D399" };
     case "finished":
-      return {
-        label: "ENCERRADO",
-        bg: isDark ? "rgba(110,102,132,0.12)" : "rgba(26,16,48,0.06)",
-        color: isDark ? "#6E6684" : "#8A829E",
-      };
+      return { label: "ENCERRADO", bg: "rgba(255,255,255,0.08)", color: C.tx3 };
   }
 }
 
-function mapTournaments(data: TournamentDTO[], isDark: boolean): TournamentItem[] {
+function mapTournaments(data: TournamentDTO[], C: ScreenColors): TournamentItem[] {
   return data.map((t) => {
     const statusMap: Record<string, TournamentItem["status"]> = {
       DRAFT: "draft",
-      OPEN: "open",
+      PUBLISHED: "draft",
+      REGISTRATION_OPEN: "open",
+      REGISTRATION_CLOSED: "open",
+      BRACKET_GENERATED: "in_progress",
       IN_PROGRESS: "in_progress",
-      COMPLETED: "finished",
+      FINISHED: "finished",
+      CANCELLED: "finished",
     };
     const status = statusMap[t.status] ?? "draft";
     const actionMap: Record<TournamentItem["status"], string> = {
@@ -137,113 +94,104 @@ function mapTournaments(data: TournamentDTO[], isDark: boolean): TournamentItem[
       in_progress: "Ver partidas →",
       finished: "Ver resultado →",
     };
+    const stage = (t as any).stages?.[0];
+    const dateSource = stage?.date ?? t.date;
+    const citySource = stage?.city ?? t.city;
+    const stateSource = stage?.state ?? t.state;
     return {
       id: t.id,
       name: t.name,
-      date: t.date ? new Date(t.date).toLocaleDateString("pt-BR", { day: "numeric", month: "short", year: "numeric" }) : "Sem data definida",
-      location: [t.city, t.state].filter(Boolean).join(", ") || "",
+      date: dateSource ? formatDate(dateSource, { day: "numeric", month: "short", year: "numeric" }) : "Sem data definida",
+      location: [citySource, stateSource].filter(Boolean).join(", ") || "",
       status,
       enrolledCount: t._count?.registrations ?? 0,
       actionLabel: actionMap[status],
-      gradientColors: isDark ? ["#2D1B69", "#1A1030"] : ["#E8DEFF", "#F6F4FC"],
+      gradientColors: [C.purpleDeep, "#140E28"],
     };
   });
 }
 
 export function MyTournamentsScreen({ navigation }: any) {
-  const { isDark } = useTheme();
+  const C = useScreenColors();
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const bgBase = isDark ? "#0C0A12" : "#F6F4FC";
-  const cardBg = isDark ? "#141019" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,0.06)" : "rgba(26,16,48,0.06)";
-  const metaColor = isDark ? "#948CA8" : "#6B6480";
-  const metaIcon = isDark ? "#6E6684" : "#A29CB4";
 
   const { data: rawTournaments, loading, error, refetch } = useApi(() => tournamentsService.findMine(), []);
-  const tournaments = mapTournaments(rawTournaments ?? [], isDark);
+  useFocusEffect(useCallback(() => { refetch({ keepData: false }); }, [refetch]));
+  const tournaments = mapTournaments(rawTournaments ?? [], C).filter(
+    (t) => activeFilter === "all" || t.status === activeFilter
+  );
 
   if (loading && !rawTournaments) {
     return (
-      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color={accentColor} />
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={C.lime} />
       </SafeAreaView>
     );
   }
 
   if (error && !rawTournaments) {
     return (
-      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
-        <Pressable onPress={refetch} accessibilityRole="button">
-          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+      <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center" }}>
+        <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={() => refetch()} accessibilityRole="button">
+          <Text style={{ color: C.link, fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 1, textTransform: "uppercase" }}>Tentar novamente</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 16 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
+    <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: C.bg }}>
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={C.lime} />}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <Pressable
               onPress={() => navigation?.goBack()}
-              style={{
-                width: 40, height: 40, borderRadius: 14,
-                backgroundColor: isDark ? "#171320" : "#fff",
-                borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(26,16,48,0.08)",
-                alignItems: "center", justifyContent: "center",
-                ...(isDark ? {} : { shadowColor: "rgba(46,16,101,0.2)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 4 }),
-              }}
+              style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: "center", justifyContent: "center" }}
             >
-              <Icon name="back" size={19} color={isDark ? "#CFC8E0" : "#4A4460"} />
+              <Icon name="back" size={19} color={C.tx2} />
             </Pressable>
-            <Text style={{ color: isDark ? "#F5F3FA" : "#1A1030", fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700", letterSpacing: -0.02 * 22 }}>Meus torneios</Text>
+            <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 24, letterSpacing: 0.3, textTransform: "uppercase" }}>Meus torneios</Text>
           </View>
-          <Pressable style={{
-            width: 40, height: 40, borderRadius: 14,
-            backgroundColor: accentColor,
-            alignItems: "center", justifyContent: "center",
-            ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 8 }),
-          }}>
-            <Icon name="plus" size={20} color={isDark ? "#12100A" : "#fff"} strokeWidth={2.5} />
+          <Pressable
+            onPress={() => navigation?.navigate("CreateTournament")}
+            style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: C.purple, alignItems: "center", justifyContent: "center" }}
+          >
+            <Icon name="plus" size={20} color={C.onAccent} strokeWidth={2.5} />
           </Pressable>
         </View>
 
         {/* Filter chips */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 20 }}>
-          {FILTER_TABS.map((tab) => (
-            <Pressable
-              key={tab.key}
-              onPress={() => setActiveFilter(tab.key)}
-              style={{
-                paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12,
-                backgroundColor: activeFilter === tab.key ? accentColor : (isDark ? "#141019" : "#fff"),
-                ...(activeFilter !== tab.key ? { borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,0.07)" : "rgba(26,16,48,0.08)" } : {}),
-              }}
-            >
-              <Text style={{
-                fontFamily: activeFilter === tab.key ? "SpaceGrotesk_700Bold" : "SpaceGrotesk_600SemiBold",
-                fontSize: 12,
-                fontWeight: activeFilter === tab.key ? "700" : "600",
-                color: activeFilter === tab.key
-                  ? (isDark ? "#12100A" : "#fff")
-                  : (isDark ? "#948CA8" : "#8A829E"),
-              }}>{tab.label}</Text>
-            </Pressable>
-          ))}
+          {FILTER_TABS.map((tab) => {
+            const isActive = activeFilter === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setActiveFilter(tab.key)}
+                style={{
+                  paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12,
+                  backgroundColor: isActive ? C.purple : C.card,
+                  borderWidth: isActive ? 0 : 1, borderColor: C.cardBorder,
+                }}
+              >
+                <Text style={{
+                  fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase",
+                  color: isActive ? C.onAccent : C.tx2,
+                }}>{tab.label}</Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
         {/* Tournament cards */}
         {tournaments.map((t) => {
-          const badge = getStatusBadge(t.status, isDark);
+          const badge = getStatusBadge(t.status, C);
           return (
-            <View key={t.id} style={{
-              backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
+            <Pressable key={t.id} onPress={() => navigation?.navigate("TournamentDetail", { id: t.id })} style={{
+              backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder,
               borderRadius: 20, overflow: "hidden", marginBottom: 14,
-              ...(isDark ? {} : { shadowColor: "rgba(46,16,101,0.12)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 4 }),
             }}>
               <LinearGradient
                 colors={t.gradientColors}
@@ -256,47 +204,31 @@ export function MyTournamentsScreen({ navigation }: any) {
                   backgroundColor: badge.bg, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8,
                 }}>
                   {badge.dot && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: badge.dot }} />}
-                  <Text style={{ color: badge.color, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, fontWeight: "700", letterSpacing: 0.04 * 10 }}>{badge.label}</Text>
+                  <Text style={{ color: badge.color, fontFamily: "Oswald_700Bold", fontSize: 9, letterSpacing: 0.6 }}>{badge.label}</Text>
                 </View>
-                <Text style={{ color: isDark ? "#F5F3FA" : "#1A1030", fontFamily: "SpaceGrotesk_700Bold", fontSize: 17, fontWeight: "700", letterSpacing: -0.01 * 17 }}>{t.name}</Text>
+                <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 19, letterSpacing: 0.2, textTransform: "uppercase" }}>{t.name}</Text>
               </LinearGradient>
 
               <View style={{ padding: 14, paddingHorizontal: 16 }}>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Icon name="calendar" size={14} color={metaIcon} />
-                    <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>{t.date}</Text>
+                    <Icon name="calendar" size={14} color={C.tx3} />
+                    <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{t.date}</Text>
                   </View>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Icon name="location" size={14} color={metaIcon} />
-                    <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>{t.location}</Text>
+                    <Icon name="location" size={14} color={C.tx3} />
+                    <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{t.location}</Text>
                   </View>
                 </View>
 
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    {t.teamAvatars && (
-                      <View style={{ flexDirection: "row" }}>
-                        {t.teamAvatars.map((a, i) => (
-                          <View key={i} style={{
-                            width: 26, height: 26, borderRadius: 13,
-                            backgroundColor: a.bg, borderWidth: 2, borderColor: cardBg,
-                            alignItems: "center", justifyContent: "center",
-                            marginLeft: i > 0 ? -8 : 0,
-                          }}>
-                            <Text style={{ color: a.color, fontFamily: "SpaceGrotesk_700Bold", fontSize: 9, fontWeight: "700" }}>{a.initials}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                    <Text style={{ color: isDark ? "#6E6684" : "#8A829E", fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>
-                      {t.enrolledCount > 0 ? `${t.enrolledCount} ${t.status === "in_progress" ? "times" : "inscritos"}` : "0 inscritos"}
-                    </Text>
-                  </View>
-                  <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>{t.actionLabel}</Text>
+                  <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 12 }}>
+                    {t.enrolledCount > 0 ? `${t.enrolledCount} ${t.status === "in_progress" ? "times" : "inscritos"}` : "0 inscritos"}
+                  </Text>
+                  <Text style={{ color: C.link, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" }}>{t.actionLabel}</Text>
                 </View>
               </View>
-            </View>
+            </Pressable>
           );
         })}
       </ScrollView>

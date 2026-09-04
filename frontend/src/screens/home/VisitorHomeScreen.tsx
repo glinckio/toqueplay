@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,32 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { useTheme } from "@/hooks/useTheme";
+
+function useScreenColors() {
+  const { isDark, colors } = useTheme();
+  return useMemo(() => ({
+    isDark,
+    bg: colors.bg.base,
+    card: isDark ? "#16181C" : colors.bg.card,
+    cardBorder: colors.border.card,
+    purple: "#7C3AED",
+    lime: "#C6F82A",
+    limeInk: "#12100A",
+    tx: colors.text.primary,
+    tx2: colors.text.tertiary,
+    tx3: colors.text.disabled,
+    // Always white — sits on a solid purple/lime fill, not the card bg, so
+    // it must NOT flip with theme like regular text does.
+    onAccent: "#FFFFFF",
+    purpleTintBg: isDark ? "rgba(124,58,237,0.16)" : "#EDE7FB",
+    purpleTintBorder: isDark ? "rgba(139,92,246,0.3)" : "rgba(124,58,237,0.25)",
+    limeTintBg: isDark ? "rgba(198,248,42,0.16)" : "#EFF9D4",
+    limeTintBorder: isDark ? "rgba(198,248,42,0.35)" : "rgba(124,58,237,0.25)",
+  }), [isDark, colors]);
+}
 
 interface VisitorTournament {
   status: "open" | "in_progress";
@@ -29,61 +50,51 @@ const MOCK_TOURNAMENTS: VisitorTournament[] = [
 ];
 
 export function VisitorHomeScreen({ navigation }: any) {
-  const { isDark, colors } = useTheme();
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-
+  const C = useScreenColors();
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }} edges={["top"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
+      <StatusBar barStyle={C.isDark ? "light-content" : "dark-content"} />
       <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 16, paddingBottom: 96 }} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <View>
-            <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700", letterSpacing: -0.02 * 22 }}>
-              ToquePlay
+            <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 22, letterSpacing: 0.3, textTransform: "uppercase" }}>
+              Toque<Text style={{ color: C.lime }}>Play</Text>
             </Text>
-            <Text style={{ color: isDark ? "#6E6684" : "#8A829E", fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500", marginTop: 2 }}>
+            <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 12, marginTop: 2 }}>
               Descubra torneios perto de você
             </Text>
           </View>
           <Pressable style={{
             borderWidth: 1,
-            borderColor: isDark ? "rgba(198,248,42,0.3)" : "rgba(124,58,237,0.25)",
-            backgroundColor: isDark ? "rgba(198,248,42,0.08)" : "rgba(124,58,237,0.06)",
+            borderColor: C.limeTintBorder,
+            backgroundColor: C.limeTintBg,
             paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12,
           }}>
-            <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>ENTRAR</Text>
+            <Text style={{ color: C.lime, fontFamily: "Oswald_700Bold", fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase" }}>Entrar</Text>
           </Pressable>
         </View>
 
         {/* CTA Banner */}
         <View style={{ overflow: "hidden", marginBottom: 20 }}>
           <LinearGradient
-            colors={isDark
-              ? ["rgba(139,92,246,0.15)", "rgba(198,248,42,0.08)"]
-              : ["rgba(124,58,237,0.08)", "rgba(198,248,42,0.06)"]
-            }
+            colors={["rgba(124,58,237,0.22)", "rgba(198,248,42,0.08)"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 20, padding: 20,
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(139,92,246,0.2)" : "rgba(124,58,237,0.12)",
-            }}
+            style={{ borderRadius: 20, padding: 20, borderWidth: 1, borderColor: "rgba(139,92,246,0.25)" }}
           >
-            <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 16, fontWeight: "700", marginBottom: 6 }}>
+            <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 18, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>
               Participe de torneios!
             </Text>
-            <Text style={{ color: isDark ? "#948CA8" : "#6B6480", fontFamily: "Manrope_400Regular", fontSize: 12.5, fontWeight: "400", lineHeight: 19, marginBottom: 14 }}>
+            <Text style={{ color: C.tx2, fontFamily: "Manrope_400Regular", fontSize: 12.5, lineHeight: 19, marginBottom: 14 }}>
               Crie sua conta para inscrever seu time, organizar torneios e acompanhar resultados ao vivo.
             </Text>
             <Pressable style={{
               alignSelf: "flex-start",
-              backgroundColor: accentColor,
+              backgroundColor: C.purple,
               paddingVertical: 11, paddingHorizontal: 20, borderRadius: 12,
-              ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 8 }),
             }}>
-              <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>CRIAR CONTA GRÁTIS</Text>
+              <Text style={{ color: C.onAccent, fontFamily: "Oswald_700Bold", fontSize: 12, letterSpacing: 0.8, textTransform: "uppercase" }}>Criar conta grátis</Text>
             </Pressable>
           </LinearGradient>
         </View>
@@ -91,83 +102,68 @@ export function VisitorHomeScreen({ navigation }: any) {
         {/* Location Banner */}
         <View style={{
           flexDirection: "row", alignItems: "center", gap: 10,
-          backgroundColor: isDark ? "rgba(139,92,246,0.06)" : "rgba(124,58,237,0.04)",
-          borderWidth: 1,
-          borderColor: isDark ? "rgba(139,92,246,0.15)" : "rgba(124,58,237,0.1)",
+          backgroundColor: "rgba(124,58,237,0.08)",
+          borderWidth: 1, borderColor: "rgba(139,92,246,0.18)",
           borderRadius: 16, padding: 14, paddingHorizontal: 16, marginBottom: 20,
-          ...(isDark ? {} : { shadowColor: "rgba(46,16,101,0.06)", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 1, shadowRadius: 8, elevation: 2 }),
         }}>
-          <View style={{
-            width: 36, height: 36, borderRadius: 12,
-            backgroundColor: isDark ? "rgba(139,92,246,0.12)" : "rgba(124,58,237,0.08)",
-            alignItems: "center", justifyContent: "center",
-          }}>
-            <Icon name="location" size={18} color={isDark ? "#8B5CF6" : "#7C3AED"} />
+          <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: "rgba(139,92,246,0.16)", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="location" size={18} color={C.lime} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text.primary, fontFamily: "Manrope_600SemiBold", fontSize: 13, fontWeight: "600" }}>Santos, SP</Text>
-            <Text style={{ color: isDark ? "#6E6684" : "#8A829E", fontFamily: "Manrope_400Regular", fontSize: 11, fontWeight: "400", marginTop: 2 }}>
+            <Text style={{ color: C.tx, fontFamily: "Manrope_600SemiBold", fontSize: 13 }}>Santos, SP</Text>
+            <Text style={{ color: C.tx3, fontFamily: "Manrope_400Regular", fontSize: 11, marginTop: 2 }}>
               Localização em tempo real · Raio de 50 km
             </Text>
           </View>
-          <View style={{
-            width: 8, height: 8, borderRadius: 4,
-            backgroundColor: accentColor,
-            shadowColor: accentColor, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 6,
-          }} />
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: C.lime }} />
         </View>
 
         {/* Tournament List */}
-        <Text style={{ color: colors.text.primary, fontFamily: "SpaceGrotesk_700Bold", fontSize: 16, fontWeight: "700", marginBottom: 14 }}>
-          Torneios próximos
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: C.lime }} />
+          <Text style={{ color: C.tx, fontFamily: "Oswald_700Bold", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase" }}>
+            Torneios próximos
+          </Text>
+        </View>
 
         {MOCK_TOURNAMENTS.map((t, i) => (
-          <TournamentCard key={i} tournament={t} isDark={isDark} />
+          <TournamentCard key={i} tournament={t} />
         ))}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function TournamentCard({ tournament, isDark }: { tournament: VisitorTournament; isDark: boolean }) {
+function TournamentCard({ tournament }: { tournament: VisitorTournament }) {
+  const C = useScreenColors();
   const badgeStatus = tournament.status === "open" ? "open" : "in_progress";
-  const metaColor = isDark ? "#6E6684" : "#8A829E";
-  const metaIconColor = isDark ? "#6E6684" : "#A29CB4";
 
   return (
-    <View style={{
-      backgroundColor: isDark ? "#141019" : "#FFFFFF",
-      borderWidth: 1,
-      borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(26,16,48,0.06)",
-      borderRadius: 18, padding: 16, marginBottom: 12,
-      ...(isDark ? {} : { shadowColor: "rgba(46,16,101,0.08)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 4 }),
-    }}>
+    <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 18, padding: 16, marginBottom: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
         <Badge status={badgeStatus} label={tournament.status === "open" ? "INSCRIÇÕES ABERTAS" : undefined} />
-        <Text style={{ color: isDark ? "#6E6684" : "#8A829E", fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>{tournament.date}</Text>
+        <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 11 }}>{tournament.date}</Text>
       </View>
-      <Text style={{ color: isDark ? "#F5F3FA" : "#1A1030", fontFamily: "Manrope_600SemiBold", fontSize: 15, fontWeight: "600", marginBottom: 6 }}>{tournament.name}</Text>
+      <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 17, letterSpacing: 0.2, textTransform: "uppercase", marginBottom: 8 }}>{tournament.name}</Text>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <Icon name="location" size={12} color={metaIconColor} />
-          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>{tournament.location}</Text>
+          <Icon name="location" size={12} color={C.tx3} />
+          <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 11 }}>{tournament.location}</Text>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <Icon name="users" size={12} color={metaIconColor} />
-          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>{tournament.enrolled}</Text>
+          <Icon name="users" size={12} color={C.tx3} />
+          <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 11 }}>{tournament.enrolled}</Text>
         </View>
       </View>
       <Pressable style={{
         width: "100%",
-        borderWidth: 1,
-        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(26,16,48,0.08)",
+        borderWidth: 1, borderColor: "rgba(255,255,255,0.12)",
         backgroundColor: "transparent",
         paddingVertical: 11, borderRadius: 12,
         flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
       }}>
-        <Icon name="eye" size={14} color={isDark ? "#948CA8" : "#6B6480"} />
-        <Text style={{ color: isDark ? "#948CA8" : "#6B6480", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>Ver detalhes</Text>
+        <Icon name="eye" size={14} color={C.tx2} />
+        <Text style={{ color: C.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase" }}>Ver detalhes</Text>
       </Pressable>
     </View>
   );

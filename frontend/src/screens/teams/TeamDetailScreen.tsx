@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback } from "react";
 import {
   View,
   Text,
@@ -7,39 +7,49 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Share,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
+import { useFocusEffect } from "@react-navigation/native";
 import { Icon } from "@/components/ui/Icon";
-import Svg, { Path, Circle } from "react-native-svg";
 import { useApi } from "@/hooks/useApi";
 import { teamsService } from "@/services/teamsService";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { useTC } from "../tournaments/_tournamentKit";
 
 interface Member {
   id: string;
+  userId: string;
   name: string;
   initials: string;
   username: string;
   isCaptain: boolean;
-  colorBg: string;
-  colorText: string;
-  isGradient?: boolean;
+  avatarUrl: string | null;
+  isFirst: boolean;
+}
+
+function IconButton({ icon, label, onPress }: { icon: any; label: string; onPress: () => void }) {
+  const TC = useTC();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, alignItems: "center", justifyContent: "center" }}
+    >
+      <Icon name={icon} size={18} color={TC.tx2} strokeWidth={2} />
+    </Pressable>
+  );
 }
 
 export function TeamDetailScreen({ navigation, route }: any) {
-  const { isDark } = useTheme();
+  const TC = useTC();
   const id = route?.params?.id;
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
-  const titleColor = isDark ? "#F5F3FA" : "#1A1428";
-  const metaColor = isDark ? "#948CA8" : "#847B98";
-  const labelColor = isDark ? "#6E6684" : "#9488A6";
-  const cardBg = isDark ? "#141019" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.07)";
-  const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
 
   const { data: team, loading, error, refetch } = useApi(() => teamsService.findOne(id), [id]);
+
+  useFocusEffect(useCallback(() => { refetch({ keepData: false }); }, [refetch]));
 
   const teamName = team?.name ?? "";
   const teamInitials = teamName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
@@ -47,13 +57,13 @@ export function TeamDetailScreen({ navigation, route }: any) {
 
   const members: Member[] = (team?.members ?? []).map((m, i) => ({
     id: m.id,
+    userId: m.user.id,
     name: m.user.name,
     initials: m.user.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
     username: m.user.username ? `@${m.user.username}` : m.user.email,
     isCaptain: m.isCaptain,
-    colorBg: i === 0 ? "" : "#221B33",
-    colorText: i === 0 ? "#fff" : "#CFC8E0",
-    isGradient: i === 0,
+    avatarUrl: m.user.avatarUrl,
+    isFirst: i === 0,
   }));
 
   const stats = [
@@ -64,164 +74,155 @@ export function TeamDetailScreen({ navigation, route }: any) {
 
   if (loading && !team) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
-        <ActivityIndicator size="large" color={accentColor} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
+        <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+        <View style={{ paddingHorizontal: 22, paddingTop: 14 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 20 }}>
+            <Skeleton width={40} height={40} radius={14} />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <Skeleton width={40} height={40} radius={14} />
+              <Skeleton width={40} height={40} radius={14} />
+            </View>
+          </View>
+          <View style={{ alignItems: "center", marginBottom: 22 }}>
+            <Skeleton width={72} height={72} radius={22} style={{ marginBottom: 12 }} />
+            <Skeleton width={160} height={22} radius={6} />
+          </View>
+          <Skeleton height={80} radius={18} style={{ marginBottom: 20 }} />
+          <Skeleton height={60} radius={14} style={{ marginBottom: 10 }} />
+          <Skeleton height={60} radius={14} />
+        </View>
       </SafeAreaView>
     );
   }
 
   if (error && !team) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
-        <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
-        <Pressable onPress={refetch} accessibilityRole="button">
-          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>Tentar novamente</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+        <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 12 }}>{error}</Text>
+        <Pressable onPress={() => refetch()} accessibilityRole="button">
+          <Text style={{ color: TC.lime, fontFamily: "Oswald_700Bold", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>Tentar novamente</Text>
         </Pressable>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={accentColor} />}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
+      <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+      <ScrollView style={{ paddingHorizontal: 22, paddingTop: 14 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={TC.lime} />}>
         {/* Header with back + edit */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-          <Pressable
-            onPress={() => navigation?.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-            style={{
-              width: 40, height: 40, borderRadius: 14,
-              backgroundColor: isDark ? "#171320" : "#FFFFFF",
-              borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)",
-              alignItems: "center", justifyContent: "center",
-              ...(isDark ? {} : { shadowColor: "rgba(26,16,48,.25)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 10, elevation: 2 }),
-            }}
-          >
-            <Icon name="back" size={19} color={isDark ? "#CFC8E0" : "#4A4460"} strokeWidth={2.2} />
-          </Pressable>
-          <Pressable
-            onPress={() => {}}
-            accessibilityRole="button"
-            accessibilityLabel="Editar time"
-            style={{
-              flexDirection: "row", alignItems: "center", gap: 5,
-              paddingVertical: 8, paddingHorizontal: 14, borderRadius: 12,
-              backgroundColor: isDark ? "#171320" : "#FFFFFF",
-              borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)",
-              ...(isDark ? {} : { shadowColor: "rgba(26,16,48,.25)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 10, elevation: 2 }),
-            }}
-          >
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#CFC8E0" : "#4A4460"} strokeWidth={2}>
-              <Path d="M17 3a2.85 2.85 0 114 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
-            </Svg>
-            <Text style={{ color: isDark ? "#CFC8E0" : "#4A4460", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>Editar</Text>
-          </Pressable>
+          <IconButton icon="back" label="Voltar" onPress={() => navigation?.canGoBack() ? navigation.goBack() : navigation.replace("MainTabs")} />
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <IconButton
+              icon="share"
+              label="Compartilhar"
+              onPress={async () => {
+                try {
+                  await Share.share({ message: `Confira o time ${teamName} no ToquePlay!\ntoqueplay://team/${id}` });
+                } catch {}
+              }}
+            />
+            <Pressable
+              onPress={() => navigation.navigate("CreateTeam", { teamId: id })}
+              accessibilityRole="button"
+              accessibilityLabel="Editar time"
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, height: 40, borderRadius: 14, paddingHorizontal: 14, backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder }}
+            >
+              <Icon name="edit" size={16} color={TC.tx2} strokeWidth={2} />
+              <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase" }}>Editar</Text>
+            </Pressable>
+          </View>
         </View>
 
-        {/* Team avatar + name */}
+        {/* Team avatar + name — framed tilt */}
         <View style={{ alignItems: "center", marginBottom: 22 }}>
-          <LinearGradient
-            colors={["#8B5CF6", "#6D3BEA"]}
-            start={{ x: 0.2, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 72, height: 72, borderRadius: 22,
-              alignItems: "center", justifyContent: "center", marginBottom: 12,
-              shadowColor: "rgba(124,58,237,.6)", shadowOffset: { width: 0, height: 14 }, shadowOpacity: 1, shadowRadius: 28, elevation: 6,
-            }}
-          >
-            <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 26, fontWeight: "700" }}>{teamInitials}</Text>
-          </LinearGradient>
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700" }}>{teamName}</Text>
-          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500", marginTop: 4 }}>{teamFormat}</Text>
+          <View style={{ width: 78, height: 78, borderRadius: 22, overflow: "hidden", borderWidth: 2.5, borderColor: TC.lime, transform: [{ rotate: "-3deg" }], backgroundColor: TC.purpleDeep, alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
+            {team?.avatarUrl ? (
+              <Image source={{ uri: team.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+            ) : (
+              <Text style={{ color: TC.lime, fontFamily: "Anton_400Regular", fontSize: 26 }}>{teamInitials}</Text>
+            )}
+          </View>
+          <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 26, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "center" }}>{teamName}</Text>
+          <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 13, marginTop: 4 }}>{teamFormat}</Text>
         </View>
 
         {/* Stats bar */}
-        <View style={{
-          flexDirection: "row",
-          backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
-          borderRadius: 18, marginBottom: 20,
-          ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.2)", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
-        }}>
+        <View style={{ flexDirection: "row", backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, borderRadius: 18, marginBottom: 22 }}>
           {stats.map((stat, i, arr) => (
             <View key={stat.label} style={{
               flex: 1, alignItems: "center", paddingVertical: 16,
               borderRightWidth: i < arr.length - 1 ? 1 : 0,
-              borderRightColor: dividerColor,
+              borderRightColor: TC.cardBorder,
             }}>
-              <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700" }}>{stat.value}</Text>
-              <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 10, fontWeight: "500", marginTop: 2 }}>{stat.label}</Text>
+              <Text style={{ color: TC.lime, fontFamily: "Anton_400Regular", fontSize: 24 }}>{stat.value}</Text>
+              <Text style={{ color: TC.tx2, fontFamily: "Oswald_500Medium", fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase", marginTop: 3 }}>{stat.label}</Text>
             </View>
           ))}
         </View>
 
         {/* Members */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, fontWeight: "700", letterSpacing: 0.1 * 10 }}>JOGADORES</Text>
-          <Pressable onPress={() => {}} accessibilityRole="button" accessibilityLabel="Convidar jogador">
-            <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600" }}>+ Convidar</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: TC.lime }} />
+            <Text style={{ color: TC.tx, fontFamily: "Oswald_700Bold", fontSize: 12, letterSpacing: 1.4, textTransform: "uppercase" }}>Jogadores</Text>
+          </View>
+          <Pressable onPress={() => navigation.navigate("AddTeamMember", { teamId: id, teamName })} accessibilityRole="button" accessibilityLabel="Convidar jogador">
+            <Text style={{ color: TC.lime, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.4, textTransform: "uppercase" }}>+ Convidar</Text>
           </Pressable>
         </View>
-        <View style={{ gap: 10, marginBottom: 20 }}>
+        <View style={{ gap: 10, marginBottom: 24 }}>
           {members.map((m) => (
-            <View
+            <Pressable
               key={m.id}
+              onPress={() => navigation?.navigate("AthleteProfile", { id: m.userId })}
               style={{
                 flexDirection: "row", alignItems: "center", gap: 12,
-                backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
+                backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder,
                 borderRadius: 14, padding: 12, paddingHorizontal: 14,
-                ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.18)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 1 }),
               }}
             >
-              {m.isGradient ? (
-                <LinearGradient
-                  colors={["#8B5CF6", "#6D3BEA"]}
-                  start={{ x: 0.2, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" }}
-                >
-                  <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>{m.initials}</Text>
-                </LinearGradient>
-              ) : (
-                <View style={{
-                  width: 38, height: 38, borderRadius: 12,
-                  backgroundColor: isDark ? m.colorBg : "#F0ECFA",
-                  alignItems: "center", justifyContent: "center",
-                }}>
-                  <Text style={{ color: isDark ? m.colorText : "#7C3AED", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12, fontWeight: "700" }}>{m.initials}</Text>
-                </View>
-              )}
+              <View style={{
+                width: 40, height: 40, borderRadius: 13, overflow: "hidden",
+                borderWidth: m.isFirst ? 2 : 0, borderColor: TC.lime,
+                backgroundColor: m.isFirst ? TC.purpleDeep : "rgba(255,255,255,0.06)",
+                alignItems: "center", justifyContent: "center",
+              }}>
+                {m.avatarUrl ? (
+                  <Image source={{ uri: m.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+                ) : (
+                  <Text style={{ color: m.isFirst ? TC.lime : TC.tx2, fontFamily: "Oswald_700Bold", fontSize: 12 }}>{m.initials}</Text>
+                )}
+              </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, fontWeight: "700" }}>{m.name}</Text>
-                <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>{m.username}</Text>
+                <Text style={{ color: TC.tx, fontFamily: "Manrope_700Bold", fontSize: 13 }}>{m.name}</Text>
+                <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 11 }}>{m.username}</Text>
               </View>
               <View style={{
                 paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8,
-                backgroundColor: m.isCaptain
-                  ? (isDark ? "rgba(198,248,42,.12)" : "#EAF7C4")
-                  : (isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.05)"),
+                backgroundColor: m.isCaptain ? TC.limeTintBg : "rgba(255,255,255,0.06)",
               }}>
                 <Text style={{
-                  color: m.isCaptain
-                    ? (isDark ? "#C6F82A" : "#5C7A00")
-                    : (isDark ? "#6E6684" : "#9488A6"),
-                  fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, fontWeight: "700",
+                  color: m.isCaptain ? (TC.isDark ? TC.lime : TC.purple) : TC.tx3,
+                  fontFamily: "Oswald_700Bold", fontSize: 9, letterSpacing: 0.6,
                 }}>
                   {m.isCaptain ? "CAPITÃO" : "MEMBRO"}
                 </Text>
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
 
         {/* History */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-          <Text style={{ color: labelColor, fontFamily: "Manrope_700Bold", fontSize: 10, fontWeight: "700", letterSpacing: 0.1 * 10 }}>HISTÓRICO</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <View style={{ width: 3, height: 14, borderRadius: 2, backgroundColor: TC.lime }} />
+          <Text style={{ color: TC.tx, fontFamily: "Oswald_700Bold", fontSize: 12, letterSpacing: 1.4 }}>HISTÓRICO</Text>
         </View>
-        <View style={{ gap: 10, marginBottom: 24 }}>
-          <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500", textAlign: "center", paddingVertical: 20 }}>
+        <View style={{ backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, borderRadius: 16, paddingVertical: 24, marginBottom: 24 }}>
+          <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 13, textAlign: "center" }}>
             Sem histórico
           </Text>
         </View>

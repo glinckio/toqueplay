@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -7,48 +8,60 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
+import { useApi } from "@/hooks/useApi";
 import { teamsService } from "@/services/teamsService";
-
-interface InviteMember {
-  id: string;
-  name: string;
-  initials: string;
-  isCaptain: boolean;
-  colorBg: string;
-  colorText: string;
-  isGradient?: boolean;
-}
-
-const MOCK_MEMBERS: InviteMember[] = [
-  { id: "m1", name: "Marcos Silva", initials: "MS", isCaptain: true, colorBg: "", colorText: "#fff", isGradient: true },
-  { id: "m2", name: "Ana Costa", initials: "AC", isCaptain: false, colorBg: "#4A1942", colorText: "#F472B6" },
-  { id: "m3", name: "João Ferreira", initials: "JF", isCaptain: false, colorBg: "#1C4A3D", colorText: "#34D399" },
-];
+import { getErrorMessage } from "@/services/api";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { CelebrationScreen } from "@/components/ui/CelebrationScreen";
+import { useTC } from "../tournaments/_tournamentKit";
 
 type Step = "invite" | "success";
 
+function initialsOf(name: string): string {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function daysUntil(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const diff = new Date(dateStr).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
+function BackButton({ onPress }: { onPress: () => void }) {
+  const TC = useTC();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Voltar"
+      style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, alignItems: "center", justifyContent: "center" }}
+    >
+      <Icon name="back" size={19} color={TC.tx2} strokeWidth={2.2} />
+    </Pressable>
+  );
+}
+
 export function TeamInviteScreen({ navigation, route }: any) {
-  const { isDark } = useTheme();
+  const TC = useTC();
+  const invitationId = route?.params?.invitationId ?? route?.params?.id ?? "";
   const [step, setStep] = useState<Step>("invite");
-
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const screenBg = isDark ? "#0C0A12" : "#F6F4FC";
-  const titleColor = isDark ? "#F5F3FA" : "#1A1030";
-  const metaColor = isDark ? "#948CA8" : "#6B6480";
-  const labelColor = isDark ? "#6E6684" : "#8A829E";
-  const cardBg = isDark ? "#141019" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
-
   const [submitting, setSubmitting] = useState(false);
-  const invitationId = route?.params?.invitationId ?? "";
-  const teamName = route?.params?.teamName ?? "Beach Titans";
-  const teamInitials = route?.params?.teamInitials ?? "BT";
-  const inviterName = route?.params?.inviterName ?? "Marcos Silva";
+
+  const { data: pending, loading, error, refetch } = useApi(() => teamsService.getPendingInvitations(), []);
+  useFocusEffect(useCallback(() => { refetch({ keepData: false }); }, [refetch]));
+  const invite = pending?.find((i) => i.id === invitationId);
+
+  const teamId = invite?.team.id ?? route?.params?.teamId ?? "";
+  const teamName = invite?.team.name ?? route?.params?.teamName ?? "";
+  const teamInitials = teamName ? initialsOf(teamName) : "?";
+  const teamAvatarUrl = invite?.team.avatarUrl ?? null;
+  const inviterName = invite?.inviter?.name ?? route?.params?.inviterName ?? "";
+  const members = invite?.team.members ?? [];
+  const expiresInDays = daysUntil(invite?.expiresAt ?? null);
 
   const handleAccept = async () => {
     if (!invitationId) { setStep("success"); return; }
@@ -57,7 +70,7 @@ export function TeamInviteScreen({ navigation, route }: any) {
       await teamsService.acceptInvitation(invitationId);
       setStep("success");
     } catch (err: any) {
-      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível aceitar o convite.");
+      Alert.alert("Erro", getErrorMessage(err, "Não foi possível aceitar o convite."));
     } finally {
       setSubmitting(false);
     }
@@ -70,125 +83,100 @@ export function TeamInviteScreen({ navigation, route }: any) {
       await teamsService.rejectInvitation(invitationId);
       navigation?.goBack();
     } catch (err: any) {
-      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível recusar o convite.");
+      Alert.alert("Erro", getErrorMessage(err, "Não foi possível recusar o convite."));
     } finally {
       setSubmitting(false);
     }
   };
 
-  // ============ SUCCESS ============
-  if (step === "success") {
+  // ============ LOADING ============
+  if (loading && !pending) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
-        <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 40 }}>
-          {/* Success circle */}
-          <View style={{
-            width: 96, height: 96, borderRadius: 48,
-            backgroundColor: isDark ? "rgba(198,248,42,.1)" : "rgba(124,58,237,.08)",
-            alignItems: "center", justifyContent: "center", marginBottom: 28,
-            shadowColor: isDark ? "rgba(198,248,42,.2)" : "rgba(124,58,237,.15)",
-            shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 60, elevation: 4,
-          }}>
-            <Svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth={2.5}>
-              <Path d="m5 12 5 5 9-11" />
-            </Svg>
-          </View>
-
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 24, fontWeight: "700", letterSpacing: -0.02 * 24, textAlign: "center" }}>
-            Você entrou no time!
-          </Text>
-          <Text style={{ color: metaColor, fontFamily: "Manrope_400Regular", fontSize: 14, fontWeight: "400", lineHeight: 22, marginTop: 10, textAlign: "center" }}>
-            Agora você é membro do{" "}
-            <Text style={{ color: accentColor, fontWeight: "600" }}>{teamName}</Text>
-          </Text>
-
-          {/* Mini team card */}
-          <View style={{
-            backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
-            borderRadius: 20, padding: 18, marginTop: 28, width: "100%",
-            ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.1)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
-          }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <View style={{
-                width: 48, height: 48, borderRadius: 16,
-                backgroundColor: isDark ? "#2D1B69" : "#E8DEFF",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Text style={{ color: isDark ? "#C6F82A" : "#7C3AED", fontFamily: "SpaceGrotesk_700Bold", fontSize: 16, fontWeight: "700" }}>{teamInitials}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 15, fontWeight: "600" }}>{teamName}</Text>
-                <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500", marginTop: 2 }}>4 membros</Text>
-              </View>
-              <View style={{
-                paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8,
-                backgroundColor: isDark ? "rgba(198,248,42,.1)" : "rgba(124,58,237,.08)",
-              }}>
-                <Text style={{ color: isDark ? "#C6F82A" : "#7C3AED", fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, fontWeight: "700" }}>MEMBRO</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* CTAs */}
-          <Pressable
-            onPress={() => navigation?.navigate("TeamDetail", { id: route?.params?.teamId ?? "" })}
-            accessibilityRole="button"
-            accessibilityLabel="Ver meu time"
-            style={{
-              width: "100%", paddingVertical: 16, borderRadius: 16, marginTop: 28,
-              backgroundColor: accentColor,
-              alignItems: "center", justifyContent: "center",
-              ...(isDark ? {} : { shadowColor: "rgba(124,58,237,.6)", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 1, shadowRadius: 24, elevation: 6 }),
-            }}
-          >
-            <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700", letterSpacing: 0.03 * 14 }}>
-              VER MEU TIME
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation?.navigate("MainTabs")}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar à home"
-            style={{
-              width: "100%", paddingVertical: 16, borderRadius: 16, marginTop: 10,
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,.1)" : "rgba(26,16,48,.1)",
-              backgroundColor: "transparent",
-              alignItems: "center", justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: metaColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>
-              VOLTAR À HOME
-            </Text>
-          </Pressable>
+      <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
+        <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+        <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
+          <Skeleton width={40} height={40} radius={14} style={{ marginBottom: 28 }} />
+          <Skeleton width={80} height={80} radius={24} style={{ alignSelf: "center", marginBottom: 24 }} />
+          <Skeleton height={22} radius={6} style={{ marginBottom: 12, alignSelf: "center", width: 200 }} />
+          <Skeleton height={160} radius={22} style={{ marginTop: 24 }} />
         </View>
       </SafeAreaView>
     );
   }
 
+  // ============ NOT FOUND / EXPIRED ============
+  if (!loading && (error || !invite)) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+        <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 20, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 8, textAlign: "center" }}>
+          Convite não encontrado
+        </Text>
+        <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 13, textAlign: "center", maxWidth: 260, marginBottom: 20 }}>
+          Este convite já foi respondido, expirou, ou não existe mais.
+        </Text>
+        <Pressable onPress={() => navigation?.goBack()} accessibilityRole="button">
+          <Text style={{ color: TC.lime, fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 1, textTransform: "uppercase" }}>Voltar</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  // ============ SUCCESS ============
+  if (step === "success") {
+    return (
+      <CelebrationScreen
+        overline="Convite aceito"
+        title={"BEM-VINDO\nAO TIME"}
+        subtitle={
+          <>
+            Agora você é membro do{" "}
+            <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Manrope_700Bold" }}>{teamName}</Text>
+          </>
+        }
+        ctaLabel="Ver meu time"
+        onCta={() => navigation?.reset({
+          index: 1,
+          routes: [
+            { name: "MainTabs", state: { routes: [{ name: "Profile" }] } },
+            { name: "TeamDetail", params: { id: teamId } },
+          ],
+        })}
+        secondaryLabel="Voltar à home"
+        onSecondary={() => navigation?.navigate("MainTabs")}
+        secondaryVariant="outline"
+        accentColor={TC.isDark ? undefined : TC.purple}
+        ctaTextColor={TC.isDark ? undefined : "#FFFFFF"}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View style={{ width: 48, height: 48, borderRadius: 16, borderWidth: 2, borderColor: TC.lime, backgroundColor: TC.purpleDeep, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            {teamAvatarUrl ? (
+              <Image source={{ uri: teamAvatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+            ) : (
+              <Text style={{ color: TC.lime, fontFamily: "Anton_400Regular", fontSize: 16 }}>{teamInitials}</Text>
+            )}
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: TC.tx, fontFamily: "Manrope_700Bold", fontSize: 15 }}>{teamName}</Text>
+            <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 12, marginTop: 2 }}>{members.length + 1} membros</Text>
+          </View>
+          <View style={{ paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, backgroundColor: TC.limeTintBg }}>
+            <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 0.6 }}>MEMBRO</Text>
+          </View>
+        </View>
+      </CelebrationScreen>
+    );
+  }
+
   // ============ INVITE VIEW ============
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
+      <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
       <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 16 }}>
         {/* Header */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 }}>
-          <Pressable
-            onPress={() => navigation?.goBack()}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-            style={{
-              width: 40, height: 40, borderRadius: 14,
-              backgroundColor: isDark ? "#171320" : "#FFFFFF",
-              borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)",
-              alignItems: "center", justifyContent: "center",
-              ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.2)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 2 }),
-            }}
-          >
-            <Icon name="back" size={19} color={isDark ? "#CFC8E0" : "#4A4460"} strokeWidth={2.2} />
-          </Pressable>
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, fontWeight: "700", letterSpacing: -0.02 * 20 }}>
+          <BackButton onPress={() => navigation?.goBack()} />
+          <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 22, letterSpacing: 0.4, textTransform: "uppercase" }}>
             Convite de time
           </Text>
         </View>
@@ -196,10 +184,10 @@ export function TeamInviteScreen({ navigation, route }: any) {
         {/* Envelope icon */}
         <View style={{
           width: 80, height: 80, borderRadius: 24,
-          backgroundColor: isDark ? "rgba(139,92,246,.1)" : "rgba(124,58,237,.08)",
+          backgroundColor: TC.purpleTintBg,
           alignItems: "center", justifyContent: "center", alignSelf: "center", marginBottom: 24,
         }}>
-          <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={1.5}>
+          <Svg width={40} height={40} viewBox="0 0 24 24" fill="none" stroke={TC.isDark ? TC.lime : TC.purple} strokeWidth={1.5}>
             <Path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4-4v2" />
             <Circle cx={9} cy={7} r={4} />
             <Path d="M22 21v-2a4 4 0 00-3-3.87" />
@@ -207,75 +195,61 @@ export function TeamInviteScreen({ navigation, route }: any) {
           </Svg>
         </View>
 
-        <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, fontWeight: "700", letterSpacing: -0.02 * 22, textAlign: "center" }}>
+        <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 24, letterSpacing: 0.4, textTransform: "uppercase", textAlign: "center" }}>
           Você foi convidado!
         </Text>
-        <Text style={{ color: metaColor, fontFamily: "Manrope_400Regular", fontSize: 13.5, fontWeight: "400", lineHeight: 22, marginTop: 8, textAlign: "center" }}>
-          <Text style={{ color: accentColor, fontWeight: "600" }}>{inviterName}</Text>
-          {" "}convidou você para entrar no time
-        </Text>
+        {!!inviterName && (
+          <Text style={{ color: TC.tx2, fontFamily: "Manrope_400Regular", fontSize: 13.5, lineHeight: 22, marginTop: 8, textAlign: "center" }}>
+            <Text style={{ color: TC.lime, fontFamily: "Manrope_700Bold" }}>{inviterName}</Text>
+            {" "}convidou você para entrar no time
+          </Text>
+        )}
 
         {/* Team card */}
         <View style={{
-          backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
+          backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder,
           borderRadius: 22, padding: 20, marginTop: 24,
-          ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.1)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 2 }),
         }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 }}>
-            <View style={{
-              width: 56, height: 56, borderRadius: 18,
-              backgroundColor: isDark ? "#2D1B69" : "#E8DEFF",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Text style={{ color: isDark ? "#C6F82A" : "#7C3AED", fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, fontWeight: "700" }}>
-                {teamInitials}
-              </Text>
+            <View style={{ width: 56, height: 56, borderRadius: 18, borderWidth: 2, borderColor: TC.lime, backgroundColor: TC.purpleDeep, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+              {teamAvatarUrl ? (
+                <Image source={{ uri: teamAvatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+              ) : (
+                <Text style={{ color: TC.lime, fontFamily: "Anton_400Regular", fontSize: 20 }}>
+                  {teamInitials}
+                </Text>
+              )}
             </View>
             <View>
-              <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 18, fontWeight: "700" }}>{teamName}</Text>
-              <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500", marginTop: 3 }}>Criado em Jun 2026</Text>
+              <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 18, letterSpacing: 0.3, textTransform: "uppercase" }}>{teamName}</Text>
+              <Text style={{ color: TC.tx2, fontFamily: "Manrope_500Medium", fontSize: 12, marginTop: 3 }}>{members.length} {members.length === 1 ? "membro" : "membros"}</Text>
             </View>
           </View>
 
-          <View style={{ height: 1, backgroundColor: isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)", marginBottom: 16 }} />
+          <View style={{ height: 1, backgroundColor: TC.cardBorder, marginBottom: 16 }} />
 
-          <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", marginBottom: 10 }}>MEMBROS ATUAIS</Text>
+          <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 12 }}>Membros atuais</Text>
           <View style={{ gap: 10 }}>
-            {MOCK_MEMBERS.map((m) => (
+            {members.map((m, i) => (
               <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {m.isGradient ? (
-                  <LinearGradient
-                    colors={isDark ? ["#8B5CF6", "#C6F82A"] : ["#7C3AED", "#C6F82A"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{ width: 34, height: 34, borderRadius: 11, alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 11, fontWeight: "700" }}>{m.initials}</Text>
-                  </LinearGradient>
-                ) : (
-                  <View style={{
-                    width: 34, height: 34, borderRadius: 11,
-                    backgroundColor: isDark ? m.colorBg : (m.colorBg === "#4A1942" ? "#FCE7F3" : "#D1FAE5"),
-                    alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Text style={{
-                      color: isDark ? m.colorText : (m.colorText === "#F472B6" ? "#DB2777" : "#059669"),
-                      fontFamily: "SpaceGrotesk_700Bold", fontSize: 11, fontWeight: "700",
-                    }}>{m.initials}</Text>
-                  </View>
-                )}
+                <View style={{
+                  width: 34, height: 34, borderRadius: 11, overflow: "hidden",
+                  borderWidth: i === 0 ? 2 : 0, borderColor: TC.lime,
+                  backgroundColor: i === 0 ? TC.purpleDeep : "rgba(255,255,255,0.06)",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  {m.user.avatarUrl ? (
+                    <Image source={{ uri: m.user.avatarUrl }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+                  ) : (
+                    <Text style={{ color: i === 0 ? TC.lime : TC.tx2, fontFamily: "Oswald_700Bold", fontSize: 11 }}>{initialsOf(m.user.name)}</Text>
+                  )}
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 13, fontWeight: "600" }}>{m.name}</Text>
+                  <Text style={{ color: TC.tx, fontFamily: "Manrope_600SemiBold", fontSize: 13 }}>{m.user.name}</Text>
                 </View>
                 {m.isCaptain && (
-                  <View style={{
-                    paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6,
-                    backgroundColor: isDark ? "rgba(198,248,42,.1)" : "rgba(124,58,237,.08)",
-                  }}>
-                    <Text style={{
-                      color: isDark ? "#C6F82A" : "#7C3AED",
-                      fontFamily: "SpaceGrotesk_700Bold", fontSize: 9, fontWeight: "700",
-                    }}>CAPITÃO</Text>
+                  <View style={{ paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: TC.limeTintBg }}>
+                    <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Oswald_700Bold", fontSize: 9, letterSpacing: 0.5 }}>CAPITÃO</Text>
                   </View>
                 )}
               </View>
@@ -287,36 +261,45 @@ export function TeamInviteScreen({ navigation, route }: any) {
         <View style={{ flexDirection: "row", gap: 10, marginTop: 24 }}>
           <Pressable
             onPress={handleReject}
+            disabled={submitting}
             accessibilityRole="button"
             accessibilityLabel="Recusar convite"
             style={{
               flex: 1, paddingVertical: 16, borderRadius: 16,
               borderWidth: 1,
-              borderColor: isDark ? "rgba(239,68,68,.25)" : "rgba(239,68,68,.2)",
-              backgroundColor: isDark ? "rgba(239,68,68,.06)" : "rgba(239,68,68,.05)",
+              borderColor: "rgba(255,77,94,0.3)",
+              backgroundColor: "rgba(255,77,94,0.08)",
               alignItems: "center", justifyContent: "center",
+              opacity: submitting ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: isDark ? "#FF6B79" : "#EF4444", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>RECUSAR</Text>
+            <Text style={{ color: TC.danger, fontFamily: "Oswald_700Bold", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>Recusar</Text>
           </Pressable>
           <Pressable
             onPress={handleAccept}
+            disabled={submitting}
             accessibilityRole="button"
             accessibilityLabel="Aceitar convite"
             style={{
               flex: 2, paddingVertical: 16, borderRadius: 16,
-              backgroundColor: accentColor,
+              backgroundColor: TC.purple,
               alignItems: "center", justifyContent: "center",
-              ...(isDark ? {} : { shadowColor: "rgba(124,58,237,.6)", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 1, shadowRadius: 24, elevation: 6 }),
+              opacity: submitting ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700" }}>ACEITAR</Text>
+            {submitting ? (
+              <ActivityIndicator size="small" color={TC.tx} />
+            ) : (
+              <Text style={{ color: TC.tx, fontFamily: "Oswald_700Bold", fontSize: 14, letterSpacing: 1, textTransform: "uppercase" }}>Aceitar</Text>
+            )}
           </Pressable>
         </View>
 
-        <Text style={{ color: labelColor, fontFamily: "Manrope_400Regular", fontSize: 11.5, fontWeight: "400", textAlign: "center", marginTop: 14 }}>
-          O convite expira em <Text style={{ color: isDark ? "#948CA8" : "#6B6480", fontWeight: "600" }}>6 dias</Text>
-        </Text>
+        {expiresInDays !== null && (
+          <Text style={{ color: TC.tx3, fontFamily: "Manrope_400Regular", fontSize: 11.5, textAlign: "center", marginTop: 14 }}>
+            O convite expira em <Text style={{ color: TC.tx2, fontFamily: "Manrope_700Bold" }}>{expiresInDays} {expiresInDays === 1 ? "dia" : "dias"}</Text>
+          </Text>
+        )}
       </View>
     </SafeAreaView>
   );

@@ -1,35 +1,46 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
   Pressable,
-  TextInput,
   StatusBar,
   ScrollView,
   Alert,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
-import Svg, { Path, Circle, Rect, Polyline, Polygon, Line } from "react-native-svg";
+import * as ScreenOrientation from "expo-screen-orientation";
+import Svg, { Path, Circle, Rect, Polygon } from "react-native-svg";
 import { matchesService, MatchDTO } from "@/services/matchesService";
+import { getErrorMessage } from "@/services/api";
+import { formatDate, formatTime } from "@/utils/dateFormat";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { useTheme } from "@/hooks/useTheme";
 
-type RefereeStep = "code" | "pregame" | "live" | "setEnd";
+type RefereeStep = "loading" | "pregame" | "live" | "setEnd";
+
+const TYPE_LABEL: Record<string, string> = { MALE: "Masculino", FEMALE: "Feminino", MIX: "Misto" };
+const FORMAT_LABEL: Record<string, string> = { PAIR: "Dupla", QUARTET: "Quarteto", SEXTET: "Sexteto" };
 
 interface TeamInfo {
   initials: string;
   name: string;
   seed: string;
+  avatarUrl: string | null;
 }
 
-const TEAM_A: TeamInfo = { initials: "SR", name: "Silva & Rocha", seed: "Seed #1" };
-const TEAM_B: TeamInfo = { initials: "PA", name: "Praia Aces", seed: "Seed #4" };
+function getInitials(name: string): string {
+  return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+}
 
-export function RefereeScreen({ navigation }: any) {
+export function RefereeScreen({ navigation, route }: any) {
   const { isDark } = useTheme();
-  const [step, setStep] = useState<RefereeStep>("code");
-  const [code, setCode] = useState<string[]>(["", "", "", "", "", ""]);
+  const initialMatchId = route?.params?.matchId;
+
+  const [step, setStep] = useState<RefereeStep>("loading");
+  const [claimError, setClaimError] = useState<string | null>(null);
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
   const [setsA, setSetsA] = useState(0);
@@ -41,86 +52,91 @@ export function RefereeScreen({ navigation }: any) {
 
   const [matchData, setMatchData] = useState<MatchDTO | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
-  const [enteringCode, setEnteringCode] = useState(false);
-  const inputRefs = useRef<(TextInput | null)[]>([]);
 
   const teamA: TeamInfo = matchData
-    ? { initials: matchData.teamA.initials || matchData.teamA.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(), name: matchData.teamA.name, seed: "" }
-    : TEAM_A;
+    ? { initials: matchData.teamA.initials || getInitials(matchData.teamA.name), name: matchData.teamA.name, seed: "", avatarUrl: matchData.teamA.avatarUrl ?? null }
+    : { initials: "??", name: "Time A", seed: "", avatarUrl: null };
   const teamB: TeamInfo = matchData
-    ? { initials: matchData.teamB.initials || matchData.teamB.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(), name: matchData.teamB.name, seed: "" }
-    : TEAM_B;
+    ? { initials: matchData.teamB.initials || getInitials(matchData.teamB.name), name: matchData.teamB.name, seed: "", avatarUrl: matchData.teamB.avatarUrl ?? null }
+    : { initials: "??", name: "Time B", seed: "", avatarUrl: null };
 
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
-  const titleColor = isDark ? "#F5F3FA" : "#1A1428";
-  const metaColor = isDark ? "#948CA8" : "#847B98";
-  const labelColor = isDark ? "#6E6684" : "#9488A6";
-  const cardBg = isDark ? "#141019" : "#FFFFFF";
-  const cardBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.07)";
-  const iconBg = isDark ? "#1C1630" : "#F0ECFA";
-  const dividerColor = isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)";
-  const backBtnBg = isDark ? "#171320" : "#FFFFFF";
-  const backBtnBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)";
-  const gradientBg = isDark
-    ? ["rgba(12,10,18,0)", "#0C0A12"] as const
-    : ["rgba(247,245,252,0)", "#F7F5FC"] as const;
-  const ctaBg = isDark ? "#C6F82A" : "#7C3AED";
-  const ctaText = isDark ? "#12100A" : "#FFFFFF";
+  const accentColor = "#C6F82A";
+  const primary = "#7C3AED";
+  const screenBg = "#000000";
+  const titleColor = "#FFFFFF";
+  const metaColor = "#9A94A8";
+  const labelColor = "#6E6684";
+  const cardBg = "#16181C";
+  const cardBorder = "rgba(255,255,255,0.07)";
+  const iconBg = "rgba(124,58,237,0.16)";
+  const dividerColor = "rgba(255,255,255,0.06)";
+  const backBtnBg = "#16181C";
+  const backBtnBorder = "rgba(255,255,255,0.07)";
+  const gradientBg = ["rgba(0,0,0,0)", "#000000"] as const;
+  const ctaBg = "#7C3AED";
+  const ctaText = "#FFFFFF";
   const teamAGradient = ["#8B5CF6", "#6D3BEA"] as const;
-  const teamBBg = isDark ? "#221B33" : "#F0ECFA";
-  const teamBText = isDark ? "#CFC8E0" : "#7C3AED";
-  const separatorColor = isDark ? "#3A3350" : "#DFD7EE";
-  const connectedBg = isDark ? "rgba(198,248,42,.14)" : "rgba(92,122,0,.12)";
-  const connectedDot = isDark ? "#C6F82A" : "#5C7A00";
-  const connectedText = isDark ? "#C6F82A" : "#5C7A00";
-  const warningBg = isDark ? "rgba(198,248,42,.08)" : "rgba(124,58,237,.07)";
-  const warningBorder = isDark ? "rgba(198,248,42,.18)" : "rgba(124,58,237,.15)";
-  const warningText = isDark ? "#C6F82A" : "#6B6480";
-  const warningIcon = isDark ? "#C6F82A" : "#7C3AED";
-  const pregameCardBg = isDark ? ["#1B1530", "#120E1D"] as const : ["#7C3AED", "#5B2BC4"] as const;
-  const pregameVsText = isDark ? "#6E6684" : "rgba(255,255,255,.6)";
-  const pregameVsBg = isDark ? "#1A1530" : "rgba(255,255,255,.12)";
-  const pregameVsBorder = isDark ? "rgba(255,255,255,.08)" : "transparent";
-  const pregameTeamName = isDark ? "#F5F3FA" : "#FFFFFF";
-  const pregameSeedText = isDark ? "#948CA8" : "rgba(255,255,255,.7)";
-  const pregameTeamABg = isDark ? undefined : "rgba(255,255,255,.2)";
-  const pregameTeamBBg = isDark ? "#221B33" : "rgba(255,255,255,.15)";
-  const pregameTeamBText = isDark ? "#CFC8E0" : "#FFFFFF";
+  const teamBBg = "#241B38";
+  const teamBText = "#CFC8E0";
+  const separatorColor = "#3A3350";
+  const connectedBg = "rgba(198,248,42,0.14)";
+  const connectedDot = "#C6F82A";
+  const connectedText = "#C6F82A";
+  const warningBg = "rgba(198,248,42,0.08)";
+  const warningBorder = "rgba(198,248,42,0.18)";
+  const warningText = "#C6F82A";
+  const warningIcon = "#C6F82A";
+  const pregameCardBg = ["#16181C", "#16181C"] as const;
+  const pregameVsText = "#C6F82A";
+  const pregameVsBg = "rgba(255,255,255,0.06)";
+  const pregameVsBorder = "rgba(255,255,255,0.1)";
+  const pregameTeamName = "#FFFFFF";
+  const pregameSeedText = "#9A94A8";
+  const pregameTeamABg = undefined;
+  const pregameTeamBBg = "#241B38";
+  const pregameTeamBText = "#CFC8E0";
 
-  const codeComplete = code.every((d) => d !== "");
-
-  const handleCodeInput = (text: string, index: number) => {
-    const digit = text.replace(/[^0-9]/g, "").slice(-1);
-    const newCode = [...code];
-    newCode[index] = digit;
-    setCode(newCode);
-    if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus();
-    }
-  };
-
-  const handleCodeKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleEnterMatch = async () => {
-    if (!codeComplete) return;
-    setEnteringCode(true);
+  // Claiming (and the out-of-order check) now happens on the shared bracket
+  // screen ("Ver chaves") before navigating here — this screen just picks up
+  // straight from claim: pregame if the match hasn't started, live (with
+  // state restored from the server) if resuming one already in progress.
+  const claimAndEnter = async (gameId: string) => {
+    setClaimError(null);
     try {
-      const fullCode = code.join("");
-      const match = await matchesService.refereeEnter(fullCode);
+      const match: any = await matchesService.claimMatch(gameId);
       setMatchData(match);
       setMatchId(match.id);
-      setStep("pregame");
+
+      if (match.status === "IN_PROGRESS" && Array.isArray(match.sets) && match.sets.length > 0) {
+        const sets = match.sets as { setNumber: number; scoreA: number; scoreB: number }[];
+        const last = sets[sets.length - 1];
+        setScoreA(last.scoreA);
+        setScoreB(last.scoreB);
+        setSetsA(match.scoreTeamA ?? 0);
+        setSetsB(match.scoreTeamB ?? 0);
+        setCurrentSet(last.setNumber);
+        setSetHistory(sets.slice(0, -1).map((s) => ({ scoreA: s.scoreA, scoreB: s.scoreB })));
+        setStep("live");
+      } else {
+        setStep("pregame");
+      }
     } catch (err: any) {
-      Alert.alert("Código inválido", err?.response?.data?.message || "Não foi possível entrar na partida.");
-    } finally {
-      setEnteringCode(false);
+      setClaimError(getErrorMessage(err, "Não foi possível selecionar esta partida."));
     }
   };
+
+  useEffect(() => {
+    if (initialMatchId) claimAndEnter(initialMatchId);
+    else setClaimError("Nenhuma partida selecionada.");
+  }, [initialMatchId]);
+
+  // Landscape only on the live scoring console; portrait everywhere else.
+  useEffect(() => {
+    ScreenOrientation.lockAsync(
+      step === "live" ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP,
+    ).catch(() => {});
+  }, [step]);
+  useEffect(() => () => { ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {}); }, []);
 
   const handleStartMatch = async () => {
     if (matchId) {
@@ -131,30 +147,53 @@ export function RefereeScreen({ navigation }: any) {
     setStep("live");
   };
 
+  // Points are applied optimistically to local state, but a registerPoint
+  // failure must NOT stay silent — otherwise the backend score quietly drifts
+  // from what's on screen, and the mismatch only surfaces later as a broken
+  // "finished" match (zeros, wrong winner) once finishMatch rejects.
+  const warnPointNotSaved = (err: any) => {
+    Alert.alert("Ponto não salvo", getErrorMessage(err, "Este ponto pode não ter sido salvo no servidor. Verifique a conexão."));
+  };
+
+  // Guards against the point buttons firing twice for a single tap (observed
+  // in practice: SET_FINISH/MATCH_FINISH landing in pairs a few ms apart) —
+  // a real finger can't double-tap that fast, so a short cooldown per team
+  // is a safe way to swallow the duplicate without slowing down real play.
+  const lastPointAt = useRef<{ A: number; B: number }>({ A: 0, B: 0 });
+  const POINT_DEBOUNCE_MS = 250;
+
   const handlePointA = async () => {
+    const now = Date.now();
+    if (now - lastPointAt.current.A < POINT_DEBOUNCE_MS) return;
+    lastPointAt.current.A = now;
     const newScore = scoreA + 1;
     setScoreA(newScore);
-    if (matchId) matchesService.registerPoint(matchId, { team: "A" }).catch(() => {});
+    setServingTeam("A"); // rally-point rule: whoever wins the point serves next
+    if (matchId) matchesService.registerPoint(matchId, { team: "A" }).catch(warnPointNotSaved);
     if (newScore >= 21 && newScore - scoreB >= 2) {
       setLastSetScore({ scoreA: newScore, scoreB });
       const newSetsA = setsA + 1;
       setSetsA(newSetsA);
       setSetHistory([...setHistory, { scoreA: newScore, scoreB }]);
-      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(() => {});
+      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(warnPointNotSaved);
       setStep("setEnd");
     }
   };
 
   const handlePointB = async () => {
+    const now = Date.now();
+    if (now - lastPointAt.current.B < POINT_DEBOUNCE_MS) return;
+    lastPointAt.current.B = now;
     const newScore = scoreB + 1;
     setScoreB(newScore);
-    if (matchId) matchesService.registerPoint(matchId, { team: "B" }).catch(() => {});
+    setServingTeam("B"); // rally-point rule: whoever wins the point serves next
+    if (matchId) matchesService.registerPoint(matchId, { team: "B" }).catch(warnPointNotSaved);
     if (newScore >= 21 && newScore - scoreA >= 2) {
       setLastSetScore({ scoreA, scoreB: newScore });
       const newSetsB = setsB + 1;
       setSetsB(newSetsB);
       setSetHistory([...setHistory, { scoreA, scoreB: newScore }]);
-      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(() => {});
+      if (matchId) matchesService.finishSet(matchId, { setNumber: currentSet }).catch(warnPointNotSaved);
       setStep("setEnd");
     }
   };
@@ -169,6 +208,41 @@ export function RefereeScreen({ navigation }: any) {
 
   const handleToggleServe = () => setServingTeam(servingTeam === "A" ? "B" : "A");
 
+  const [timeoutDialogVisible, setTimeoutDialogVisible] = useState(false);
+  const [timeoutTeam, setTimeoutTeam] = useState<"A" | "B" | null>(null);
+
+  const handleTimeout = () => {
+    setTimeoutTeam(null);
+    setTimeoutDialogVisible(true);
+  };
+
+  const [activeTimeoutTeam, setActiveTimeoutTeam] = useState<"A" | "B" | null>(null);
+  const [timeoutSecondsLeft, setTimeoutSecondsLeft] = useState(60);
+
+  const confirmTimeout = () => {
+    if (!timeoutTeam) return;
+    if (matchId) matchesService.registerTimeout(matchId, { team: timeoutTeam }).catch(() => {});
+    setTimeoutDialogVisible(false);
+    setActiveTimeoutTeam(timeoutTeam);
+    setTimeoutSecondsLeft(60);
+  };
+
+  useEffect(() => {
+    if (!activeTimeoutTeam) return;
+    if (timeoutSecondsLeft <= 0) {
+      setActiveTimeoutTeam(null);
+      return;
+    }
+    const id = setTimeout(() => setTimeoutSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(id);
+  }, [activeTimeoutTeam, timeoutSecondsLeft]);
+
+  const handleHistory = () => {
+    const lines = setHistory.map((s, i) => `Set ${i + 1}:  ${s.scoreA} — ${s.scoreB}`);
+    lines.push(`Set ${currentSet} (atual):  ${scoreA} — ${scoreB}`);
+    Alert.alert(`Histórico · Sets ${setsA}—${setsB}`, lines.join("\n"));
+  };
+
   const handleStartNextSet = () => {
     setScoreA(0);
     setScoreB(0);
@@ -176,14 +250,45 @@ export function RefereeScreen({ navigation }: any) {
     setStep("live");
   };
 
+  const [finishingMatch, setFinishingMatch] = useState(false);
+  // `finishingMatch` state isn't enough on its own: React batches/delays the
+  // re-render, so a near-simultaneous double-fire of onPress can have BOTH
+  // calls read the stale `false` before either commit. A ref is synchronous —
+  // set it before anything else can interleave.
+  const finishInFlight = useRef(false);
+
   const handleFinishMatch = async () => {
-    if (matchId) {
-      try { await matchesService.finishMatch(matchId); } catch {}
+    if (finishInFlight.current) return;
+    finishInFlight.current = true;
+    const finishedMatchId = matchId;
+    if (!finishedMatchId) { finishInFlight.current = false; return; }
+    setFinishingMatch(true);
+    try {
+      await matchesService.finishMatch(finishedMatchId);
+    } catch (err: any) {
+      // MATCH_NOT_IN_PROGRESS means a duplicate tap already finished it (or
+      // it was finished elsewhere) — the match IS done, so proceed to the
+      // result screen instead of blocking the referee with a false error.
+      if (err?.response?.data?.code !== "MATCH_NOT_IN_PROGRESS") {
+        setFinishingMatch(false);
+        finishInFlight.current = false;
+        // Don't navigate to MatchResult on any other failure — that screen
+        // would show a fabricated "finished" state (zeros, wrong winner) for
+        // a match that's genuinely still IN_PROGRESS on the server.
+        Alert.alert("Erro ao encerrar partida", getErrorMessage(err, "Não foi possível encerrar a partida. Tente novamente."));
+        return;
+      }
     }
-    navigation?.navigate("MatchResult", { matchId: matchId ?? "mock-match-1" });
+    setFinishingMatch(false);
+    // This screen's one job was this match — push the result on top and
+    // leave it be. "Voltar ao chaveamento" from there goes to the shared
+    // bracket/standings screen ("Ver chaves"), not back through here.
+    navigation?.navigate("MatchResult", { matchId: finishedMatchId ?? "mock-match-1" });
   };
 
-  const matchWon = setsA >= 2 || setsB >= 2;
+  const bestOfSets = (matchData as any)?.bestOfSets ?? 3;
+  const setsToWin = Math.ceil(bestOfSets / 2);
+  const matchWon = setsA >= setsToWin || setsB >= setsToWin;
 
   const renderBackButton = (onPress: () => void) => (
     <Pressable
@@ -202,7 +307,10 @@ export function RefereeScreen({ navigation }: any) {
     </Pressable>
   );
 
-  const renderTeamAvatar = (initials: string, isTeamA: boolean, size: number) => {
+  const renderTeamAvatar = (initials: string, isTeamA: boolean, size: number, avatarUrl?: string | null) => {
+    if (avatarUrl) {
+      return <Image source={{ uri: avatarUrl }} style={{ width: size, height: size, borderRadius: size * 0.31 }} />;
+    }
     if (isTeamA) {
       return (
         <LinearGradient
@@ -210,145 +318,69 @@ export function RefereeScreen({ navigation }: any) {
           start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }}
           style={{ width: size, height: size, borderRadius: size * 0.31, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: size * 0.31 }}>{initials}</Text>
+          <Text style={{ color: "#fff", fontFamily: "Oswald_700Bold", fontSize: size * 0.31 }}>{initials}</Text>
         </LinearGradient>
       );
     }
     return (
       <View style={{ width: size, height: size, borderRadius: size * 0.31, backgroundColor: teamBBg, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ color: teamBText, fontFamily: "SpaceGrotesk_700Bold", fontSize: size * 0.31 }}>{initials}</Text>
+        <Text style={{ color: teamBText, fontFamily: "Oswald_700Bold", fontSize: size * 0.31 }}>{initials}</Text>
       </View>
     );
   };
 
-  // ─── STEP 1: CODE ENTRY ───
-  if (step === "code") {
+  // ─── STEP 1: CLAIMING (loading / error) ───
+  if (step === "loading") {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: screenBg, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-        <View style={{ paddingHorizontal: 24, paddingTop: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 48 }}>
-            {renderBackButton(() => navigation?.goBack())}
-            <Text style={{ flex: 1, color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, letterSpacing: -0.2 }}>
-              Entrar como árbitro
+        {claimError ? (
+          <>
+            <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 14, textAlign: "center", marginBottom: 16 }}>
+              {claimError}
             </Text>
-          </View>
-
-          <View style={{ alignItems: "center" }}>
-            <LinearGradient
-              colors={isDark ? ["rgba(139,92,246,.22)", "rgba(198,248,42,.12)"] : ["rgba(124,58,237,.12)", "rgba(92,122,0,.1)"]}
-              start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }}
-              style={{
-                width: 80, height: 80, borderRadius: 26, alignItems: "center", justifyContent: "center",
-                marginBottom: 28, borderWidth: 1, borderColor: isDark ? "rgba(139,92,246,.3)" : "rgba(124,58,237,.2)",
-              }}
-            >
-              <Svg width={38} height={38} viewBox="0 0 24 24" fill="none">
-                <Path d="M2 8a4 4 0 014-4h1a2 2 0 012 2v2a2 2 0 01-2 2H6" stroke={accentColor} strokeWidth={1.8} />
-                <Path d="M6 8v9a3 3 0 003 3h6a3 3 0 003-3V8" stroke={accentColor} strokeWidth={1.8} />
-                <Path d="M18 8h1a2 2 0 002-2V4a2 2 0 00-2-2h-1a4 4 0 00-4 4" stroke={accentColor} strokeWidth={1.8} />
-                <Circle cx={12} cy={13} r={2} stroke={accentColor} strokeWidth={1.8} />
-              </Svg>
-            </LinearGradient>
-
-            <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 22, letterSpacing: -0.2, marginBottom: 8 }}>
-              Código da partida
-            </Text>
-            <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 13, lineHeight: 19.5, maxWidth: 260, textAlign: "center", marginBottom: 32 }}>
-              Insira o código de 6 dígitos fornecido pelo organizador do torneio.
-            </Text>
-
-            <View style={{ flexDirection: "row", gap: 10, justifyContent: "center", marginBottom: 32 }}>
-              {code.map((digit, i) => (
-                <View
-                  key={i}
-                  style={{
-                    width: 46, height: 56, borderRadius: 14,
-                    backgroundColor: digit ? (isDark ? "#171221" : "#FFFFFF") : (isDark ? "#141019" : "#F0ECFA"),
-                    borderWidth: digit ? 1.5 : 1,
-                    borderColor: digit ? (isDark ? "#8B5CF6" : "#7C3AED") : (isDark ? "rgba(255,255,255,.09)" : "rgba(26,16,48,.1)"),
-                    alignItems: "center", justifyContent: "center",
-                    ...(digit ? { shadowColor: isDark ? "rgba(139,92,246,.12)" : "rgba(124,58,237,.1)", shadowOpacity: 1, shadowOffset: { width: 0, height: 0 }, shadowRadius: 4 } : {}),
-                  }}
-                >
-                  <TextInput
-                    ref={(ref) => { inputRefs.current[i] = ref; }}
-                    value={digit}
-                    onChangeText={(t) => handleCodeInput(t, i)}
-                    onKeyPress={(e) => handleCodeKeyPress(e, i)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    style={{
-                      width: "100%", height: "100%", textAlign: "center",
-                      color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 24,
-                    }}
-                    accessibilityLabel={`Dígito ${i + 1}`}
-                  />
-                </View>
-              ))}
-            </View>
-
-            <View style={{
-              flexDirection: "row", alignItems: "center", gap: 8,
-              backgroundColor: isDark ? "rgba(139,92,246,.12)" : "rgba(124,58,237,.08)",
-              paddingVertical: 10, paddingHorizontal: 16, borderRadius: 14,
-            }}>
-              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-                <Circle cx={12} cy={12} r={9} stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} />
-                <Path d="M12 8v5M12 16.5h.01" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2} />
-              </Svg>
-              <Text style={{ color: isDark ? "#A9A2BC" : "#6B6480", fontFamily: "Manrope_500Medium", fontSize: 12 }}>
-                Peça o código ao organizador da partida
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
-          <LinearGradient colors={[...gradientBg]} style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 26 }}>
-            <View style={{ opacity: codeComplete && !enteringCode ? 1 : 0.5 }}>
-              <Pressable
-                onPress={handleEnterMatch}
-                disabled={!codeComplete || enteringCode}
-                style={{
-                  backgroundColor: ctaBg, paddingVertical: 16, borderRadius: 18,
-                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                  ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOpacity: 0.5, shadowOffset: { width: 0, height: 12 }, shadowRadius: 12, elevation: 8 }),
-                }}
-              >
-                {enteringCode ? (
-                  <ActivityIndicator size="small" color={ctaText} />
-                ) : (
-                  <Text style={{ color: ctaText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, letterSpacing: 0.28 }}>
-                    Entrar na partida
-                  </Text>
-                )}
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="m9 6 6 6-6 6" stroke={ctaText} strokeWidth={2.6} />
-                </Svg>
-              </Pressable>
-            </View>
-          </LinearGradient>
-        </View>
+            <Pressable onPress={() => navigation?.goBack()} accessibilityRole="button">
+              <Text style={{ color: accentColor, fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 1, textTransform: "uppercase" }}>Voltar</Text>
+            </Pressable>
+          </>
+        ) : (
+          <ActivityIndicator size="large" color={accentColor} />
+        )}
       </SafeAreaView>
     );
   }
 
   // ─── STEP 2: PRE-GAME ───
   if (step === "pregame") {
+    const tName = matchData?.tournamentName || "";
+    const md = matchData as any;
+    const matchCategory = md?.bracket?.category;
+    const category = matchCategory
+      ? [TYPE_LABEL[matchCategory.type], FORMAT_LABEL[matchCategory.format]].filter(Boolean).join(" · ")
+      : "";
+    const bestOf = md?.bestOfSets;
+    const format = matchData?.format || (bestOf ? `Melhor de ${bestOf}` : "");
+    // Bracket matches aren't pre-scheduled to a fixed time — the referee starts
+    // them whenever they're ready, so show "now" as the expected kickoff
+    // instead of a blank "--:--" (the real time gets saved as `startedAt` the
+    // moment the match is actually started, further down this flow).
+    const scheduledAt = matchData?.scheduledAt ? new Date(matchData.scheduledAt) : new Date();
+    const dateStr = formatDate(scheduledAt, { day: "2-digit", month: "2-digit" });
+    const timeStr = formatTime(scheduledAt);
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }}>
         <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 100 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 30 }}>
-            {renderBackButton(() => setStep("code"))}
+            {renderBackButton(() => navigation?.goBack())}
             <View style={{ flex: 1 }}>
-              <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, letterSpacing: -0.2 }}>Pré-jogo</Text>
-              <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 12 }}>Copa Verão 2026</Text>
+              <Text style={{ color: titleColor, fontFamily: "Anton_400Regular", fontSize: 24, letterSpacing: 0.3, textTransform: "uppercase" }}>Pré-jogo</Text>
+              {tName ? <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{tName}</Text> : null}
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: connectedBg, paddingVertical: 6, paddingHorizontal: 11, borderRadius: 10 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: connectedDot }} />
-              <Text style={{ color: connectedText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, letterSpacing: 0.4 }}>CONECTADO</Text>
+              <Text style={{ color: connectedText, fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 0.4 }}>CONECTADO</Text>
             </View>
           </View>
 
@@ -361,48 +393,48 @@ export function RefereeScreen({ navigation }: any) {
             <Text style={{ color: isDark ? "#6E6684" : "rgba(255,255,255,.6)", fontFamily: "Manrope_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 14 }}>CONFRONTO</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14 }}>
               <View style={{ flex: 1, alignItems: "center" }}>
-                {isDark ? renderTeamAvatar(teamA.initials, true, 52) : (
+                {isDark ? renderTeamAvatar(teamA.initials, true, 52, teamA.avatarUrl) : (
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: pregameTeamABg, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{teamA.initials}</Text>
+                    <Text style={{ color: "#fff", fontFamily: "Oswald_700Bold", fontSize: 18 }}>{teamA.initials}</Text>
                   </View>
                 )}
                 <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{teamA.name}</Text>
-                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamA.seed}</Text>
+                {teamA.seed ? <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamA.seed}</Text> : null}
               </View>
               <View style={{ alignItems: "center" }}>
                 <View style={{ backgroundColor: pregameVsBg, borderWidth: isDark ? 1 : 0, borderColor: pregameVsBorder, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 10 }}>
-                  <Text style={{ color: pregameVsText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>VS</Text>
+                  <Text style={{ color: pregameVsText, fontFamily: "Anton_400Regular", fontSize: 13 }}>VS</Text>
                 </View>
               </View>
               <View style={{ flex: 1, alignItems: "center" }}>
-                {isDark ? renderTeamAvatar(teamB.initials, false, 52) : (
+                {isDark ? renderTeamAvatar(teamB.initials, false, 52, teamB.avatarUrl) : (
                   <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: pregameTeamBBg, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: pregameTeamBText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 18 }}>{teamB.initials}</Text>
+                    <Text style={{ color: pregameTeamBText, fontFamily: "Oswald_700Bold", fontSize: 18 }}>{teamB.initials}</Text>
                   </View>
                 )}
                 <Text style={{ color: pregameTeamName, fontFamily: "Manrope_700Bold", fontSize: 14, marginTop: 8 }}>{teamB.name}</Text>
-                <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamB.seed}</Text>
+                {teamB.seed ? <Text style={{ color: pregameSeedText, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 2 }}>{teamB.seed}</Text> : null}
               </View>
             </View>
           </LinearGradient>
 
           {/* Info rows */}
-          {renderInfoRow("Torneio", "Copa Verão 2026 · Praia Grande",
+          {tName ? renderInfoRow("Torneio", tName,
             <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><Path d="M6 9V2h12v7a6 6 0 01-12 0z" stroke="#8B5CF6" strokeWidth={2} /><Path d="M9 21h6M12 15v6" stroke="#8B5CF6" strokeWidth={2} /></Svg>
-          )}
+          ) : null}
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 12 }}>
-            {renderInfoRowSmall("Data", "12/07",
+            {renderInfoRowSmall("Data", dateStr,
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><Rect x={3} y={4} width={18} height={17} rx={3} stroke="#8B5CF6" strokeWidth={2} fill="none" /><Path d="M3 9h18M8 2v4M16 2v4" stroke="#8B5CF6" strokeWidth={2} /></Svg>
             )}
-            {renderInfoRowSmall("Horário", "14:30",
+            {renderInfoRowSmall("Horário", timeStr || "--:--",
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={9} stroke="#8B5CF6" strokeWidth={2} /><Path d="M12 6v6l4 2" stroke="#8B5CF6" strokeWidth={2} /></Svg>
             )}
           </View>
           <View style={{ flexDirection: "row", gap: 12, marginBottom: 20 }}>
-            {renderInfoRowSmall("Categoria", "Masc · Dupla",
+            {renderInfoRowSmall("Categoria", category || "—",
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={3} stroke="#8B5CF6" strokeWidth={2} /><Path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M16.9 7.1l2.1-2.1" stroke="#8B5CF6" strokeWidth={2} /></Svg>
             )}
-            {renderInfoRowSmall("Formato", "Melhor de 3",
+            {renderInfoRowSmall("Formato", format || "Melhor de 3",
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none"><Path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" stroke="#8B5CF6" strokeWidth={2} /><Path d="M4 22v-7" stroke="#8B5CF6" strokeWidth={2} /></Svg>
             )}
           </View>
@@ -436,7 +468,7 @@ export function RefereeScreen({ navigation }: any) {
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Polygon points="5,3 19,12 5,21" stroke={ctaText} strokeWidth={2.4} fill="none" />
               </Svg>
-              <Text style={{ color: ctaText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, letterSpacing: 0.3 }}>
+              <Text style={{ color: ctaText, fontFamily: "Oswald_700Bold", fontSize: 15, letterSpacing: 1.2, textTransform: "uppercase" }}>
                 Iniciar partida
               </Text>
             </Pressable>
@@ -446,7 +478,7 @@ export function RefereeScreen({ navigation }: any) {
     );
   }
 
-  // ─── STEP 4: SET END ───
+  // ─── STEP 5: SET END ───
   if (step === "setEnd") {
     const winnerIsA = lastSetScore.scoreA > lastSetScore.scoreB;
     const winnerName = winnerIsA ? teamA.name : teamB.name;
@@ -467,10 +499,10 @@ export function RefereeScreen({ navigation }: any) {
             </Svg>
           </View>
 
-          <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 6 }}>
+          <Text style={{ color: accentColor, fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 1, marginBottom: 6 }}>
             SET {currentSet} ENCERRADO
           </Text>
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 32, letterSpacing: -0.64, marginBottom: 6 }}>
+          <Text style={{ color: titleColor, fontFamily: "Anton_400Regular", fontSize: 36, letterSpacing: 0.4, marginBottom: 6 }}>
             {lastSetScore.scoreA} — {lastSetScore.scoreB}
           </Text>
           <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 14, marginBottom: 28 }}>
@@ -488,12 +520,12 @@ export function RefereeScreen({ navigation }: any) {
             {/* Team A row */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {renderTeamAvatar(teamA.initials, true, 34)}
+                {renderTeamAvatar(teamA.initials, true, 34, teamA.avatarUrl)}
                 <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{teamA.name}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: accentColor, alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: isDark ? "#12100A" : "#FFFFFF", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>{setsA}</Text>
+                  <Text style={{ color: isDark ? "#12100A" : "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 13 }}>{setsA}</Text>
                 </View>
                 <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11 }}>sets</Text>
               </View>
@@ -502,12 +534,12 @@ export function RefereeScreen({ navigation }: any) {
             {/* Team B row */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                {renderTeamAvatar(teamB.initials, false, 34)}
+                {renderTeamAvatar(teamB.initials, false, 34, teamB.avatarUrl)}
                 <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 14 }}>{teamB.name}</Text>
               </View>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: isDark ? "#2A2340" : "#E4DEF2", alignItems: "center", justifyContent: "center" }}>
-                  <Text style={{ color: isDark ? "#6E6684" : "#9488A6", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>{setsB}</Text>
+                  <Text style={{ color: isDark ? "#6E6684" : "#9488A6", fontFamily: "Anton_400Regular", fontSize: 13 }}>{setsB}</Text>
                 </View>
                 <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11 }}>sets</Text>
               </View>
@@ -515,18 +547,18 @@ export function RefereeScreen({ navigation }: any) {
 
             {/* Set scores */}
             <View style={{ marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: dividerColor }}>
-              {[1, 2, 3].map((setNum) => {
+              {Array.from({ length: bestOfSets }, (_, i) => i + 1).map((setNum) => {
                 const setData = setHistory[setNum - 1];
                 return (
                   <View key={setNum} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 6 }}>
                     <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11 }}>Set {setNum}</Text>
                     {setData ? (
-                      <Text style={{ fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>
+                      <Text style={{ fontFamily: "Anton_400Regular", fontSize: 14 }}>
                         <Text style={{ color: setData.scoreA > setData.scoreB ? accentColor : titleColor }}>{setData.scoreA}</Text>
                         <Text style={{ color: titleColor }}> — {setData.scoreB}</Text>
                       </Text>
                     ) : (
-                      <Text style={{ color: isDark ? "#3A3350" : "#DFD7EE", fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>— : —</Text>
+                      <Text style={{ color: isDark ? "#3A3350" : "#DFD7EE", fontFamily: "Anton_400Regular", fontSize: 14 }}>— : —</Text>
                     )}
                   </View>
                 );
@@ -546,7 +578,7 @@ export function RefereeScreen({ navigation }: any) {
                 <Path d="M9 21h6M12 15v6" stroke={accentColor} strokeWidth={2} />
               </Svg>
               <View>
-                <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 13 }}>Match point!</Text>
+                <Text style={{ color: accentColor, fontFamily: "Oswald_700Bold", fontSize: 13 }}>Match point!</Text>
                 <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 15.4, marginTop: 2 }}>
                   {setsA > setsB ? teamA.name : teamB.name} precisa de mais 1 set para vencer a partida.
                 </Text>
@@ -559,16 +591,22 @@ export function RefereeScreen({ navigation }: any) {
           <LinearGradient colors={[...gradientBg]} style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 26 }}>
             <Pressable
               onPress={matchWon ? handleFinishMatch : handleStartNextSet}
+              disabled={finishingMatch}
               style={{
                 backgroundColor: ctaBg, paddingVertical: 17, borderRadius: 18,
                 flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+                opacity: finishingMatch ? 0.6 : 1,
                 ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOpacity: 0.7, shadowOffset: { width: 0, height: 12 }, shadowRadius: 12, elevation: 8 }),
               }}
             >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Polygon points="5,3 19,12 5,21" stroke={ctaText} strokeWidth={2.4} fill="none" />
-              </Svg>
-              <Text style={{ color: ctaText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, letterSpacing: 0.3 }}>
+              {finishingMatch ? (
+                <ActivityIndicator size="small" color={ctaText} />
+              ) : (
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Polygon points="5,3 19,12 5,21" stroke={ctaText} strokeWidth={2.4} fill="none" />
+                </Svg>
+              )}
+              <Text style={{ color: ctaText, fontFamily: "Oswald_700Bold", fontSize: 15, letterSpacing: 1.2, textTransform: "uppercase" }}>
                 {matchWon ? "Ver resultado" : `Iniciar set ${currentSet + 1}`}
               </Text>
             </Pressable>
@@ -578,203 +616,170 @@ export function RefereeScreen({ navigation }: any) {
     );
   }
 
-  // ─── STEP 3: LIVE SCORING ───
+  // ─── STEP 4: LIVE SCORING (landscape) ───
+  const ActionBtn = ({ label, onPress, children }: { label: string; onPress: () => void; children: React.ReactNode }) => (
+    <Pressable onPress={onPress} accessibilityLabel={label} style={{ flex: 1, alignItems: "center", gap: 3, backgroundColor: "#16181C", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: 12, paddingVertical: 8 }}>
+      {children}
+      <Text style={{ color: "#9A94A8", fontFamily: "Oswald_500Medium", fontSize: 8, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</Text>
+    </Pressable>
+  );
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 10, paddingBottom: 20 }}>
-        {/* Header: AO VIVO + set info */}
-        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#EF4444" }} />
-            <Text style={{ color: "#EF4444", fontFamily: "SpaceGrotesk_700Bold", fontSize: 11, letterSpacing: 0.66 }}>AO VIVO</Text>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-              <Circle cx={12} cy={12} r={9} stroke={metaColor} strokeWidth={2} />
-              <Path d="M12 6v6l4 2" stroke={metaColor} strokeWidth={2} />
-            </Svg>
-            <Text style={{ color: metaColor, fontFamily: "Manrope_600SemiBold", fontSize: 12 }}>SET {currentSet}</Text>
-          </View>
+    <View style={{ flex: 1, backgroundColor: "#000000", flexDirection: "row" }}>
+      <StatusBar hidden />
+
+      {/* Corner back button */}
+      <Pressable
+        onPress={() => {
+          Alert.alert("Sair da partida?", "Você pode retomar depois pela lista de partidas.", [
+            { text: "Continuar apitando", style: "cancel" },
+            { text: "Sair", style: "destructive", onPress: () => navigation?.goBack() },
+          ]);
+        }}
+        accessibilityLabel="Voltar"
+        style={{ position: "absolute", top: 14, left: 14, zIndex: 20, width: 40, height: 40, borderRadius: 13, backgroundColor: "rgba(0,0,0,0.5)", borderWidth: 1, borderColor: "rgba(255,255,255,0.18)", alignItems: "center", justifyContent: "center" }}
+      >
+        <Svg width={19} height={19} viewBox="0 0 24 24" fill="none"><Path d="m15 6-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.2} /></Svg>
+      </Pressable>
+
+      {/* Team A — tap anywhere to score */}
+      <Pressable onPress={handlePointA} accessibilityLabel={`Ponto ${teamA.name}`} style={{ flex: 1, backgroundColor: "#17122A", alignItems: "center", justifyContent: "center" }}>
+        <View style={{ position: "absolute", top: 22, alignItems: "center" }}>
+          {renderTeamAvatar(teamA.initials, true, 40, teamA.avatarUrl)}
+          <Text numberOfLines={1} style={{ color: "#FFFFFF", fontFamily: "Oswald_600SemiBold", fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", marginTop: 6, maxWidth: 160, textAlign: "center" }}>{teamA.name}</Text>
+          {servingTeam === "A" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, backgroundColor: accentColor, paddingVertical: 3, paddingHorizontal: 9, borderRadius: 20 }}>
+              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#12100A" }} />
+              <Text style={{ color: "#12100A", fontFamily: "Oswald_700Bold", fontSize: 9, letterSpacing: 0.8 }}>SAQUE</Text>
+            </View>
+          )}
+        </View>
+        <Text style={{ color: accentColor, fontFamily: "Anton_400Regular", fontSize: 130, lineHeight: 130, letterSpacing: 1 }}>{scoreA}</Text>
+        <Text style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontFamily: "Oswald_600SemiBold", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase" }}>Toque para +1</Text>
+      </Pressable>
+
+      {/* Center control column */}
+      <View style={{ width: 200, backgroundColor: "#0A0A0C", alignItems: "center", justifyContent: "space-between", paddingVertical: 16, paddingHorizontal: 16 }}>
+        {/* top: AO VIVO */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,77,94,0.16)", paddingVertical: 5, paddingHorizontal: 12, borderRadius: 20 }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#FF4D5E" }} />
+          <Text style={{ color: "#FF4D5E", fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 1 }}>AO VIVO</Text>
         </View>
 
-        <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 11, textAlign: "center", marginBottom: 10 }}>Copa Verão 2026 · Semifinal</Text>
-
-        {/* Sets won indicator */}
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 16, marginBottom: 8 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <View style={{ width: 18, height: 18, borderRadius: 6, backgroundColor: accentColor, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: isDark ? "#12100A" : "#FFFFFF", fontFamily: "SpaceGrotesk_700Bold", fontSize: 10 }}>{setsA}</Text>
+        {/* middle: set + big sets tally */}
+        <View style={{ alignItems: "center", gap: 10 }}>
+          <Text style={{ color: accentColor, fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 1.6, textTransform: "uppercase" }}>Set {currentSet}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: "#241B38", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: accentColor, fontFamily: "Anton_400Regular", fontSize: 34 }}>{setsA}</Text>
             </View>
-            <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 10 }}>set</Text>
-          </View>
-          <Text style={{ color: isDark ? "#2A2340" : "#DFD7EE", fontFamily: "Manrope_600SemiBold", fontSize: 10 }}>—</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-            <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 10 }}>set</Text>
-            <View style={{ width: 18, height: 18, borderRadius: 6, backgroundColor: isDark ? "#2A2340" : "#E4DEF2", alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ color: isDark ? "#6E6684" : "#9488A6", fontFamily: "SpaceGrotesk_700Bold", fontSize: 10 }}>{setsB}</Text>
+            <Text style={{ color: "#3A3350", fontFamily: "Anton_400Regular", fontSize: 18 }}>×</Text>
+            <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: "#16181C", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 34 }}>{setsB}</Text>
             </View>
           </View>
+          <Text style={{ color: "#6E6684", fontFamily: "Oswald_600SemiBold", fontSize: 9, letterSpacing: 1.2, textTransform: "uppercase" }}>Sets vencidos</Text>
+          {setHistory.length > 0 && (
+            <Text numberOfLines={1} style={{ color: "#6E6684", fontFamily: "Manrope_500Medium", fontSize: 10.5 }}>
+              {setHistory.map((s) => `${s.scoreA}-${s.scoreB}`).join(" · ")}
+            </Text>
+          )}
         </View>
 
-        {/* Scoreboard */}
-        <LinearGradient
-          colors={isDark ? ["#1B1530", "#110D1C"] : ["#FFFFFF", "#FFFFFF"]}
-          start={{ x: 0.15, y: 0 }} end={{ x: 0.85, y: 1 }}
-          style={{
-            borderRadius: 24, padding: 20, marginBottom: 14,
-            borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,.08)" : "rgba(26,16,48,.07)",
-            ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 10 }, shadowRadius: 15, elevation: 6 }),
-          }}
-        >
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <View style={{ flex: 1, alignItems: "center" }}>
-              {renderTeamAvatar(teamA.initials, true, 48)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{teamA.name}</Text>
-              {servingTeam === "A" && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, backgroundColor: isDark ? "rgba(198,248,42,.14)" : "rgba(124,58,237,.1)", paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 }}>
-                  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
-                    <Circle cx={12} cy={12} r={8} stroke={accentColor} strokeWidth={2.5} />
-                  </Svg>
-                  <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 9 }}>SAQUE</Text>
-                </View>
-              )}
-              {servingTeam !== "A" && <View style={{ height: 22, marginTop: 5 }} />}
-            </View>
-
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10 }}>
-              <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 64, lineHeight: 64, letterSpacing: -1.92 }}>{scoreA}</Text>
-              <Text style={{ color: separatorColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 28 }}>:</Text>
-              <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 64, lineHeight: 64, letterSpacing: -1.92 }}>{scoreB}</Text>
-            </View>
-
-            <View style={{ flex: 1, alignItems: "center" }}>
-              {renderTeamAvatar(teamB.initials, false, 48)}
-              <Text style={{ color: titleColor, fontFamily: "Manrope_700Bold", fontSize: 13, marginTop: 6 }}>{teamB.name}</Text>
-              {servingTeam === "B" && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 5, backgroundColor: isDark ? "rgba(198,248,42,.14)" : "rgba(124,58,237,.1)", paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6 }}>
-                  <Svg width={10} height={10} viewBox="0 0 24 24" fill="none">
-                    <Circle cx={12} cy={12} r={8} stroke={accentColor} strokeWidth={2.5} />
-                  </Svg>
-                  <Text style={{ color: accentColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 9 }}>SAQUE</Text>
-                </View>
-              )}
-              {servingTeam !== "B" && <View style={{ height: 22, marginTop: 5 }} />}
-            </View>
-          </View>
-
-          {/* Set scores */}
-          <View style={{ flexDirection: "row", justifyContent: "center", gap: 16, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: dividerColor }}>
-            {[1, 2, 3].map((setNum) => {
-              const isCurrentSet = setNum === currentSet;
-              const setData = setHistory[setNum - 1];
-              return (
-                <React.Fragment key={setNum}>
-                  {setNum > 1 && <View style={{ width: 1, backgroundColor: dividerColor }} />}
-                  <View style={{ alignItems: "center" }}>
-                    <Text style={{ color: isCurrentSet ? accentColor : labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 9, letterSpacing: 0.72, marginBottom: 3 }}>SET {setNum}</Text>
-                    {setData ? (
-                      <Text style={{ fontFamily: "SpaceGrotesk_700Bold", fontSize: 14 }}>
-                        <Text style={{ color: setData.scoreA > setData.scoreB ? accentColor : metaColor }}>{setData.scoreA}</Text>
-                        <Text style={{ color: separatorColor }}>  :  </Text>
-                        <Text style={{ color: setData.scoreB > setData.scoreA ? accentColor : metaColor }}>{setData.scoreB}</Text>
-                      </Text>
-                    ) : isCurrentSet ? (
-                      <Text style={{ fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, color: titleColor }}>{scoreA}<Text style={{ color: separatorColor }}>  :  </Text>{scoreB}</Text>
-                    ) : (
-                      <Text style={{ color: isDark ? "#3A3350" : "#DFD7EE", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14 }}>— : —</Text>
-                    )}
-                  </View>
-                </React.Fragment>
-              );
-            })}
-          </View>
-        </LinearGradient>
-
-        {/* Point buttons */}
-        <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
-          <Pressable
-            onPress={handlePointA}
-            style={{
-              flex: 1, paddingVertical: 20, borderRadius: 18, alignItems: "center", gap: 4,
-              overflow: "hidden",
-            }}
-            accessibilityLabel={`Ponto ${teamA.name}`}
-          >
-            <LinearGradient
-              colors={[...teamAGradient]}
-              start={{ x: 0.2, y: 0 }} end={{ x: 0.9, y: 1 }}
-              style={{
-                position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-                borderRadius: 18,
-              }}
-            />
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth={2.4} />
-            </Svg>
-            <Text style={{ color: "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {teamA.initials}</Text>
+        {/* bottom: big actions */}
+        <View style={{ width: "100%", gap: 10 }}>
+          <Pressable onPress={handleUndo} accessibilityLabel="Desfazer último ponto" style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "rgba(124,58,237,0.16)", borderWidth: 1, borderColor: "rgba(139,92,246,0.35)", borderRadius: 14, paddingVertical: 15 }}>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M3 10h13a4 4 0 010 8H9" stroke="#FFFFFF" strokeWidth={2.2} /><Path d="m7 14-4-4 4-4" stroke="#FFFFFF" strokeWidth={2.2} /></Svg>
+            <Text style={{ color: "#FFFFFF", fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 0.8, textTransform: "uppercase" }}>Desfazer</Text>
           </Pressable>
-
-          <Pressable
-            onPress={handlePointB}
-            style={{
-              flex: 1, paddingVertical: 20, borderRadius: 18, alignItems: "center", gap: 4,
-              backgroundColor: isDark ? "#1C1630" : "#FFFFFF",
-              borderWidth: 1.5, borderColor: isDark ? "rgba(255,255,255,.1)" : "rgba(26,16,48,.1)",
-              ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 6 }, shadowRadius: 8, elevation: 4 }),
-            }}
-            accessibilityLabel={`Ponto ${teamB.name}`}
-          >
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 5v14M5 12h14" stroke={titleColor} strokeWidth={2.4} />
-            </Svg>
-            <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 12 }}>PONTO {teamB.initials}</Text>
-          </Pressable>
-        </View>
-
-        {/* Action bar */}
-        <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-          {[
-            { label: "Timeout", icon: <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M10 2h4v7l3-2v10l-3-2v7h-4z" stroke="#FFC14D" strokeWidth={2} /></Svg> },
-            { label: "Cartão", icon: <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Rect x={6} y={3} width={12} height={18} rx={2} stroke="#EF4444" strokeWidth={2} fill="none" /></Svg> },
-            { label: "Trocar saque", icon: <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={9} stroke="#8B5CF6" strokeWidth={2} /><Path d="M12 8v4l2 2" stroke="#8B5CF6" strokeWidth={2} /></Svg>, onPress: handleToggleServe },
-            { label: "Histórico", icon: <Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M3 10h4l3-7 4 14 3-7h4" stroke={metaColor} strokeWidth={2} /></Svg> },
-          ].map((action) => (
-            <Pressable
-              key={action.label}
-              onPress={action.onPress}
-              style={{
-                flex: 1, alignItems: "center", gap: 5,
-                backgroundColor: cardBg, borderWidth: 1, borderColor: cardBorder,
-                borderRadius: 16, paddingVertical: 14,
-                ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.2, shadowOffset: { width: 0, height: 4 }, shadowRadius: 6, elevation: 3 }),
-              }}
-              accessibilityLabel={action.label}
-            >
-              {action.icon}
-              <Text style={{ color: metaColor, fontFamily: "Manrope_600SemiBold", fontSize: 10 }}>{action.label}</Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable onPress={handleToggleServe} accessibilityLabel="Trocar saque" style={{ flex: 1, alignItems: "center", gap: 5, backgroundColor: "#16181C", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, paddingVertical: 14 }}>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={9} stroke="#8B5CF6" strokeWidth={2} /><Path d="M12 8v4l2 2" stroke="#8B5CF6" strokeWidth={2} /></Svg>
+              <Text style={{ color: "#9A94A8", fontFamily: "Oswald_600SemiBold", fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase" }}>Saque</Text>
             </Pressable>
-          ))}
+            <Pressable onPress={handleTimeout} accessibilityLabel="Timeout" style={{ flex: 1, alignItems: "center", gap: 5, backgroundColor: "#16181C", borderWidth: 1, borderColor: "rgba(255,255,255,0.08)", borderRadius: 14, paddingVertical: 14 }}>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none"><Path d="M10 2h4v7l3-2v10l-3-2v7h-4z" stroke="#FFC14D" strokeWidth={2} /></Svg>
+              <Text style={{ color: "#9A94A8", fontFamily: "Oswald_600SemiBold", fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase" }}>Timeout</Text>
+            </Pressable>
+          </View>
         </View>
+      </View>
 
-        {/* Undo button */}
-        <Pressable
-          onPress={handleUndo}
-          style={{
-            flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-            paddingVertical: 13, borderRadius: 14, borderWidth: 1,
-            borderColor: isDark ? "rgba(255,255,255,.1)" : "rgba(26,16,48,.1)",
-          }}
-          accessibilityLabel="Desfazer último ponto"
-        >
-          <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-            <Path d="M3 10h13a4 4 0 010 8H9" stroke={metaColor} strokeWidth={2.2} />
-            <Path d="m7 14-4-4 4-4" stroke={metaColor} strokeWidth={2.2} />
-          </Svg>
-          <Text style={{ color: metaColor, fontFamily: "Manrope_600SemiBold", fontSize: 13 }}>Desfazer último ponto</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
+      {/* Team B — tap anywhere to score */}
+      <Pressable onPress={handlePointB} accessibilityLabel={`Ponto ${teamB.name}`} style={{ flex: 1, backgroundColor: "#0F0F13", alignItems: "center", justifyContent: "center" }}>
+        <View style={{ position: "absolute", top: 22, alignItems: "center" }}>
+          {renderTeamAvatar(teamB.initials, false, 40, teamB.avatarUrl)}
+          <Text numberOfLines={1} style={{ color: "#FFFFFF", fontFamily: "Oswald_600SemiBold", fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", marginTop: 6, maxWidth: 160, textAlign: "center" }}>{teamB.name}</Text>
+          {servingTeam === "B" && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, backgroundColor: accentColor, paddingVertical: 3, paddingHorizontal: 9, borderRadius: 20 }}>
+              <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#12100A" }} />
+              <Text style={{ color: "#12100A", fontFamily: "Oswald_700Bold", fontSize: 9, letterSpacing: 0.8 }}>SAQUE</Text>
+            </View>
+          )}
+        </View>
+        <Text style={{ color: "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 130, lineHeight: 130, letterSpacing: 1 }}>{scoreB}</Text>
+        <Text style={{ position: "absolute", bottom: 16, color: "rgba(255,255,255,0.3)", fontFamily: "Oswald_600SemiBold", fontSize: 10, letterSpacing: 1.5, textTransform: "uppercase" }}>Toque para +1</Text>
+      </Pressable>
+
+      <ConfirmDialog
+        visible={timeoutDialogVisible}
+        title="Timeout"
+        cancelLabel="Cancelar"
+        actionLabel="Confirmar"
+        onCancel={() => setTimeoutDialogVisible(false)}
+        onConfirm={confirmTimeout}
+      >
+        <Text style={{ color: "#9A94A8", fontFamily: "Manrope_500Medium", fontSize: 13.5, marginBottom: 14 }}>
+          Qual time pediu timeout?
+        </Text>
+        {[{ team: "A" as const, name: teamA.name }, { team: "B" as const, name: teamB.name }].map((t) => (
+          <Pressable
+            key={t.team}
+            onPress={() => setTimeoutTeam(t.team)}
+            style={{
+              flexDirection: "row", alignItems: "center", gap: 10,
+              paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, marginBottom: 8,
+              borderWidth: 1.5, borderColor: timeoutTeam === t.team ? "#7C3AED" : "rgba(255,255,255,0.1)",
+              backgroundColor: timeoutTeam === t.team ? "rgba(124,58,237,0.14)" : "transparent",
+            }}
+          >
+            <View style={{
+              width: 18, height: 18, borderRadius: 9, borderWidth: 2,
+              borderColor: timeoutTeam === t.team ? "#7C3AED" : "rgba(255,255,255,0.3)",
+              alignItems: "center", justifyContent: "center",
+            }}>
+              {timeoutTeam === t.team && <View style={{ width: 9, height: 9, borderRadius: 4.5, backgroundColor: "#7C3AED" }} />}
+            </View>
+            <Text style={{ color: "#FFFFFF", fontFamily: "Manrope_600SemiBold", fontSize: 14 }}>{t.name}</Text>
+          </Pressable>
+        ))}
+      </ConfirmDialog>
+
+      {activeTimeoutTeam && (
+        <View style={{
+          position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 50,
+          backgroundColor: "rgba(0,0,0,0.94)", alignItems: "center", justifyContent: "center",
+        }}>
+          <Text style={{ color: "#FFC14D", fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 2, marginBottom: 10 }}>TIMEOUT</Text>
+          <Text style={{ color: "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 22, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 24 }}>
+            {activeTimeoutTeam === "A" ? teamA.name : teamB.name}
+          </Text>
+          <View style={{
+            width: 180, height: 180, borderRadius: 90, borderWidth: 4, borderColor: "#7C3AED",
+            alignItems: "center", justifyContent: "center", marginBottom: 28,
+          }}>
+            <Text style={{ color: "#C6F82A", fontFamily: "Anton_400Regular", fontSize: 72, lineHeight: 76 }}>{timeoutSecondsLeft}</Text>
+          </View>
+          <Pressable
+            onPress={() => setActiveTimeoutTeam(null)}
+            style={{ paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" }}
+            accessibilityLabel="Encerrar timeout"
+          >
+            <Text style={{ color: "#9A94A8", fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 1, textTransform: "uppercase" }}>Encerrar agora</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
   );
 
   function renderInfoRow(label: string, value: string, icon: React.ReactNode) {
@@ -803,9 +808,9 @@ export function RefereeScreen({ navigation }: any) {
         ...(isDark ? {} : { shadowColor: "#2E1065", shadowOpacity: 0.3, shadowOffset: { width: 0, height: 6 }, shadowRadius: 8, elevation: 4 }),
       }}>
         <View style={{ width: 36, height: 36, borderRadius: 11, backgroundColor: iconBg, alignItems: "center", justifyContent: "center" }}>{icon}</View>
-        <View>
+        <View style={{ flex: 1, minWidth: 0 }}>
           <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11 }}>{label}</Text>
-          <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 13 }}>{value}</Text>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 13 }}>{value}</Text>
         </View>
       </View>
     );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,106 +11,169 @@ import {
   Platform,
   ActivityIndicator,
 } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
-import { useTheme } from "@/hooks/useTheme";
+import * as ImagePicker from "expo-image-picker";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
 import { teamsService } from "@/services/teamsService";
+import { getErrorMessage } from "@/services/api";
+import { useTC } from "../tournaments/_tournamentKit";
 
-type FormatOption = "Dupla" | "Quarteto";
+type FormatOption = "Dupla" | "Quarteto" | "Sexteto";
 type SurfaceOption = "Areia" | "Quadra";
 
-export function CreateTeamScreen({ navigation }: any) {
-  const { isDark } = useTheme();
-  const accentColor = isDark ? "#C6F82A" : "#7C3AED";
-  const screenBg = isDark ? "#0C0A12" : "#F7F5FC";
-  const titleColor = isDark ? "#F5F3FA" : "#1A1428";
-  const labelColor = isDark ? "#6E6684" : "#9488A6";
-  const inputBg = isDark ? "#141019" : "#FFFFFF";
-  const inputBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)";
-  const inputText = isDark ? "#F5F3FA" : "#1A1030";
-  const placeholderColor = isDark ? "#6E6684" : "#A29CB4";
-  const inactiveBg = isDark ? "#141019" : "#FFFFFF";
-  const inactiveBorder = isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)";
-  const inactiveText = isDark ? "#948CA8" : "#847B98";
+const FORMATS_BY_SURFACE: Record<SurfaceOption, FormatOption[]> = {
+  Areia: ["Dupla", "Quarteto"],
+  Quadra: ["Sexteto"],
+};
+
+function BackButton({ onPress }: { onPress: () => void }) {
+  const TC = useTC();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Voltar"
+      style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, alignItems: "center", justifyContent: "center" }}
+    >
+      <Icon name="back" size={19} color={TC.tx2} strokeWidth={2.2} />
+    </Pressable>
+  );
+}
+
+export function CreateTeamScreen({ navigation, route }: any) {
+  const TC = useTC();
+  const teamId = route?.params?.teamId as string | undefined;
+  const isEditing = !!teamId;
 
   const [name, setName] = useState("");
   const [format, setFormat] = useState<FormatOption>("Dupla");
   const [surface, setSurface] = useState<SurfaceOption>("Areia");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [logoUri, setLogoUri] = useState<string | null>(null);
+  const [logoChanged, setLogoChanged] = useState(false);
+  const [loadingTeam, setLoadingTeam] = useState(isEditing);
+
+  useEffect(() => {
+    if (!teamId) return;
+    teamsService.findOne(teamId).then((team) => {
+      setName(team.name);
+      const desc = team.description ?? "";
+      if (desc.includes("Sexteto")) setFormat("Sexteto");
+      else if (desc.includes("Quarteto")) setFormat("Quarteto");
+      if (desc.includes("Quadra")) setSurface("Quadra");
+      if (team.avatarUrl) setLogoUri(team.avatarUrl);
+    }).catch(() => {}).finally(() => setLoadingTeam(false));
+  }, [teamId]);
+
+  useEffect(() => {
+    const allowed = FORMATS_BY_SURFACE[surface];
+    if (!allowed.includes(format)) setFormat(allowed[0]);
+  }, [surface]);
 
   const canCreate = name.trim().length > 0 && !submitting;
 
-  const handleCreate = async () => {
+  const handlePickLogo = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setLogoUri(result.assets[0].uri);
+      setLogoChanged(true);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!canCreate) return;
     setSubmitting(true);
     try {
-      await teamsService.create({
+      const params = {
         name: name.trim(),
         description: `${format} · ${surface}`,
-      });
-      navigation?.goBack();
+      };
+      let targetId = teamId;
+      if (isEditing) {
+        await teamsService.update(teamId, params);
+      } else {
+        const created = await teamsService.create(params);
+        targetId = created.id;
+      }
+      if (logoChanged && logoUri && targetId) {
+        const formData = new FormData();
+        formData.append("file", { uri: logoUri, name: "logo.jpg", type: "image/jpeg" } as any);
+        await teamsService.uploadAvatar(targetId, formData);
+      }
+      if (isEditing) {
+        navigation?.goBack();
+      } else {
+        navigation?.replace("TeamDetail", { id: targetId });
+      }
     } catch (err: any) {
-      Alert.alert("Erro", err?.response?.data?.message || "Não foi possível criar o time.");
+      Alert.alert("Erro", getErrorMessage(err, isEditing ? "Não foi possível salvar o time." : "Não foi possível criar o time."));
     } finally {
       setSubmitting(false);
     }
   };
 
+  if (loadingTeam) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg, alignItems: "center", justifyContent: "center" }} edges={["top"]}>
+        <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
+        <ActivityIndicator size="large" color={TC.lime} />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
+    <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
+      <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 }}>
-              <Pressable
-                onPress={() => navigation?.goBack()}
-                accessibilityRole="button"
-                accessibilityLabel="Voltar"
-                style={{
-                  width: 40, height: 40, borderRadius: 14,
-                  backgroundColor: isDark ? "#171320" : "#FFFFFF",
-                  borderWidth: 1, borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)",
-                  alignItems: "center", justifyContent: "center",
-                  ...(isDark ? {} : { shadowColor: "rgba(26,16,48,.25)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 10, elevation: 2 }),
-                }}
-              >
-                <Icon name="back" size={19} color={isDark ? "#CFC8E0" : "#4A4460"} strokeWidth={2.2} />
-              </Pressable>
-              <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, fontWeight: "700" }}>
-                Criar time
+              <BackButton onPress={() => navigation?.goBack()} />
+              <Text style={{ color: TC.tx, fontFamily: "Anton_400Regular", fontSize: 24, letterSpacing: 0.4, textTransform: "uppercase" }}>
+                {isEditing ? "Editar time" : "Criar time"}
               </Text>
             </View>
 
-            {/* Avatar placeholder */}
-            <View style={{ alignItems: "center", marginBottom: 28 }}>
-              <View style={{
-                width: 80, height: 80, borderRadius: 24,
-                backgroundColor: isDark ? "#171320" : "#F0ECFA",
-                borderWidth: 2, borderStyle: "dashed",
-                borderColor: isDark ? "rgba(139,92,246,.4)" : "rgba(124,58,237,.3)",
-                alignItems: "center", justifyContent: "center",
-              }}>
-                <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2}>
-                  <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                  <Circle cx={12} cy={13} r={4} />
-                </Svg>
-              </View>
-              <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600", marginTop: 8 }}>
-                Adicionar logo
+            {/* Avatar picker — framed dashed, lime (dark) / purple (light) accent */}
+            <Pressable onPress={handlePickLogo} style={{ alignItems: "center", marginBottom: 28 }} accessibilityRole="button" accessibilityLabel={logoUri ? "Alterar logo" : "Adicionar logo"}>
+              {logoUri ? (
+                <View style={{ width: 84, height: 84, borderRadius: 24, borderWidth: 2, borderColor: TC.isDark ? TC.lime : TC.purple, overflow: "hidden" }}>
+                  <Image source={{ uri: logoUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" cachePolicy="memory-disk" />
+                </View>
+              ) : (
+                <View style={{
+                  width: 84, height: 84, borderRadius: 24,
+                  backgroundColor: TC.card,
+                  borderWidth: 2, borderStyle: "dashed",
+                  borderColor: TC.isDark ? "rgba(198,248,42,0.4)" : "rgba(124,58,237,0.4)",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                  <Svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke={TC.isDark ? TC.lime : TC.purple} strokeWidth={2}>
+                    <Path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                    <Circle cx={12} cy={13} r={4} />
+                  </Svg>
+                </View>
+              )}
+              <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", marginTop: 10 }}>
+                {logoUri ? "Alterar logo" : "Adicionar logo"}
               </Text>
-            </View>
+            </Pressable>
 
             {/* Form */}
-            <View style={{ gap: 16 }}>
+            <View style={{ gap: 18 }}>
               {/* Name */}
               <View>
-                <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginBottom: 6 }}>
-                  NOME DO TIME
+                <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
+                  Nome do time
                 </Text>
                 <TextInput
                   value={name}
@@ -118,55 +181,22 @@ export function CreateTeamScreen({ navigation }: any) {
                   onFocus={() => setFocusedField("name")}
                   onBlur={() => setFocusedField(null)}
                   placeholder="Ex: Beach Warriors"
-                  placeholderTextColor={placeholderColor}
+                  placeholderTextColor={TC.tx3}
                   style={{
-                    backgroundColor: inputBg,
-                    borderWidth: focusedField === "name" ? 1.5 : 1,
-                    borderColor: focusedField === "name" ? "#8B5CF6" : inputBorder,
+                    backgroundColor: TC.card,
+                    borderWidth: 1.5,
+                    borderColor: focusedField === "name" ? TC.lime : TC.cardBorder,
                     borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16,
-                    color: inputText, fontFamily: "Manrope_500Medium", fontSize: 14,
-                    ...(focusedField === "name" ? { shadowColor: "rgba(139,92,246,.1)", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 4, elevation: 1 } : {}),
+                    color: TC.tx, fontFamily: "Manrope_500Medium", fontSize: 14,
                   }}
                   accessibilityLabel="Nome do time"
                 />
               </View>
 
-              {/* Format */}
+              {/* Surface (Areia/Quadra) — renamed to "Formato", now on top */}
               <View>
-                <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginBottom: 6 }}>
-                  MODALIDADE
-                </Text>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  {(["Dupla", "Quarteto"] as FormatOption[]).map((opt) => {
-                    const isActive = format === opt;
-                    return (
-                      <Pressable
-                        key={opt}
-                        onPress={() => setFormat(opt)}
-                        accessibilityRole="button"
-                        accessibilityLabel={opt}
-                        style={{
-                          flex: 1, paddingVertical: 14, borderRadius: 14,
-                          backgroundColor: isActive ? accentColor : inactiveBg,
-                          borderWidth: isActive ? 0 : 1,
-                          borderColor: inactiveBorder,
-                          alignItems: "center", justifyContent: "center",
-                        }}
-                      >
-                        <Text style={{
-                          color: isActive ? (isDark ? "#12100A" : "#fff") : inactiveText,
-                          fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, fontWeight: "700",
-                        }}>{opt}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {/* Surface */}
-              <View>
-                <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginBottom: 6 }}>
-                  SUPERFÍCIE
+                <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
+                  Formato
                 </Text>
                 <View style={{ flexDirection: "row", gap: 10 }}>
                   {(["Areia", "Quadra"] as SurfaceOption[]).map((opt) => {
@@ -179,15 +209,47 @@ export function CreateTeamScreen({ navigation }: any) {
                         accessibilityLabel={opt}
                         style={{
                           flex: 1, paddingVertical: 14, borderRadius: 14,
-                          backgroundColor: isActive ? accentColor : inactiveBg,
+                          backgroundColor: isActive ? (TC.isDark ? TC.purple : "#C6F82A") : TC.card,
                           borderWidth: isActive ? 0 : 1,
-                          borderColor: inactiveBorder,
+                          borderColor: TC.cardBorder,
                           alignItems: "center", justifyContent: "center",
                         }}
                       >
                         <Text style={{
-                          color: isActive ? (isDark ? "#12100A" : "#fff") : inactiveText,
-                          fontFamily: "SpaceGrotesk_700Bold", fontSize: 13, fontWeight: "700",
+                          color: isActive ? TC.tx : TC.tx2,
+                          fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase",
+                        }}>{opt}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Format (Dupla/Quarteto/Sexteto) — "Modalidade", now at the bottom */}
+              <View>
+                <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
+                  Modalidade
+                </Text>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {FORMATS_BY_SURFACE[surface].map((opt) => {
+                    const isActive = format === opt;
+                    return (
+                      <Pressable
+                        key={opt}
+                        onPress={() => setFormat(opt)}
+                        accessibilityRole="button"
+                        accessibilityLabel={opt}
+                        style={{
+                          flex: 1, paddingVertical: 14, borderRadius: 14,
+                          backgroundColor: isActive ? (TC.isDark ? TC.purple : "#C6F82A") : TC.card,
+                          borderWidth: isActive ? 0 : 1,
+                          borderColor: TC.cardBorder,
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        <Text style={{
+                          color: isActive ? TC.tx : TC.tx2,
+                          fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 0.6, textTransform: "uppercase",
                         }}>{opt}</Text>
                       </Pressable>
                     );
@@ -196,68 +258,35 @@ export function CreateTeamScreen({ navigation }: any) {
               </View>
             </View>
 
-            {/* Invite section */}
-            <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", letterSpacing: 0.04 * 11, marginTop: 24, marginBottom: 8 }}>
-              CONVIDAR PARCEIRO
-            </Text>
-            <View style={{
-              flexDirection: "row", alignItems: "center", gap: 10,
-              backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder,
-              borderRadius: 14, padding: 12, paddingHorizontal: 14, marginBottom: 14,
-            }}>
-              <Icon name="search" size={18} color={labelColor} strokeWidth={2} />
-              <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 13, fontWeight: "500" }}>
-                Buscar por nome ou @usuário
-              </Text>
-            </View>
-
-            {/* Share link */}
-            <View style={{ alignItems: "center", marginTop: 12 }}>
-              <Pressable onPress={() => {}} accessibilityRole="button" accessibilityLabel="Compartilhar link de convite" style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#8B5CF6" : "#7C3AED"} strokeWidth={2}>
-                  <Path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
-                  <Path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
-                </Svg>
-                <Text style={{ color: isDark ? "#8B5CF6" : "#7C3AED", fontFamily: "Manrope_600SemiBold", fontSize: 12, fontWeight: "600" }}>
-                  Ou compartilhar link de convite
-                </Text>
+            {/* CTA — end of scroll, notched */}
+            <View style={{ marginTop: 32 }}>
+              <Pressable
+                onPress={handleSubmit}
+                disabled={!canCreate}
+                accessibilityRole="button"
+                accessibilityLabel={isEditing ? "Salvar time" : "Criar time"}
+                style={{ position: "relative" }}
+              >
+                <View style={{ backgroundColor: TC.purple, borderRadius: 16, paddingVertical: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, opacity: canCreate ? 1 : 0.4 }}>
+                  {submitting ? (
+                    <ActivityIndicator size="small" color={TC.tx} />
+                  ) : (
+                    <>
+                      <Text style={{ color: TC.tx, fontFamily: "Oswald_700Bold", fontSize: 15, letterSpacing: 1.4, textTransform: "uppercase" }}>
+                        {isEditing ? "Salvar alterações" : "Criar time"}
+                      </Text>
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={TC.tx} strokeWidth={2.6}>
+                        <Path d="M5 12h14M13 6l6 6-6 6" />
+                      </Svg>
+                    </>
+                  )}
+                </View>
+                <View style={{ position: "absolute", left: -9, top: "50%", marginTop: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: TC.bg }} />
+                <View style={{ position: "absolute", right: -9, top: "50%", marginTop: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: TC.bg }} />
               </Pressable>
             </View>
           </View>
         </ScrollView>
-
-        {/* Bottom CTA */}
-        <LinearGradient
-          colors={isDark ? ["rgba(12,10,18,0)", "#0C0A12"] : ["rgba(247,245,252,0)", "#F7F5FC"]}
-          locations={[0, 0.32]}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26 }}
-        >
-          <View style={{ opacity: canCreate ? 1 : 0.25 }}>
-            <Pressable
-              onPress={handleCreate}
-              disabled={!canCreate}
-              accessibilityRole="button"
-              accessibilityLabel="Criar time"
-              style={{
-                width: "100%", paddingVertical: 17, borderRadius: 18,
-                backgroundColor: accentColor,
-                flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
-                ...(isDark ? {} : { shadowColor: "#7C3AED", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.7, shadowRadius: 24, elevation: 12 }),
-              }}
-            >
-              {submitting ? (
-                <ActivityIndicator size="small" color={isDark ? "#12100A" : "#fff"} />
-              ) : (
-                <Text style={{ color: isDark ? "#12100A" : "#fff", fontFamily: "SpaceGrotesk_700Bold", fontSize: 15, fontWeight: "700", letterSpacing: 0.02 * 15 }}>
-                  Criar time
-                </Text>
-              )}
-              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#12100A" : "#fff"} strokeWidth={2.6}>
-                <Path d="m9 6 6 6-6 6" />
-              </Svg>
-            </Pressable>
-          </View>
-        </LinearGradient>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

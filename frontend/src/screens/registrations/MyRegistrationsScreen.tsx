@@ -1,11 +1,40 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, StatusBar, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useCallback, useState, useMemo } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import { View, Text, FlatList, Pressable, StatusBar, ActivityIndicator, RefreshControl } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useTheme } from "@/hooks/useTheme";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path, Circle } from "react-native-svg";
 import { RegistrationDTO, registrationsService } from "@/services/registrationsService";
 import { RegistrationStatus } from "@/types/enums";
+import { useTheme } from "@/hooks/useTheme";
+
+function useScreenColors() {
+  const { isDark, colors } = useTheme();
+  return useMemo(() => ({
+    isDark,
+    bg: colors.bg.base,
+    card: isDark ? "#16181C" : colors.bg.card,
+    cardBorder: colors.border.card,
+    purple: "#7C3AED",
+    purpleDeep: "#2D1B69",
+    lime: "#C6F82A",
+    limeInk: "#12100A",
+    danger: "#FF4D5E",
+    tx: colors.text.primary,
+    tx2: colors.text.tertiary,
+    tx3: colors.text.disabled,
+    limeTintBg: isDark ? "rgba(198,248,42,0.16)" : "#EFF9D4",
+    // Always white — sits on a solid purple/lime fill, not the card bg, so
+    // it must NOT flip with theme like regular text does.
+    onAccent: "#FFFFFF",
+    // Lime nearly disappears on a white card in light mode — links/"ver
+    // todos" swap to purple there, dark mode keeps the lime accent.
+    link: isDark ? "#C6F82A" : "#7C3AED",
+  }), [isDark, colors]);
+}
+
+type ScreenColors = ReturnType<typeof useScreenColors>;
 
 type StatusStyle = {
   label: string;
@@ -15,41 +44,17 @@ type StatusStyle = {
   opacity: number;
 };
 
-function statusStyle(status: RegistrationStatus, isDark: boolean): StatusStyle {
+function statusStyle(status: RegistrationStatus, C: ScreenColors): StatusStyle {
   switch (status) {
     case RegistrationStatus.CONFIRMED:
-      return {
-        label: "PAGO",
-        pillText: isDark ? "#C6F82A" : "#059669",
-        pillBg: isDark ? "rgba(198,248,42,.1)" : "rgba(5,150,105,.08)",
-        cardBorder: isDark ? "rgba(198,248,42,.1)" : "rgba(124,58,237,.1)",
-        opacity: 1,
-      };
+      return { label: "PAGO", pillText: C.isDark ? C.lime : C.purple, pillBg: C.limeTintBg, cardBorder: "rgba(198,248,42,0.14)", opacity: 1 };
     case RegistrationStatus.PENDING_CONFIRMATION:
-      return {
-        label: "PENDENTE",
-        pillText: isDark ? "#FBBF24" : "#D97706",
-        pillBg: isDark ? "rgba(251,191,36,.12)" : "rgba(217,119,6,.08)",
-        cardBorder: isDark ? "rgba(255,255,255,.06)" : "rgba(26,16,48,.06)",
-        opacity: 1,
-      };
+      return { label: "PENDENTE", pillText: "#FBBF24", pillBg: "rgba(251,191,36,0.14)", cardBorder: C.cardBorder, opacity: 1 };
     case RegistrationStatus.REJECTED:
-      return {
-        label: "RECUSADA",
-        pillText: "#EF4444",
-        pillBg: isDark ? "rgba(239,68,68,.1)" : "rgba(239,68,68,.08)",
-        cardBorder: isDark ? "rgba(239,68,68,.08)" : "rgba(239,68,68,.06)",
-        opacity: isDark ? 0.6 : 0.55,
-      };
+      return { label: "RECUSADA", pillText: C.danger, pillBg: "rgba(255,77,94,0.12)", cardBorder: "rgba(255,77,94,0.1)", opacity: 0.6 };
     case RegistrationStatus.CANCELLED:
     default:
-      return {
-        label: "CANCELADA",
-        pillText: isDark ? "#6E6684" : "#8A829E",
-        pillBg: isDark ? "rgba(110,102,132,.1)" : "rgba(26,16,48,.05)",
-        cardBorder: isDark ? "rgba(255,255,255,.04)" : "rgba(26,16,48,.04)",
-        opacity: 0.45,
-      };
+      return { label: "CANCELADA", pillText: C.tx3, pillBg: "rgba(255,255,255,0.08)", cardBorder: "rgba(255,255,255,0.04)", opacity: 0.45 };
   }
 }
 
@@ -72,25 +77,114 @@ function formatDate(iso: string): string {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
+const AVATAR_BG = ["#2D1B69", "#1C4A3D", "#4A1942", "#3D2A1A", "#3D1A1A"];
+const AVATAR_TEXT = ["#C6F82A", "#34D399", "#F472B6", "#FBBF24", "#FCA5A5"];
+
+const RegistrationRow = React.memo(function RegistrationRow({ reg }: { reg: RegistrationDTO }) {
+  const C = useScreenColors();
+  const st = statusStyle(reg.status, C);
+  const teamInitials = reg.team.name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const colorIdx = reg.teamId.charCodeAt(0) % 5;
+  const avatarBg = AVATAR_BG[colorIdx];
+  const avatarText = AVATAR_TEXT[colorIdx];
+  return (
+    <View
+      style={{
+        backgroundColor: C.card,
+        borderWidth: 1,
+        borderColor: st.cardBorder,
+        borderRadius: 18,
+        padding: 16,
+        marginBottom: 12,
+        opacity: st.opacity,
+      }}
+    >
+      {/* Status row */}
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <View style={{ paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, backgroundColor: st.pillBg }}>
+          <Text style={{ color: st.pillText, fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 0.6 }}>
+            {st.label}
+          </Text>
+        </View>
+        <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 11 }}>
+          {formatDate(reg.createdAt)}
+        </Text>
+      </View>
+
+      {/* Tournament name */}
+      <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 16, letterSpacing: 0.2, textTransform: "uppercase", marginBottom: 8 }}>
+        {reg.tournament.name}
+      </Text>
+
+      {/* Team row */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: (reg.status === RegistrationStatus.CONFIRMED || reg.status === RegistrationStatus.PENDING_CONFIRMATION) ? 10 : 0 }}>
+        {reg.team.avatarUrl ? (
+          <Image source={{ uri: reg.team.avatarUrl }} style={{ width: 28, height: 28, borderRadius: 9 }} />
+        ) : (
+          <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ color: avatarText, fontFamily: "Oswald_700Bold", fontSize: 10 }}>{teamInitials}</Text>
+          </View>
+        )}
+        <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{reg.team.name}</Text>
+      </View>
+
+      {/* Meta row: category + modality — only for CONFIRMED and PENDING */}
+      {(reg.status === RegistrationStatus.CONFIRMED || reg.status === RegistrationStatus.PENDING_CONFIRMATION) && (
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: reg.status === RegistrationStatus.PENDING_CONFIRMATION ? 14 : 0 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.tx3} strokeWidth={2}>
+            <Circle cx={12} cy={12} r={3} />
+            <Path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M16.9 16.9l2.1 2.1M2 12h3M19 12h3" />
+          </Svg>
+          <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 11 }}>
+            {formatFormat(reg.category.format)} {formatType(reg.category.type)}
+          </Text>
+        </View>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={C.tx3} strokeWidth={2}>
+            <Path d="M12 2C8.1 2 5 5.1 5 9c0 5.2 7 13 7 13s7-7.8 7-13c0-3.9-3.1-7-7-7z" />
+            <Circle cx={12} cy={9} r={2.5} />
+          </Svg>
+          <Text style={{ color: C.tx3, fontFamily: "Manrope_500Medium", fontSize: 11 }}>
+            {reg.category.modality === "BEACH" ? "Areia" : "Quadra"}
+          </Text>
+        </View>
+      </View>
+      )}
+
+      {/* Pending notice */}
+      {reg.status === RegistrationStatus.PENDING_CONFIRMATION && (
+        <View style={{
+          flexDirection: "row", alignItems: "center", gap: 8,
+          backgroundColor: "rgba(251,191,36,0.08)",
+          borderWidth: 1, borderColor: "rgba(251,191,36,0.2)",
+          borderRadius: 12, padding: 10, paddingHorizontal: 14,
+        }}>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth={2}>
+            <Circle cx={12} cy={12} r={9} />
+            <Path d="M12 8v4M12 16h.01" />
+          </Svg>
+          <Text style={{ color: "#FBBF24", fontFamily: "Manrope_500Medium", fontSize: 11.5, lineHeight: 16, flex: 1 }}>
+            Pagamento pendente de confirmação pelo organizador.
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
 export function MyRegistrationsScreen({ navigation }: any) {
-  const { isDark, colors } = useTheme();
+  const C = useScreenColors();
   const [registrations, setRegistrations] = useState<RegistrationDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const cardBg = isDark ? "#141019" : "#FFFFFF";
-  const cardShadow = isDark
-    ? {}
-    : { shadowColor: "rgba(46,16,101,.08)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 2 };
-  const metaColor = isDark ? "#6E6684" : "#8A829E";
-  const teamNameColor = isDark ? "#948CA8" : "#6B6480";
-  const titleColor = isDark ? "#F5F3FA" : "#1A1030";
-  const avatarDark = ["#2D1B69", "#1C4A3D", "#4A1942", "#3D2A1A", "#3D1A1A"];
-  const avatarDarkText = ["#C6F82A", "#34D399", "#F472B6", "#FBBF24", "#FCA5A5"];
-  const avatarLight = ["#E8DEFF", "#D1FAE5", "#FCE7F3"];
-  const avatarLightText = ["#7C3AED", "#059669", "#DB2777"];
-
-  const load = async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
       const data = await registrationsService.listMine();
@@ -101,163 +195,60 @@ export function MyRegistrationsScreen({ navigation }: any) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    load();
   }, []);
+
+  // useFocusEffect already fires on initial mount + every focus after —
+  // an extra plain useEffect(load, []) here would just double-fetch on open.
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const goBack = () => navigation?.goBack();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0C0A12" : "#F6F4FC" }} edges={["top"]}>
-      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <ScrollView
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
+      <StatusBar barStyle={C.isDark ? "light-content" : "dark-content"} />
+      <FlatList
         contentContainerStyle={{ padding: 16, paddingHorizontal: 22, paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => load(true)}
-            tintColor={isDark ? "#C6F82A" : "#7C3AED"}
-          />
-        }
-      >
-        {/* Header with back */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <Pressable
-            onPress={goBack}
-            accessibilityRole="button"
-            accessibilityLabel="Voltar"
-            style={{
-              width: 40, height: 40, borderRadius: 14,
-              backgroundColor: isDark ? "#171320" : "#FFFFFF",
-              borderWidth: 1,
-              borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.08)",
-              alignItems: "center", justifyContent: "center",
-              ...(isDark ? {} : { shadowColor: "rgba(46,16,101,.2)", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 1, shadowRadius: 12, elevation: 2 }),
-            }}
-          >
-            <Icon name="back" size={19} color={isDark ? "#CFC8E0" : "#4A4460"} strokeWidth={2.2} />
-          </Pressable>
-          <Text style={{ color: titleColor, fontFamily: "SpaceGrotesk_700Bold", fontSize: 20, fontWeight: "700", letterSpacing: -0.02 * 20 }}>
-            Minhas inscrições
-          </Text>
-        </View>
-
-        {loading ? (
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={C.lime} />}
+        data={registrations}
+        keyExtractor={(reg) => reg.id}
+        renderItem={({ item }) => <RegistrationRow reg={item} />}
+        ListEmptyComponent={loading ? (
           <View style={{ paddingVertical: 60, alignItems: "center" }}>
-            <ActivityIndicator size="large" color={isDark ? "#C6F82A" : "#7C3AED"} />
+            <ActivityIndicator size="large" color={C.lime} />
           </View>
-        ) : registrations.length === 0 ? (
-          <EmptyState isDark={isDark} />
         ) : (
-          registrations.map((reg) => {
-            const st = statusStyle(reg.status, isDark);
-            const teamInitials = reg.team.name
-              .split(" ")
-              .map((w) => w[0])
-              .join("")
-              .slice(0, 2)
-              .toUpperCase();
-            const colorIdx = reg.teamId.charCodeAt(0) % 5;
-            const avatarBg = isDark ? avatarDark[Math.min(colorIdx, 4)] : avatarLight[Math.min(colorIdx, 2)];
-            const avatarText = isDark ? avatarDarkText[Math.min(colorIdx, 4)] : avatarLightText[Math.min(colorIdx, 2)];
-            return (
-              <View
-                key={reg.id}
-                style={{
-                  backgroundColor: cardBg,
-                  borderWidth: 1,
-                  borderColor: st.cardBorder,
-                  borderRadius: 18,
-                  padding: 16,
-                  marginBottom: 12,
-                  opacity: st.opacity,
-                  ...cardShadow,
-                }}
-              >
-                {/* Status row */}
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <View style={{ paddingVertical: 5, paddingHorizontal: 10, borderRadius: 8, backgroundColor: st.pillBg }}>
-                    <Text style={{ color: st.pillText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, fontWeight: "700" }}>
-                      {st.label}
-                    </Text>
-                  </View>
-                  <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>
-                    {formatDate(reg.createdAt)}
-                  </Text>
-                </View>
-
-                {/* Tournament name */}
-                <Text style={{ color: titleColor, fontFamily: "Manrope_600SemiBold", fontSize: 15, fontWeight: "600", marginBottom: 6 }}>
-                  {reg.tournament.name}
-                </Text>
-
-                {/* Team row */}
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: avatarBg, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: avatarText, fontFamily: "SpaceGrotesk_700Bold", fontSize: 10, fontWeight: "700" }}>{teamInitials}</Text>
-                  </View>
-                  <Text style={{ color: teamNameColor, fontFamily: "Manrope_500Medium", fontSize: 12, fontWeight: "500" }}>{reg.team.name}</Text>
-                </View>
-
-                {/* Meta row: category + modality */}
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: reg.status === RegistrationStatus.PENDING_CONFIRMATION ? 14 : 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Icon name="trophy" size={12} color={metaColor} />
-                    <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>
-                      {formatFormat(reg.category.format)} {formatType(reg.category.type)}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                    <Icon name="location" size={12} color={metaColor} />
-                    <Text style={{ color: metaColor, fontFamily: "Manrope_500Medium", fontSize: 11, fontWeight: "500" }}>
-                      {reg.category.modality === "BEACH" ? "Areia" : "Quadra"}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Pending notice */}
-                {reg.status === RegistrationStatus.PENDING_CONFIRMATION && (
-                  <View style={{
-                    flexDirection: "row", alignItems: "center", gap: 8,
-                    backgroundColor: isDark ? "rgba(251,191,36,.06)" : "rgba(217,119,6,.05)",
-                    borderWidth: 1,
-                    borderColor: isDark ? "rgba(251,191,36,.15)" : "rgba(217,119,6,.12)",
-                    borderRadius: 12, padding: 10, paddingHorizontal: 14,
-                  }}>
-                    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={isDark ? "#FBBF24" : "#D97706"} strokeWidth={2}>
-                      <Circle cx={12} cy={12} r={9} />
-                      <Path d="M12 8v4M12 16h.01" />
-                    </Svg>
-                    <Text style={{ color: isDark ? "#FBBF24" : "#D97706", fontFamily: "Manrope_500Medium", fontSize: 11.5, fontWeight: "500", lineHeight: 16, flex: 1 }}>
-                      Pagamento pendente de confirmação pelo organizador.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            );
-          })
+          <EmptyState />
         )}
-      </ScrollView>
+        ListHeaderComponent={
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 20 }}>
+            <Pressable
+              onPress={goBack}
+              accessibilityRole="button"
+              accessibilityLabel="Voltar"
+              style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, alignItems: "center", justifyContent: "center" }}
+            >
+              <Icon name="back" size={19} color={C.tx2} strokeWidth={2.2} />
+            </Pressable>
+            <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 24, letterSpacing: 0.3, textTransform: "uppercase" }}>
+              Minhas inscrições
+            </Text>
+          </View>
+        }
+      />
     </SafeAreaView>
   );
 }
 
-function EmptyState({ isDark }: { isDark: boolean }) {
+function EmptyState() {
+  const C = useScreenColors();
   return (
-    <View style={{
-      backgroundColor: isDark ? "#171221" : "#FFFFFF",
-      borderWidth: 1,
-      borderColor: isDark ? "rgba(255,255,255,.07)" : "rgba(26,16,48,.06)",
-      borderRadius: 18, padding: 13, alignItems: "center",
-    }}>
-      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: isDark ? "#241B38" : "#F0ECFA", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-        <Icon name="trophy" size={22} color={isDark ? "#C6F82A" : "#7C3AED"} />
+    <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 18, padding: 24, alignItems: "center" }}>
+      <View style={{ width: 56, height: 56, borderRadius: 18, borderWidth: 2, borderColor: "rgba(198,248,42,0.5)", transform: [{ rotate: "-4deg" }], backgroundColor: C.purpleDeep, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+        <Icon name="trophy" size={24} color={C.lime} />
       </View>
-      <Text style={{ color: isDark ? "#F5F3FA" : "#1A1428", fontFamily: "SpaceGrotesk_700Bold", fontSize: 14, fontWeight: "700", marginBottom: 4 }}>Nenhuma inscrição ainda</Text>
-      <Text style={{ color: isDark ? "#A9A2BC" : "#6B6480", fontFamily: "Manrope_500Medium", fontSize: 12.5, fontWeight: "500", lineHeight: 19, textAlign: "center", maxWidth: 250 }}>
+      <Text style={{ color: C.tx, fontFamily: "Anton_400Regular", fontSize: 16, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 6 }}>Nenhuma inscrição ainda</Text>
+      <Text style={{ color: C.tx2, fontFamily: "Manrope_500Medium", fontSize: 12.5, lineHeight: 19, textAlign: "center", maxWidth: 250 }}>
         Inscreva seu time em um torneio para vê-lo aqui.
       </Text>
     </View>
