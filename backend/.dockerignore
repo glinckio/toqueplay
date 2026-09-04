@@ -1,0 +1,23 @@
+# Sem isto o COPY arrasta o node_modules da máquina de quem builda por cima do instalado dentro da
+# imagem, e o contexto do build fica com centenas de MB à toa.
+node_modules
+dist
+
+# Lockfiles de outro gerenciador: o projeto usa npm (package-lock.json). Estes são resíduos antigos
+# e só confundem quem for mexer na imagem.
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Segredos nunca entram na imagem — as variáveis vêm do ambiente do deploy.
+.env
+.env.*
+!.env.example
+
+# Artefatos de teste e metadados sem uso em runtime.
+coverage
+test
+*.log
+.git
+.vscode
+banners
+collection

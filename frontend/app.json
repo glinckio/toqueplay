@@ -3,7 +3,7 @@
     "name": "ToquePlay",
     "slug": "toqueplay",
     "version": "2.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "scheme": "toqueplay",
@@ -18,11 +18,39 @@
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "plugins": [
       "expo-font",
-      "expo-secure-store"
-    ]
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir que o ToquePlay acesse sua localização para encontrar torneios próximos.",
+          "locationWhenInUsePermission": "Permitir que o ToquePlay acesse sua localização para encontrar torneios próximos."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o ToquePlay acesse suas fotos para definir foto de perfil e banners.",
+          "cameraPermission": "Permitir que o ToquePlay use a câmera para tirar fotos."
+        }
+      ],
+      "expo-image"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "62fdd475-a2dd-4d2f-b4e7-76aaface9346"
+      }
+    },
+    "owner": "gabriellinck"
   }
 }
