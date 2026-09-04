@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { NotificationPreferencesDto } from './dto/notification-preferences.dto';
 import { StorageService } from '../storage/storage.service';
+import { TeamsService } from '../teams/teams.service';
 import { AppError } from '../../common/errors/app-error';
 import { assertImageFile } from '../../common/utils/file-validation';
 
@@ -21,7 +22,33 @@ export class UsersService {
   constructor(
     private prisma: PrismaService,
     private storage: StorageService,
+    private teamsService: TeamsService,
   ) {}
+
+  async getPublicProfile(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        bio: true,
+        phone: true,
+        nameColor: true,
+        emailColor: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const stats = await this.getUserStats(userId);
+
+    return { ...user, stats };
+  }
 
   async getProfile(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -31,10 +58,17 @@ export class UsersService {
         email: true,
         name: true,
         avatarUrl: true,
+        bannerUrl: true,
+        themeMode: true,
         phone: true,
         bio: true,
+        nameColor: true,
+        emailColor: true,
         isFirstAccess: true,
         notificationPreferences: true,
+        latitude: true,
+        longitude: true,
+        nearbyRadiusKm: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -62,6 +96,8 @@ export class UsersService {
         ...dto,
         phone: dto.phone === '' ? null : dto.phone,
         bio: dto.bio === '' ? null : dto.bio,
+        nameColor: dto.nameColor === '' ? null : dto.nameColor,
+        emailColor: dto.emailColor === '' ? null : dto.emailColor,
         isFirstAccess: false,
       },
       select: {
@@ -69,8 +105,11 @@ export class UsersService {
         email: true,
         name: true,
         avatarUrl: true,
+        bannerUrl: true,
         phone: true,
         bio: true,
+        nameColor: true,
+        emailColor: true,
         isFirstAccess: true,
         createdAt: true,
         updatedAt: true,
@@ -80,24 +119,39 @@ export class UsersService {
     return updated;
   }
 
+  async updateTheme(userId: string, themeMode: 'dark' | 'light') {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { themeMode },
+      select: { id: true, themeMode: true },
+    });
+  }
+
   async updateLocation(
     userId: string,
-    data: { latitude: number; longitude: number; enableLocationNotifications?: boolean },
+    data: {
+      latitude?: number;
+      longitude?: number;
+      enableLocationNotifications?: boolean;
+      nearbyRadiusKm?: number;
+    },
   ) {
     return this.prisma.user.update({
       where: { id: userId },
       data: {
-        latitude: data.latitude,
-        longitude: data.longitude,
+        ...(data.latitude !== undefined && { latitude: data.latitude }),
+        ...(data.longitude !== undefined && { longitude: data.longitude }),
         ...(data.enableLocationNotifications !== undefined && {
           enableLocationNotifications: data.enableLocationNotifications,
         }),
+        ...(data.nearbyRadiusKm !== undefined && { nearbyRadiusKm: data.nearbyRadiusKm }),
       },
       select: {
         id: true,
         latitude: true,
         longitude: true,
         enableLocationNotifications: true,
+        nearbyRadiusKm: true,
       },
     });
   }
@@ -154,6 +208,7 @@ export class UsersService {
         email: true,
         name: true,
         avatarUrl: true,
+        bannerUrl: true,
         phone: true,
         bio: true,
         isFirstAccess: true,
@@ -164,59 +219,66 @@ export class UsersService {
     });
   }
 
+  async uploadBanner(userId: string, file: Express.Multer.File) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    await assertImageFile(file, MAX_SIZE);
+
+    if (user.bannerUrl) {
+      const oldKey = this.storage.extractKeyFromUrl(user.bannerUrl);
+      if (oldKey) await this.storage.deleteFile(oldKey);
+    }
+
+    const ext = file.originalname.split('.').pop() ?? 'jpg';
+    const key = `users/${userId}/banner-${Date.now()}.${ext}`;
+    const bannerUrl = await this.storage.uploadFile(file.buffer, key, file.mimetype);
+
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { bannerUrl },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatarUrl: true,
+        bannerUrl: true,
+        phone: true,
+        bio: true,
+        isFirstAccess: true,
+        notificationPreferences: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  // Torneios/vitórias/win rate mirror the team profile's numbers, pooled
+  // across every team this user belongs to — "matches" stays individual
+  // (from AthleteStats), since there's no per-tournament equivalent for it.
   async getUserStats(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, avatarUrl: true },
+      select: { id: true },
     });
-
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const stats = await this.prisma.athleteStats.findMany({
-      where: { userId },
-      include: {
-        team: { select: { id: true, name: true, avatarUrl: true } },
-        tournament: {
-          select: {
-            id: true,
-            name: true,
-            stages: { select: { date: true }, orderBy: { date: 'asc' } },
-            _count: { select: { registrations: true } },
-          },
-        },
-      },
-    });
-
-    const totals = stats.reduce(
-      (acc, s) => ({
-        matchesPlayed: acc.matchesPlayed + s.matchesPlayed,
-        matchesWon: acc.matchesWon + s.matchesWon,
-        setsWon: acc.setsWon + s.setsWon,
-        pointsScored: acc.pointsScored + s.pointsScored,
-        mvpCount: acc.mvpCount + s.mvpCount,
+    const [tournamentStats, matchTotals] = await Promise.all([
+      this.teamsService.getUserTournamentStats(userId),
+      this.prisma.athleteStats.aggregate({
+        where: { userId },
+        _sum: { matchesPlayed: true },
       }),
-      { matchesPlayed: 0, matchesWon: 0, setsWon: 0, pointsScored: 0, mvpCount: 0 },
-    );
+    ]);
 
     return {
-      user,
-      totals: {
-        ...totals,
-        winRate: totals.matchesPlayed > 0
-          ? Math.round((totals.matchesWon / totals.matchesPlayed) * 100)
-          : 0,
-      },
-      byTournament: stats.map((s) => ({
-        tournament: s.tournament,
-        team: s.team,
-        matchesPlayed: s.matchesPlayed,
-        matchesWon: s.matchesWon,
-        setsWon: s.setsWon,
-        pointsScored: s.pointsScored,
-        mvpCount: s.mvpCount,
-      })),
+      tournaments: tournamentStats.tournaments,
+      wins: tournamentStats.wins,
+      winRate: tournamentStats.winRate,
+      teams: tournamentStats.teams,
+      matches: matchTotals._sum.matchesPlayed ?? 0,
     };
   }
 }

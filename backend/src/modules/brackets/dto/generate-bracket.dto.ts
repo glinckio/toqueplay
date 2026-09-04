@@ -1,5 +1,5 @@
-import { IsString, IsEnum } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsEnum, IsOptional, IsInt, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { BracketType } from '@prisma/client';
 
 export class GenerateBracketDto {
@@ -14,4 +14,14 @@ export class GenerateBracketDto {
   })
   @IsEnum(BracketType)
   type: BracketType;
+
+  @ApiPropertyOptional({
+    description:
+      'Numero de grupos, usado apenas quando type = GROUPS_THEN_ELIMINATION. ' +
+      'Se omitido, o numero de grupos e calculado automaticamente.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  groupsCount?: number;
 }

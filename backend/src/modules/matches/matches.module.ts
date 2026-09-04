@@ -1,4 +1,5 @@
 import { Module, forwardRef } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { MatchesController } from './matches.controller';
 import { MatchesService } from './matches.service';
 import { MatchesGateway } from './matches.gateway';
@@ -7,7 +8,7 @@ import { RankingModule } from '../ranking/ranking.module';
 import { BracketsModule } from '../brackets/brackets.module';
 
 @Module({
-  imports: [RedisModule, RankingModule, forwardRef(() => BracketsModule)],
+  imports: [RedisModule, RankingModule, forwardRef(() => BracketsModule), JwtModule.register({})],
   controllers: [MatchesController],
   providers: [MatchesService, MatchesGateway],
   exports: [MatchesService],

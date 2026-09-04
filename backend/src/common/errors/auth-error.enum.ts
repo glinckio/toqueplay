@@ -1,6 +1,7 @@
 export enum AuthErrorCode {
   // Register
   EMAIL_ALREADY_EXISTS = 'EMAIL_ALREADY_EXISTS',
+  CPF_ALREADY_EXISTS = 'CPF_ALREADY_EXISTS',
   INVALID_PASSWORD_FORMAT = 'INVALID_PASSWORD_FORMAT',
   PASSWORDS_DO_NOT_MATCH = 'PASSWORDS_DO_NOT_MATCH',
 
@@ -34,6 +35,7 @@ export enum AuthErrorCode {
 
 export const AuthErrorMessages: Record<AuthErrorCode, string> = {
   [AuthErrorCode.EMAIL_ALREADY_EXISTS]: 'This email is already registered',
+  [AuthErrorCode.CPF_ALREADY_EXISTS]: 'This CPF is already registered',
   [AuthErrorCode.INVALID_PASSWORD_FORMAT]:
     'Password must be at least 6 characters long',
   [AuthErrorCode.PASSWORDS_DO_NOT_MATCH]: 'Passwords do not match',

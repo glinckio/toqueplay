@@ -51,6 +51,13 @@ export class AuthService {
       throw AppError.emailAlreadyExists();
     }
 
+    const existingCpf = await this.prisma.user.findUnique({
+      where: { cpf: dto.cpf },
+    });
+    if (existingCpf) {
+      throw AppError.cpfAlreadyExists();
+    }
+
     if (dto.password !== dto.confirmPassword) {
       throw AppError.passwordsDoNotMatch();
     }

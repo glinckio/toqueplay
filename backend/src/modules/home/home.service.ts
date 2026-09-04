@@ -2,6 +2,16 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { TournamentStatus, RegistrationStatus, FriendlyStatus } from '@prisma/client';
 
+const FORMAT_PT: Record<string, string> = { PAIR: 'Dupla', QUARTET: 'Quarteto', SEXTET: 'Sexteto' };
+const TYPE_PT: Record<string, string> = { MALE: 'Masculina', FEMALE: 'Feminina', MIX: 'Mista' };
+const MODALITY_PT: Record<string, string> = { BEACH: 'Areia', COURT: 'Quadra' };
+
+function translateCategory(cat: { format?: string; type?: string; modality?: string } | null): string {
+  if (!cat) return '';
+  const parts = [FORMAT_PT[cat.format ?? ''] ?? cat.format, TYPE_PT[cat.type ?? ''] ?? cat.type].filter(Boolean);
+  return parts.join(' ');
+}
+
 @Injectable()
 export class HomeService {
   constructor(private prisma: PrismaService) {}
@@ -9,7 +19,7 @@ export class HomeService {
   async getDashboard(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { latitude: true, longitude: true },
+      select: { latitude: true, longitude: true, nearbyRadiusKm: true },
     });
 
     const [
@@ -37,7 +47,7 @@ export class HomeService {
 
     return {
       nearbyTournaments,
-      myRegistrations,
+      myTournaments: myRegistrations,
       pendingFriendlies,
       acceptedFriendlies,
       unreadNotifications,
@@ -55,29 +65,31 @@ export class HomeService {
       select: {
         id: true,
         status: true,
+        paidAt: true,
         tournament: {
           select: {
             id: true,
             name: true,
+            imageUrl: true,
             status: true,
             stages: { select: { date: true, city: true, state: true }, orderBy: { date: 'asc' }, take: 1 },
           },
         },
-        category: { select: { modality: true } },
+        category: { select: { format: true, type: true, modality: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 5,
     });
 
     return registrations.map((r) => ({
-      id: r.id,
-      status: r.status,
-      tournamentId: r.tournament.id,
-      tournamentName: r.tournament.name,
-      tournamentStatus: r.tournament.status,
-      startDate: r.tournament.stages[0]?.date?.toISOString() ?? '',
-      city: r.tournament.stages[0]?.city ?? '',
-      modality: r.category?.modality ?? '',
+      id: r.tournament.id,
+      name: r.tournament.name,
+      coverUrl: r.tournament.imageUrl ?? null,
+      date: r.tournament.stages[0]?.date
+        ? r.tournament.stages[0].date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+        : '',
+      categoryFormat: translateCategory(r.category),
+      registrationStatus: r.paidAt ? 'PAID' : r.status,
     }));
   }
 
@@ -85,19 +97,20 @@ export class HomeService {
   // user's saved location. No exception for owned/registered tournaments — a
   // registration far away belongs in "Minhas inscrições", not here.
   private async getNearbyTournaments(
-    user: { latitude: number | null; longitude: number | null } | null,
+    user: { latitude: number | null; longitude: number | null; nearbyRadiusKm?: number } | null,
   ) {
     if (user?.latitude == null || user?.longitude == null) return [];
 
-    const NEARBY_RADIUS_KM = 50;
+    const NEARBY_RADIUS_KM = user.nearbyRadiusKm ?? 50;
     const activeStatus = { in: [TournamentStatus.PUBLISHED, TournamentStatus.REGISTRATION_OPEN, TournamentStatus.REGISTRATION_CLOSED, TournamentStatus.BRACKET_GENERATED, TournamentStatus.IN_PROGRESS] };
 
     const select = {
       id: true,
       name: true,
+      imageUrl: true,
       status: true,
       stages: { select: { date: true, street: true, number: true, neighborhood: true, city: true, state: true, latitude: true, longitude: true }, orderBy: { date: 'asc' as const } },
-      categories: { select: { modality: true }, take: 1 },
+      categories: { select: { format: true, type: true, modality: true }, take: 1 },
       _count: { select: { registrations: true } },
     };
 
@@ -134,25 +147,21 @@ export class HomeService {
       return {
         id: t.id,
         name: t.name,
+        coverUrl: t.imageUrl ?? null,
+        categoryFormat: translateCategory(t.categories?.[0] ?? null),
         status: t.status,
-        startDate: s?.date?.toISOString() ?? '',
+        distance: distanceKm,
+        date: s?.date
+          ? s.date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+          : '',
         city: s?.city ?? '',
-        street: s?.street ?? '',
-        number: s?.number ?? '',
-        neighborhood: s?.neighborhood ?? '',
-        state: s?.state ?? '',
-        location: fullLocation,
-        modality: t.categories?.[0]?.modality ?? '',
-        registrationCount: t._count?.registrations ?? 0,
-        distanceKm,
       };
     };
 
     return tournaments
       .map(mapTournament)
-      // bounding box above is a square approximation — cut anything outside the real radius
-      .filter((t) => t.distanceKm != null && t.distanceKm <= NEARBY_RADIUS_KM)
-      .sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0))
+      .filter((t) => t.distance != null && t.distance <= NEARBY_RADIUS_KM)
+      .sort((a, b) => (a.distance ?? 0) - (b.distance ?? 0))
       .slice(0, 5);
   }
 

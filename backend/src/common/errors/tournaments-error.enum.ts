@@ -16,6 +16,7 @@ export enum TournamentsErrorCode {
   TOURNAMENT_NOT_IN_PROGRESS = 'TOURNAMENT_NOT_IN_PROGRESS',
   TOURNAMENT_HAS_PENDING_MATCHES = 'TOURNAMENT_HAS_PENDING_MATCHES',
   REFEREE_NOT_INVITED = 'REFEREE_NOT_INVITED',
+  REFEREE_ALREADY_IN_MATCH = 'REFEREE_ALREADY_IN_MATCH',
 }
 
 export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
@@ -36,4 +37,5 @@ export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
   [TournamentsErrorCode.TOURNAMENT_NOT_IN_PROGRESS]: 'This action is only allowed for tournaments in progress',
   [TournamentsErrorCode.TOURNAMENT_HAS_PENDING_MATCHES]: 'Cannot complete: there are pending matches',
   [TournamentsErrorCode.REFEREE_NOT_INVITED]: 'You have not been invited to referee this tournament',
+  [TournamentsErrorCode.REFEREE_ALREADY_IN_MATCH]: 'You must finish your current match before claiming another',
 };

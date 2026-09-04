@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
+import * as Sentry from '@sentry/node';
 
 @Injectable()
 export class MailService {
@@ -100,7 +101,14 @@ export class MailService {
       html: this.buildDpoNotifyTemplate(payload),
     });
     if (error) {
+      // Best-effort by design (a flaky Resend call shouldn't fail the DPO
+      // request itself) — but a swallowed failure here means a live LGPD
+      // art. 19 deadline nobody was told about, so it still needs to surface
+      // somewhere alertable instead of just a log line.
       this.logger.error(`Failed DPO notify email: ${error.message}`);
+      Sentry.captureException(new Error(`Failed DPO notify email: ${error.message}`), {
+        extra: { ref: payload.ref, type: payload.type },
+      });
     }
   }
 
@@ -126,7 +134,74 @@ export class MailService {
     });
     if (error) {
       this.logger.error(`Failed DPO response email: ${error.message}`);
+      Sentry.captureException(new Error(`Failed DPO response email: ${error.message}`), {
+        extra: { to, subject: payload.subject },
+      });
     }
+  }
+
+  /**
+   * Generic event notification (team invite, tournament update, etc.) — only
+   * ever called for users who opted into MARKETING_EMAIL consent; see
+   * NotificationService.sendToUsers.
+   */
+  async sendNotificationEmail(
+    to: string,
+    userName: string,
+    payload: { title: string; body: string },
+  ): Promise<void> {
+    if (this.configService.get('NODE_ENV') !== 'production') {
+      this.logger.warn(`[DEV] Notification email for ${to}: ${payload.title}`);
+      return;
+    }
+
+    const { error } = await this.resend.emails.send({
+      from: this.fromEmail,
+      to,
+      subject: `ToquePlay - ${payload.title}`,
+      html: this.buildNotificationTemplate(userName, payload),
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send notification email to ${to}: ${error.message}`);
+      throw new Error(`Failed to send notification email: ${error.message}`);
+    }
+
+    this.logger.log(`Notification email sent to ${to}`);
+  }
+
+  private buildNotificationTemplate(userName: string, payload: { title: string; body: string }): string {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5; font-family: Arial, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f4f4f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <tr>
+            <td style="background-color: #D14F5C; padding: 32px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700;">ToquePlay</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px;">
+              <h2 style="margin: 0 0 8px; color: #18181b; font-size: 20px;">Ola, ${userName}!</h2>
+              <p style="margin: 0 0 4px; color: #18181b; font-size: 16px; font-weight: 700;">${payload.title}</p>
+              <p style="margin: 0; color: #71717a; font-size: 15px;">${payload.body}</p>
+              <p style="margin: 24px 0 0; color: #a1a1aa; font-size: 12px;">Voce recebeu este email porque ativou notificacoes por email nas configuracoes do ToquePlay. Pode desativar a qualquer momento em Configuracoes &gt; Notificacoes.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
   }
 
   private buildVerificationTemplate(code: string, userName: string): string {

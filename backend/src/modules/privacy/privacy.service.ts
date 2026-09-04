@@ -38,7 +38,23 @@ export class PrivacyService {
       throw AppError.dataExportRateLimited();
     }
 
-    const [user, teamMembers, registrations, friendlies, notifications, chatMessages, auditLogs, consents] = await Promise.all([
+    const userTeamMemberIds = (
+      await this.prisma.teamMember.findMany({ where: { userId }, select: { id: true } })
+    ).map((m) => m.id);
+
+    const [
+      user,
+      teamMembers,
+      teamsOwned,
+      registrations,
+      tournamentsOwned,
+      friendlies,
+      matchesRefereed,
+      notifications,
+      chatMessages,
+      auditLogs,
+      consents,
+    ] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: userId },
         select: {
@@ -52,6 +68,10 @@ export class PrivacyService {
         where: { userId },
         include: { team: { select: { id: true, name: true } } },
       }),
+      this.prisma.team.findMany({
+        where: { ownerId: userId },
+        select: { id: true, name: true, city: true, state: true, createdAt: true },
+      }),
       this.prisma.registration.findMany({
         where: { userId },
         include: {
@@ -60,9 +80,25 @@ export class PrivacyService {
           team: { select: { id: true, name: true } },
         },
       }),
+      this.prisma.tournament.findMany({
+        where: { ownerId: userId },
+        select: { id: true, name: true, status: true, createdAt: true },
+      }),
+      // Friendlies the user is part of as requester, challenged, or as an
+      // athlete on either roster — not just the ones they created.
       this.prisma.friendly.findMany({
-        where: { requesterId: userId },
+        where: {
+          OR: [
+            { requesterId: userId },
+            { challengedId: userId },
+            { athletes: { some: { teamMemberId: { in: userTeamMemberIds } } } },
+          ],
+        },
         select: { id: true, status: true, date: true, createdAt: true },
+      }),
+      this.prisma.match.findMany({
+        where: { refereeId: userId },
+        select: { id: true, status: true, scheduledAt: true, finishedAt: true },
       }),
       this.prisma.notification.findMany({
         where: { userId },
@@ -101,8 +137,11 @@ export class PrivacyService {
       user,
       consents,
       teamMembers,
+      teamsOwned,
       registrations,
-      friendliesRequested: friendlies,
+      tournamentsOwned,
+      friendlies,
+      matchesRefereed,
       notifications,
       chatMessages,
       auditLogs,
@@ -212,7 +251,9 @@ export class PrivacyService {
     // dedupe by purpose (most recent wins)
     const byPurpose = new Map<string, boolean>();
     for (const r of rows) {
-      byPurpose.set(r.purpose, r.accepted);
+      if (!byPurpose.has(r.purpose)) {
+        byPurpose.set(r.purpose, r.accepted);
+      }
     }
 
     const hasTerms = await this.prisma.userConsent.findFirst({
@@ -236,6 +277,24 @@ export class PrivacyService {
         marketingEmail: byPurpose.get('MARKETING_EMAIL') ?? false,
       },
     };
+  }
+
+  /**
+   * LGPD art. 37 — histórico completo de consentimentos: toda mudança de
+   * versão de termos e todo toggle granular fica registrado aqui, sem dedupe.
+   */
+  async getConsentHistory(userId: string) {
+    return this.prisma.userConsent.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        version: true,
+        purpose: true,
+        accepted: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async updateConsents(

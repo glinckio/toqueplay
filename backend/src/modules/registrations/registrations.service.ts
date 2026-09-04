@@ -15,7 +15,7 @@ import { AuditService } from '../audit/audit.service';
 const REGISTRATION_INCLUDE = {
   tournament: { select: { id: true, name: true, status: true } },
   category: { select: { id: true, type: true, format: true, modality: true, registrationPrice: true } },
-  team: { select: { id: true, name: true } },
+  team: { select: { id: true, name: true, avatarUrl: true } },
   user: { select: { id: true, name: true, email: true } },
   members: {
     include: {
@@ -122,6 +122,15 @@ export class RegistrationsService {
         include: REGISTRATION_INCLUDE,
       });
     });
+
+    if (tournament.ownerId !== userId) {
+      await this.notificationService.sendToUsers([tournament.ownerId], {
+        title: 'Nova inscrição!',
+        body: `O time "${registration.team.name}" se inscreveu no torneio "${tournament.name}".`,
+        type: 'REGISTRATION_CREATED',
+        referenceId: tournamentId,
+      });
+    }
 
     return registration;
   }
@@ -238,7 +247,7 @@ export class RegistrationsService {
   async rejectRegistration(tournamentId: string, regId: string, userId: string) {
     const tournament = await this.tournamentsService.verifyOwnership(tournamentId, userId);
 
-    if (tournament.status === TournamentStatus.IN_PROGRESS || tournament.status === TournamentStatus.FINISHED) {
+    if (tournament.status !== TournamentStatus.REGISTRATION_OPEN) {
       throw AppError.cannotModifyStarted();
     }
 
@@ -256,11 +265,29 @@ export class RegistrationsService {
       throw AppError.registrationAlreadyConfirmed();
     }
 
-    return this.prisma.registration.update({
+    const wasPaid = registration.status === RegistrationStatus.CONFIRMED;
+
+    const updated = await this.prisma.registration.update({
       where: { id: regId },
       data: { status: RegistrationStatus.REJECTED },
       include: REGISTRATION_INCLUDE,
     });
+
+    const memberUserIds = updated.members
+      .map((m: any) => m.teamMember?.user?.id)
+      .filter((id: string | null | undefined): id is string => !!id && id !== userId);
+    if (memberUserIds.length > 0) {
+      await this.notificationService.sendToUsers(memberUserIds, {
+        title: 'Inscrição recusada',
+        body: wasPaid
+          ? `Sua inscrição no torneio "${updated.tournament.name}" foi recusada pelo organizador. Entre em contato para o reembolso.`
+          : `Sua inscrição no torneio "${updated.tournament.name}" foi recusada pelo organizador.`,
+        type: 'REGISTRATION_REJECTED',
+        referenceId: tournamentId,
+      });
+    }
+
+    return updated;
   }
 
   async listMine(userId: string) {
@@ -271,7 +298,11 @@ export class RegistrationsService {
     });
   }
 
-  async getRegisteredMembers(tournamentId: string, teamId: string) {
+  async getRegisteredMembers(tournamentId: string, teamId: string, userId: string) {
+    const team = await this.prisma.team.findUnique({ where: { id: teamId } });
+    if (!team) throw AppError.teamNotFound();
+    if (team.ownerId !== userId) throw AppError.notTeamOwner();
+
     const regs = await this.prisma.registration.findMany({
       where: {
         tournamentId,

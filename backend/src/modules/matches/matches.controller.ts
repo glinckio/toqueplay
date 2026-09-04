@@ -14,6 +14,7 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -24,7 +25,6 @@ import { WalkoverDto } from './dto/walkover.dto';
 import { TimeoutDto } from './dto/timeout.dto';
 import { SubstitutionDto } from './dto/substitution.dto';
 import { SetLineupDto } from './dto/set-lineup.dto';
-import { NearbyQueryDto } from './dto/nearby-query.dto';
 import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('Matches')
@@ -34,14 +34,8 @@ import { Audit } from '../audit/audit.decorator';
 export class MatchesController {
   constructor(private readonly matchesService: MatchesService) {}
 
-  @Get('nearby')
-  @ApiOperation({ summary: 'Find live matches near user location or the user is playing in' })
-  @ApiResponse({ status: 200, description: 'Nearby live matches' })
-  findNearby(@CurrentUser('id') userId: string, @Query() query: NearbyQueryDto) {
-    return this.matchesService.findNearby(userId, query);
-  }
-
   @Post('referee-enter')
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'Enter referee code to become match referee' })
   @ApiResponse({ status: 200, description: 'Referee assigned to match' })
   async enterRefereeCode(
@@ -82,6 +76,16 @@ export class MatchesController {
     @CurrentUser('id') userId: string,
   ) {
     return this.matchesService.generateRefereeCode(matchId, userId);
+  }
+
+  @Post(':id/claim')
+  @ApiOperation({ summary: 'Referee claims a match from bracket' })
+  @ApiResponse({ status: 201, description: 'Match claimed by referee' })
+  async claimMatch(
+    @Param('id') matchId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.matchesService.claimMatch(matchId, userId);
   }
 
   @Patch(':id/start')

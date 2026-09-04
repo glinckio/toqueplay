@@ -101,9 +101,14 @@ export class TournamentsService {
                   maxTeams: s.maxTeams,
                   street: s.street,
                   number: s.number,
+                  complement: s.complement,
                   neighborhood: s.neighborhood,
                   cep: s.cep,
-                  address: s.address ?? composeStageAddress(s),
+                  // Prefer the composed address (street + number + complement +
+                  // neighborhood) over the raw client-sent `address` — that one
+                  // is only the ViaCEP-autofilled street/neighborhood/city
+                  // string, which never includes the house number or complement.
+                  address: composeStageAddress(s) ?? s.address,
                   city: s.city,
                   state: s.state,
                   latitude: s.latitude,
@@ -307,11 +312,11 @@ export class TournamentsService {
     if (stagesWithoutLocation) missing.push('location on all stages (city or address)');
 
     const minDate = new Date();
-    minDate.setDate(minDate.getDate() + 7);
-    minDate.setHours(0, 0, 0, 0);
+    minDate.setUTCDate(minDate.getUTCDate() + 7);
+    minDate.setUTCHours(0, 0, 0, 0);
     for (const stage of tournamentWithRelations.stages) {
       const stageDate = new Date(stage.date);
-      stageDate.setHours(0, 0, 0, 0);
+      stageDate.setUTCHours(0, 0, 0, 0);
       if (stageDate < minDate) {
         throw AppError.stageDateTooSoon();
       }
@@ -328,6 +333,34 @@ export class TournamentsService {
     });
   }
 
+  async openRegistration(tournamentId: string, userId: string) {
+    const tournament = await this.verifyOwnership(tournamentId, userId);
+
+    if (!canTransition(tournament.status, TournamentStatus.REGISTRATION_OPEN)) {
+      throw AppError.tournamentNotReady();
+    }
+
+    return this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { status: TournamentStatus.REGISTRATION_OPEN },
+      include: FULL_INCLUDE,
+    });
+  }
+
+  async closeRegistration(tournamentId: string, userId: string) {
+    const tournament = await this.verifyOwnership(tournamentId, userId);
+
+    if (!canTransition(tournament.status, TournamentStatus.REGISTRATION_CLOSED)) {
+      throw AppError.tournamentNotOpen();
+    }
+
+    return this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { status: TournamentStatus.REGISTRATION_CLOSED },
+      include: FULL_INCLUDE,
+    });
+  }
+
   async startTournament(tournamentId: string, userId: string) {
     const tournament = await this.verifyOwnership(tournamentId, userId);
 
@@ -335,9 +368,14 @@ export class TournamentsService {
       throw AppError.tournamentNotReady();
     }
 
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+
     const updated = await this.prisma.tournament.update({
       where: { id: tournamentId },
-      data: { status: TournamentStatus.IN_PROGRESS },
+      data: {
+        status: TournamentStatus.IN_PROGRESS,
+        refereeCode: code,
+      },
       include: FULL_INCLUDE,
     });
 
@@ -389,7 +427,6 @@ export class TournamentsService {
       throw AppError.invalidRefereeCode();
     }
 
-    // Only referees the organizer already invited (via addReferee) may confirm the code
     const invited = await this.prisma.tournamentReferee.findUnique({
       where: { tournamentId_userId: { tournamentId: tournament.id, userId } },
     });
@@ -686,8 +723,8 @@ export class TournamentsService {
         imageUrl: true,
         status: true,
         createdAt: true,
-        stages: { select: { date: true, street: true, number: true, neighborhood: true, city: true, state: true, maxTeams: true }, orderBy: { date: 'asc' } },
-        categories: { select: { type: true, format: true, modality: true, registrationPrice: true } },
+        stages: { select: { date: true, street: true, number: true, neighborhood: true, city: true, state: true, maxTeams: true, latitude: true, longitude: true }, orderBy: { date: 'asc' } },
+        categories: { select: { type: true, format: true, modality: true, registrationPrice: true, registrationDeadline: true } },
         owner: OWNER_INCLUDE,
         _count: { select: { registrations: true } },
         registrations: {
@@ -825,8 +862,9 @@ export class TournamentsService {
     const allData = hasMore ? all.slice(0, -1) : all;
 
     return {
+      data: allData,
+      total: allData.length,
       nearby,
-      all: allData,
       hasMore,
       nextCursor: hasMore ? allData[allData.length - 1]?.id : null,
     };
@@ -1054,25 +1092,15 @@ export class TournamentsService {
     });
   }
 
-  async setBannerUrl(tournamentId: string, userId: string, imageUrl: string) {
-    const tournament = await this.prisma.tournament.findUnique({ where: { id: tournamentId } });
-    if (!tournament || tournament.ownerId !== userId) {
-      throw AppError.notTournamentOwner();
-    }
-    return this.prisma.tournament.update({
-      where: { id: tournamentId },
-      data: { imageUrl },
-      include: FULL_INCLUDE,
-    });
-  }
 }
 
 function composeStageAddress(stage: {
   street?: string;
   number?: string;
+  complement?: string;
   neighborhood?: string;
 }): string | undefined {
-  const parts = [stage.street, stage.number, stage.neighborhood].filter(Boolean);
+  const parts = [stage.street, stage.number, stage.complement, stage.neighborhood].filter(Boolean);
   return parts.length > 0 ? parts.join(', ') : undefined;
 }
 

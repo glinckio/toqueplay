@@ -76,6 +76,12 @@ export class StageDto {
   @MaxLength(20)
   number?: string;
 
+  @ApiPropertyOptional({ description: 'Complemento' })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100)
+  complement?: string;
+
   @ApiPropertyOptional({ description: 'Bairro' })
   @IsString()
   @IsOptional()

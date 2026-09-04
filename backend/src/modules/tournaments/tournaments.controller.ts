@@ -13,6 +13,7 @@ import {
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiOperation,
@@ -142,6 +143,30 @@ export class TournamentsController {
     return this.tournamentsService.publish(id, userId);
   }
 
+  @Patch(':id/open-registration')
+  @ApiOperation({ summary: 'Abrir inscrições (PUBLISHED → REGISTRATION_OPEN)' })
+  @Audit('TOURNAMENT_REGISTRATION_OPENED', 'Tournament', {
+    fetchBefore: async (prisma, id) => prisma.tournament.findUnique({ where: { id }, select: { id: true, name: true, status: true } }),
+  })
+  async openRegistration(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.tournamentsService.openRegistration(id, userId);
+  }
+
+  @Patch(':id/close-registration')
+  @ApiOperation({ summary: 'Fechar inscrições (REGISTRATION_OPEN → REGISTRATION_CLOSED)' })
+  @Audit('TOURNAMENT_REGISTRATION_CLOSED', 'Tournament', {
+    fetchBefore: async (prisma, id) => prisma.tournament.findUnique({ where: { id }, select: { id: true, name: true, status: true } }),
+  })
+  async closeRegistration(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.tournamentsService.closeRegistration(id, userId);
+  }
+
   @Patch(':id/start')
   @ApiOperation({ summary: 'Iniciar torneio (muda status para IN_PROGRESS)' })
   @Audit('TOURNAMENT_STARTED', 'Tournament', {
@@ -177,6 +202,7 @@ export class TournamentsController {
 
   @Post('referee-enter')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'Entrar como arbitro usando código' })
   async enterRefereeCode(
     @CurrentUser('id') userId: string,
@@ -242,16 +268,6 @@ export class TournamentsController {
     return this.tournamentsService.uploadCover(id, userId, file);
   }
 
-  @Patch(':id/banner-url')
-  @ApiOperation({ summary: 'Definir URL de banner padrão para o torneio' })
-  async setBannerUrl(
-    @Param('id') id: string,
-    @CurrentUser('id') userId: string,
-    @Body('imageUrl') imageUrl: string,
-  ) {
-    return this.tournamentsService.setBannerUrl(id, userId, imageUrl);
-  }
-
   @Get('mine')
   @ApiOperation({ summary: 'Meus torneios' })
   async findMine(@CurrentUser('id') userId: string) {
@@ -271,26 +287,16 @@ export class TournamentsController {
       return this.tournamentsService.exploreWithNearby(query as any);
     }
     const items = await this.tournamentsService.explore(query);
-    const hasMore = items.length > (query.limit || 20);
+    const limit = query.limit || 20;
+    const hasMore = items.length > limit;
     const data = hasMore ? items.slice(0, -1) : items;
     return {
+      data,
+      total: data.length,
       nearby: [],
-      all: data,
       hasMore,
       nextCursor: hasMore ? data[data.length - 1]?.id : null,
     };
-  }
-
-  @Get()
-  @ApiOperation({ summary: 'Listar torneios com filtros' })
-  @ApiQuery({ name: 'city', required: false })
-  @ApiQuery({ name: 'state', required: false })
-  @ApiQuery({ name: 'status', required: false, enum: TournamentStatus })
-  @ApiQuery({ name: 'categoryType', required: false })
-  @ApiQuery({ name: 'categoryFormat', required: false })
-  @ApiQuery({ name: 'categoryModality', required: false })
-  async findAll(@Query() query: QueryTournamentsDto) {
-    return this.tournamentsService.findAll(query);
   }
 
   @Public()

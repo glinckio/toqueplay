@@ -77,7 +77,7 @@ export class TeamMembersService {
   }
 
   async findPendingInvitations(userId: string) {
-    return this.prisma.teamInvitation.findMany({
+    const invitations = await this.prisma.teamInvitation.findMany({
       where: { invitedUserId: userId, status: 'PENDING' },
       include: {
         team: {
@@ -85,12 +85,31 @@ export class TeamMembersService {
             id: true,
             name: true,
             avatarUrl: true,
-            owner: { select: { id: true, name: true, avatarUrl: true } },
+            members: {
+              include: {
+                user: {
+                  select: { id: true, name: true, email: true, avatarUrl: true },
+                },
+              },
+              orderBy: [{ isCaptain: 'desc' }, { id: 'asc' }],
+            },
           },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const inviterIds = [...new Set(invitations.map((i) => i.invitedById))];
+    const inviters = await this.prisma.user.findMany({
+      where: { id: { in: inviterIds } },
+      select: { id: true, name: true, avatarUrl: true },
+    });
+    const inviterById = new Map(inviters.map((u) => [u.id, u]));
+
+    return invitations.map((invitation) => ({
+      ...invitation,
+      inviter: inviterById.get(invitation.invitedById) ?? null,
+    }));
   }
 
   async acceptInvitation(invitationId: string, userId: string) {

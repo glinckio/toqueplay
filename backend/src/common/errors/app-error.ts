@@ -34,6 +34,9 @@ export const AppError = {
   emailAlreadyExists: () =>
     withCode(ConflictException, AuthErrorCode.EMAIL_ALREADY_EXISTS),
 
+  cpfAlreadyExists: () =>
+    withCode(ConflictException, AuthErrorCode.CPF_ALREADY_EXISTS),
+
   invalidPasswordFormat: () =>
     withCode(BadRequestException, AuthErrorCode.INVALID_PASSWORD_FORMAT),
 
@@ -185,6 +188,9 @@ export const AppError = {
 
   refereeNotInvited: () =>
     withCode(ForbiddenException, TournamentsErrorCode.REFEREE_NOT_INVITED),
+
+  refereeAlreadyInMatch: () =>
+    withCode(ForbiddenException, TournamentsErrorCode.REFEREE_ALREADY_IN_MATCH),
 
   // Registrations errors
   registrationNotFound: () =>

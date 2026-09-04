@@ -18,8 +18,6 @@ import {
 } from '@nestjs/swagger';
 import { TeamMembersService } from './team-members.service';
 import { AddMemberDto } from './dto/add-member.dto';
-import { AddGuestDto } from './dto/add-guest.dto';
-import { UpdateMemberDto } from './dto/update-member.dto';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
@@ -44,18 +42,6 @@ export class TeamMembersController {
     return this.membersService.addMember(teamId, userId, dto);
   }
 
-  @Post('guest')
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Adicionar convidado externo' })
-  @ApiResponse({ status: 201, description: 'Convidado adicionado' })
-  async addGuest(
-    @Param('teamId') teamId: string,
-    @CurrentUser('id') userId: string,
-    @Body() dto: AddGuestDto,
-  ) {
-    return this.membersService.addGuest(teamId, userId, dto);
-  }
-
   @Get()
   @ApiOperation({ summary: 'Listar elenco do time' })
   @ApiResponse({ status: 200, description: 'Lista de membros' })
@@ -64,18 +50,6 @@ export class TeamMembersController {
     @CurrentUser('id') userId: string,
   ) {
     return this.membersService.findAll(teamId, userId);
-  }
-
-  @Patch(':memberId')
-  @ApiOperation({ summary: 'Editar membro (capitania)' })
-  @ApiResponse({ status: 200, description: 'Membro atualizado' })
-  async update(
-    @Param('teamId') teamId: string,
-    @Param('memberId') memberId: string,
-    @CurrentUser('id') userId: string,
-    @Body() dto: UpdateMemberDto,
-  ) {
-    return this.membersService.update(teamId, memberId, userId, dto);
   }
 
   @Delete(':memberId')

@@ -16,12 +16,13 @@ import {
   ApiResponse,
   ApiBearerAuth,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FriendliesService } from './friendlies.service';
 import { CreateFriendlyDto } from './dto/create-friendly.dto';
 import { AcceptFriendlyDto } from './dto/accept-friendly.dto';
-import { QueryFriendlyDto, NearbyQueryDto } from './dto/query-friendly.dto';
+import { QueryFriendlyDto } from './dto/query-friendly.dto';
 import { Audit } from '../audit/audit.decorator';
 
 @ApiTags('Friendlies')
@@ -43,18 +44,6 @@ export class FriendliesController {
     return this.friendliesService.create(userId, dto);
   }
 
-  @Get('nearby')
-  @ApiOperation({ summary: 'Buscar amistosos proximos (geolocalizacao)' })
-  async findNearby(@Query() query: NearbyQueryDto) {
-    return this.friendliesService.findNearby(query);
-  }
-
-  @Get('explore')
-  @ApiOperation({ summary: 'Explorar amistosos abertos na regiao' })
-  async explore(@Query() query: NearbyQueryDto & { dateFrom?: string; dateTo?: string; city?: string }) {
-    return this.friendliesService.explore(query);
-  }
-
   @Get()
   @ApiOperation({ summary: 'Listar meus amistosos' })
   async findMine(
@@ -66,6 +55,7 @@ export class FriendliesController {
 
   @Post('referee-enter')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 10 } })
   @ApiOperation({ summary: 'Entrar com codigo de arbitro' })
   async enterRefereeCode(
     @CurrentUser('id') userId: string,

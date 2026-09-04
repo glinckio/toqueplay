@@ -32,7 +32,7 @@ export class CreateFriendlyDto {
   @IsDateString()
   date: string;
 
-  @ApiPropertyOptional({ description: 'Horario de inicio' })
+  @ApiPropertyOptional({ description: 'Horario de inicio (ISO 8601)' })
   @IsDateString()
   @IsOptional()
   startTime?: string;
@@ -46,6 +46,21 @@ export class CreateFriendlyDto {
   @IsString()
   @IsOptional()
   addressNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Complemento' })
+  @IsString()
+  @IsOptional()
+  complement?: string;
+
+  @ApiPropertyOptional({ description: 'Bairro' })
+  @IsString()
+  @IsOptional()
+  neighborhood?: string;
+
+  @ApiPropertyOptional({ description: 'CEP' })
+  @IsString()
+  @IsOptional()
+  cep?: string;
 
   @ApiPropertyOptional({ description: 'Cidade' })
   @IsString()

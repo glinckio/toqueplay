@@ -57,19 +57,9 @@ export class TournamentRegistrationsController {
   async getRegisteredMembers(
     @Param('tournamentId') tournamentId: string,
     @Query('teamId') teamId: string,
-  ) {
-    return this.registrationsService.getRegisteredMembers(tournamentId, teamId);
-  }
-
-  @Patch('registrations/:regId/confirm')
-  @ApiOperation({ summary: 'Confirmar inscricao (owner)' })
-  @Audit('REGISTRATION_CONFIRMED', 'Registration', { entityIdParam: 'regId' })
-  async confirmRegistration(
-    @Param('tournamentId') tournamentId: string,
-    @Param('regId') regId: string,
     @CurrentUser('id') userId: string,
   ) {
-    return this.registrationsService.confirmRegistration(tournamentId, regId, userId);
+    return this.registrationsService.getRegisteredMembers(tournamentId, teamId, userId);
   }
 
   @Patch('registrations/:regId/paid')

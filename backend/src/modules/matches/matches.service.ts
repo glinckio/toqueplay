@@ -11,8 +11,7 @@ import { WalkoverDto } from './dto/walkover.dto';
 import { TimeoutDto } from './dto/timeout.dto';
 import { SubstitutionDto } from './dto/substitution.dto';
 import { SetLineupDto } from './dto/set-lineup.dto';
-import { NearbyQueryDto } from './dto/nearby-query.dto';
-import { MatchStatus, MatchEventType, TournamentModality, RegistrationStatus } from '@prisma/client';
+import { MatchStatus, MatchEventType, TournamentModality, TournamentStatus, RegistrationStatus } from '@prisma/client';
 
 @Injectable()
 export class MatchesService {
@@ -26,6 +25,45 @@ export class MatchesService {
     @Inject(forwardRef(() => BracketsService))
     private bracketsService: BracketsService,
   ) {}
+
+  private async checkAndCompleteTournament(bracketId: string) {
+    const bracket = await this.prisma.bracket.findUnique({
+      where: { id: bracketId },
+      select: { tournamentId: true },
+    });
+    if (!bracket) return;
+
+    const tournamentId = bracket.tournamentId;
+
+    const pendingMatches = await this.prisma.match.count({
+      where: {
+        bracket: { tournamentId },
+        status: { notIn: ['FINISHED', 'WALKOVER'] },
+      },
+    });
+    if (pendingMatches > 0) return;
+
+    const tournament = await this.prisma.tournament.findUnique({
+      where: { id: tournamentId },
+      select: { status: true, name: true },
+    });
+    if (!tournament || tournament.status !== TournamentStatus.IN_PROGRESS) return;
+
+    await this.prisma.tournament.update({
+      where: { id: tournamentId },
+      data: { status: TournamentStatus.FINISHED },
+    });
+
+    const userIds = await this.notificationService.getRegisteredAthleteUserIds(tournamentId);
+    if (userIds.length > 0) {
+      await this.notificationService.sendToUsers(userIds, {
+        title: 'Torneio Finalizado!',
+        body: `O torneio "${tournament.name}" foi finalizado. Confira o resultado!`,
+        type: 'TOURNAMENT_COMPLETED',
+        referenceId: tournamentId,
+      });
+    }
+  }
 
   private emitMatchEvent(match: any, event: string, data: any) {
     this.logger.verbose(`ws emit event=${event} match=${match.id}`);
@@ -551,6 +589,15 @@ export class MatchesService {
     // Auto-advance round-robin teams to playoffs if applicable
     await this.bracketsService.checkAndAdvanceRoundRobinTeams(matchId).catch(() => {});
 
+    // Advance the double-elimination bracket (loser into the losers bracket,
+    // or the losers-bracket winner into its next round), if applicable
+    await this.bracketsService.advanceDoubleElimination(matchId).catch(() => {});
+
+    // Auto-complete tournament if all matches finished
+    if (match.bracketId) {
+      await this.checkAndCompleteTournament(match.bracketId).catch(() => {});
+    }
+
     // Notify both teams' athletes about match result
     const matchTeamIds = [updated.teamA?.id, updated.teamB?.id].filter(Boolean) as string[];
     const matchTeamUserIds = (await Promise.all(matchTeamIds.map((tid: string) => this.notificationService.getTeamMemberUserIds(tid)))).flat();
@@ -633,6 +680,15 @@ export class MatchesService {
 
     // Auto-advance round-robin teams to playoffs if applicable
     await this.bracketsService.checkAndAdvanceRoundRobinTeams(matchId).catch(() => {});
+
+    // Advance the double-elimination bracket (loser into the losers bracket,
+    // or the losers-bracket winner into its next round), if applicable
+    await this.bracketsService.advanceDoubleElimination(matchId).catch(() => {});
+
+    // Auto-complete tournament if all matches finished
+    if (match.bracketId) {
+      await this.checkAndCompleteTournament(match.bracketId).catch(() => {});
+    }
 
     return updated;
   }
@@ -924,7 +980,7 @@ export class MatchesService {
         teamA: { select: { id: true, name: true, avatarUrl: true } },
         teamB: { select: { id: true, name: true, avatarUrl: true } },
         winner: { select: { id: true, name: true } },
-        bracket: { select: { tournamentId: true, categoryId: true, category: { select: { modality: true } } } },
+        bracket: { select: { tournamentId: true, categoryId: true, category: { select: { type: true, format: true, modality: true } } } },
         friendly: { select: { id: true, modality: true, categoryFormat: true } },
       },
     });
@@ -1048,151 +1104,6 @@ export class MatchesService {
     timeline.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     return timeline;
-  }
-
-  private readonly nearbyMatchInclude = {
-    teamA: { select: { id: true, name: true, avatarUrl: true } },
-    teamB: { select: { id: true, name: true, avatarUrl: true } },
-    sets: { orderBy: { setNumber: 'asc' as const } },
-    bracket: {
-      select: {
-        tournamentId: true,
-        tournament: {
-          select: {
-            id: true,
-            name: true,
-            stages: {
-              where: { latitude: { not: null }, longitude: { not: null } },
-              select: { id: true, latitude: true, longitude: true, city: true, address: true },
-            },
-          },
-        },
-      },
-    },
-  };
-
-  private mapNearbyMatch(match: any, userLat?: number, userLng?: number) {
-    const tournamentStages = match.bracket?.tournament?.stages ?? [];
-    let distanceKm: number | null = null;
-    let nearestStage = tournamentStages[0] ?? null;
-
-    if (userLat !== undefined && userLng !== undefined) {
-      let minDistance = Infinity;
-      for (const stage of tournamentStages) {
-        if (stage.latitude && stage.longitude) {
-          const dist = this.haversineKm(userLat, userLng, stage.latitude, stage.longitude);
-          if (dist < minDistance) {
-            minDistance = dist;
-            nearestStage = stage;
-          }
-        }
-      }
-      if (minDistance !== Infinity) distanceKm = Math.round(minDistance * 10) / 10;
-    }
-
-    return {
-      id: match.id,
-      scoreTeamA: match.scoreTeamA,
-      scoreTeamB: match.scoreTeamB,
-      status: match.status,
-      startedAt: match.startedAt,
-      teamA: match.teamA,
-      teamB: match.teamB,
-      sets: match.sets,
-      tournamentId: match.bracket?.tournamentId ?? null,
-      tournament: match.bracket?.tournament
-        ? { id: match.bracket.tournament.id, name: match.bracket.tournament.name }
-        : null,
-      nearestStage: nearestStage ? { city: nearestStage.city, address: nearestStage.address } : null,
-      distanceKm,
-    };
-  }
-
-  async findNearby(userId: string, query: NearbyQueryDto) {
-    let { latitude, longitude } = query;
-    const { radius = 10 } = query;
-
-    // Client-supplied coords may not have resolved yet (fresh GPS fix can be
-    // slow/flaky, especially on Android). Fall back to the user's last saved
-    // location — the same source "nearby tournaments" on Home already relies on —
-    // instead of silently skipping the radius search.
-    if (latitude === undefined || longitude === undefined) {
-      const savedUser = await this.prisma.user.findUnique({
-        where: { id: userId },
-        select: { latitude: true, longitude: true },
-      });
-      if (savedUser?.latitude != null && savedUser?.longitude != null) {
-        latitude = savedUser.latitude;
-        longitude = savedUser.longitude;
-      }
-    }
-
-    const merged = new Map<string, ReturnType<MatchesService['mapNearbyMatch']>>();
-
-    // Matches from tournaments the user is currently playing in, regardless of distance.
-    const participantMatches = await this.prisma.match.findMany({
-      where: {
-        status: MatchStatus.IN_PROGRESS,
-        bracket: { isNot: null },
-        OR: [
-          { teamA: { members: { some: { userId } } } },
-          { teamB: { members: { some: { userId } } } },
-        ],
-      },
-      include: this.nearbyMatchInclude,
-    });
-    for (const match of participantMatches) {
-      merged.set(match.id, this.mapNearbyMatch(match, latitude, longitude));
-    }
-
-    // Matches whose tournament stage is within the given radius of the user.
-    if (latitude !== undefined && longitude !== undefined) {
-      const kmPerDegreeLat = 111;
-      const kmPerDegreeLng = 111 * Math.cos((latitude * Math.PI) / 180);
-      const latDelta = radius / kmPerDegreeLat;
-      const lngDelta = radius / kmPerDegreeLng;
-
-      const stages = await this.prisma.tournamentStage.findMany({
-        where: {
-          latitude: { not: null, gte: latitude - latDelta, lte: latitude + latDelta },
-          longitude: { not: null, gte: longitude - lngDelta, lte: longitude + lngDelta },
-        },
-        select: { tournamentId: true },
-      });
-
-      if (stages.length > 0) {
-        const tournamentIds = [...new Set(stages.map((s) => s.tournamentId))];
-        const nearbyMatches = await this.prisma.match.findMany({
-          where: {
-            status: MatchStatus.IN_PROGRESS,
-            bracket: { tournamentId: { in: tournamentIds } },
-          },
-          include: this.nearbyMatchInclude,
-        });
-
-        for (const match of nearbyMatches) {
-          if (merged.has(match.id)) continue;
-          const mapped = this.mapNearbyMatch(match, latitude, longitude);
-          if (mapped.distanceKm !== null && mapped.distanceKm <= radius) {
-            merged.set(match.id, mapped);
-          }
-        }
-      }
-    }
-
-    return Array.from(merged.values()).sort((a, b) => (a.distanceKm ?? -1) - (b.distanceKm ?? -1));
-  }
-
-  private haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
   private getMatchModality(match: any): string | undefined {
@@ -1416,5 +1327,95 @@ export class MatchesService {
       else if (s.scoreB > s.scoreA) b++;
     }
     return { a, b };
+  }
+
+  async claimMatch(matchId: string, userId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      include: {
+        bracket: { select: { tournamentId: true } },
+        teamA: { select: { id: true, name: true, avatarUrl: true } },
+        teamB: { select: { id: true, name: true, avatarUrl: true } },
+        winner: { select: { id: true, name: true, avatarUrl: true } },
+        sets: { orderBy: { setNumber: 'asc' } },
+      },
+    });
+
+    if (!match || !match.bracket) {
+      throw AppError.matchNotFound();
+    }
+
+    const tournamentId = match.bracket.tournamentId;
+
+    const referee = await this.prisma.tournamentReferee.findUnique({
+      where: { tournamentId_userId: { tournamentId, userId } },
+    });
+    if (!referee?.codeConfirmed) {
+      throw AppError.refereeNotInvited();
+    }
+
+    // Allow referee to resume their own match
+    if (match.refereeId === userId) {
+      return this.prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+          teamA: { select: { id: true, name: true, avatarUrl: true } },
+          teamB: { select: { id: true, name: true, avatarUrl: true } },
+          winner: { select: { id: true, name: true, avatarUrl: true } },
+          sets: { orderBy: { setNumber: 'asc' } },
+          bracket: {
+            select: {
+              id: true, tournamentId: true,
+              tournament: { select: { id: true, name: true, ownerId: true } },
+              category: { select: { type: true, format: true, modality: true } },
+            },
+          },
+        },
+      });
+    }
+
+    const activeMatch = await this.prisma.match.findFirst({
+      where: {
+        refereeId: userId,
+        status: { in: [MatchStatus.SCHEDULED, MatchStatus.IN_PROGRESS] },
+        bracket: { tournamentId },
+      },
+    });
+    if (activeMatch) {
+      throw AppError.refereeAlreadyInMatch();
+    }
+
+    if (match.refereeId && match.refereeId !== userId) {
+      throw AppError.notMatchReferee();
+    }
+
+    if (match.status !== MatchStatus.SCHEDULED) {
+      throw AppError.matchNotFound();
+    }
+
+    if (!match.teamAId || !match.teamBId) {
+      throw AppError.matchNotFound();
+    }
+
+    const updated = await this.prisma.match.update({
+      where: { id: matchId },
+      data: { refereeId: userId },
+      include: {
+        teamA: { select: { id: true, name: true, avatarUrl: true } },
+        teamB: { select: { id: true, name: true, avatarUrl: true } },
+        winner: { select: { id: true, name: true, avatarUrl: true } },
+        sets: { orderBy: { setNumber: 'asc' } },
+        bracket: {
+          select: {
+            id: true,
+            tournamentId: true,
+            tournament: { select: { id: true, name: true, ownerId: true } },
+            category: { select: { type: true, format: true, modality: true } },
+          },
+        },
+      },
+    });
+
+    return updated;
   }
 }

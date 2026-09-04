@@ -1,39 +1,28 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Expo, ExpoPushMessage } from 'expo-server-sdk';
 import { PrismaService } from '../prisma.service';
-import * as admin from 'firebase-admin';
+import { MailService } from '../../modules/mail/mail.service';
 
 @Injectable()
-export class NotificationService implements OnModuleInit {
+export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
-  private firebaseApp: admin.app.App | null = null;
+  private readonly expo = new Expo();
 
   constructor(
     private prisma: PrismaService,
     private config: ConfigService,
+    private mailService: MailService,
   ) {}
-
-  onModuleInit() {
-    const projectId = this.config.get('FIREBASE_PROJECT_ID');
-    const privateKey = this.config.get('FIREBASE_PRIVATE_KEY');
-    const clientEmail = this.config.get('FIREBASE_CLIENT_EMAIL');
-
-    if (projectId && privateKey && clientEmail && privateKey !== 'your-firebase-private-key') {
-      this.firebaseApp = admin.initializeApp({
-        credential: admin.credential.cert({
-          projectId,
-          privateKey: privateKey.replace(/\\n/g, '\n'),
-          clientEmail,
-        }),
-      });
-    }
-  }
 
   async sendToUsers(userIds: string[], payload: { title: string; body: string; type: string; referenceId?: string }) {
     const category = this.mapTypeToCategory(payload.type);
 
-    // Filter users by notification preference
-    const eligibleUserIds = await this.filterByPreference(userIds, category);
+    // Filter users by per-category notification preference, then by the
+    // user's actual push consent (LGPD opt-in) — the Settings "Notificações
+    // push" toggle. Both must hold: category-relevant AND explicitly opted in.
+    const categoryEligibleUserIds = await this.filterByPreference(userIds, category);
+    const pushConsentUserIds = await this.filterByConsent(categoryEligibleUserIds, 'NOTIFICATIONS_PUSH');
 
     // Save in-app notifications for all users (regardless of push preference)
     const notifications = await Promise.all(
@@ -42,10 +31,10 @@ export class NotificationService implements OnModuleInit {
       ),
     );
 
-    // Send push only to eligible users
-    if (this.firebaseApp && eligibleUserIds.length > 0) {
+    // Send push only to users who opted in
+    if (pushConsentUserIds.length > 0) {
       const tokens = await this.prisma.deviceToken.findMany({
-        where: { userId: { in: eligibleUserIds } },
+        where: { userId: { in: pushConsentUserIds } },
         select: { token: true, userId: true },
       });
 
@@ -59,7 +48,55 @@ export class NotificationService implements OnModuleInit {
       }
     }
 
+    // Email — separate opt-in (MARKETING_EMAIL consent), best-effort/non-blocking.
+    // Verification/password-reset/DPO emails never go through this path — they're
+    // sent directly by their own services regardless of this consent.
+    this.sendEmailNotifications(userIds, payload).catch((error) =>
+      this.logger.warn(`Notification email batch failed: ${(error as Error).message}`),
+    );
+
     return notifications;
+  }
+
+  private async sendEmailNotifications(userIds: string[], payload: { title: string; body: string }) {
+    const consentedUserIds = await this.filterByConsent(userIds, 'MARKETING_EMAIL');
+    if (consentedUserIds.length === 0) return;
+
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: consentedUserIds } },
+      select: { email: true, name: true },
+    });
+
+    await Promise.all(
+      users.map((u: { email: string; name: string }) =>
+        this.mailService
+          .sendNotificationEmail(u.email, u.name, payload)
+          .catch((error) => this.logger.warn(`Notification email to ${u.email} failed: ${(error as Error).message}`)),
+      ),
+    );
+  }
+
+  /**
+   * Latest LGPD consent per user for a given purpose (NOTIFICATIONS_PUSH /
+   * MARKETING_EMAIL), scoped to the current terms version — mirrors
+   * PrivacyService.getConsents. Defaults to false (opt-in required): a user
+   * who never touched the toggle has not consented.
+   */
+  private async filterByConsent(userIds: string[], purpose: 'NOTIFICATIONS_PUSH' | 'MARKETING_EMAIL'): Promise<string[]> {
+    if (userIds.length === 0) return [];
+    const version = this.config.get<string>('TERMS_VERSION') ?? 'v1';
+    const rows = await this.prisma.userConsent.findMany({
+      where: { userId: { in: userIds }, purpose, version },
+      orderBy: { createdAt: 'desc' },
+      select: { userId: true, accepted: true },
+    });
+
+    const latestByUser = new Map<string, boolean>();
+    for (const r of rows as Array<{ userId: string; accepted: boolean }>) {
+      if (!latestByUser.has(r.userId)) latestByUser.set(r.userId, r.accepted);
+    }
+
+    return userIds.filter((id) => latestByUser.get(id) === true);
   }
 
   async sendToRegion(
@@ -127,29 +164,35 @@ export class NotificationService implements OnModuleInit {
   }
 
   private async sendPushNotification(tokens: string[], payload: { title: string; body: string; type: string; referenceId?: string }, deepLink?: string) {
-    try {
-      const message: admin.messaging.MulticastMessage = {
-        tokens,
-        notification: {
-          title: payload.title,
-          body: payload.body,
-        },
-        data: {
-          type: payload.type,
-          ...(payload.referenceId && { referenceId: payload.referenceId }),
-          ...(deepLink && { deepLink }),
-        },
-        apns: {
-          payload: { aps: { sound: 'default' } },
-        },
-        android: {
-          notification: { sound: 'default' },
-        },
-      };
+    // Expo's push service relays to FCM/APNs on our behalf — no Firebase
+    // project or Apple credentials needed for it to work on Android.
+    const validTokens = tokens.filter((t) => Expo.isExpoPushToken(t));
+    if (validTokens.length === 0) return;
 
-      await admin.messaging().sendEachForMulticast(message);
-    } catch (error) {
-      this.logger.warn(`FCM send failed: ${(error as Error).message}`);
+    const messages: ExpoPushMessage[] = validTokens.map((token) => ({
+      to: token,
+      title: payload.title,
+      body: payload.body,
+      sound: 'default',
+      data: {
+        type: payload.type,
+        ...(payload.referenceId && { referenceId: payload.referenceId }),
+        ...(deepLink && { deepLink }),
+      },
+    }));
+
+    const chunks = this.expo.chunkPushNotifications(messages);
+    for (const chunk of chunks) {
+      try {
+        const tickets = await this.expo.sendPushNotificationsAsync(chunk);
+        for (const ticket of tickets) {
+          if (ticket.status === 'error') {
+            this.logger.warn(`Expo push ticket error: ${ticket.message}`);
+          }
+        }
+      } catch (error) {
+        this.logger.warn(`Expo push send failed: ${(error as Error).message}`);
+      }
     }
   }
 

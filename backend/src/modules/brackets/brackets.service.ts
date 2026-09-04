@@ -11,6 +11,17 @@ import {
   MatchStatus,
 } from '@prisma/client';
 
+// Practical minimums so brackets don't produce degenerate/pointless structures.
+// Elimination formats work mathematically from 2 teams (byes handle the rest),
+// but a 2-team single/double elimination bracket is just one match dressed up —
+// these thresholds match common tournament-software convention.
+const MIN_TEAMS_BY_BRACKET_TYPE: Record<BracketType, number> = {
+  [BracketType.SINGLE_ELIMINATION]: 3,
+  [BracketType.DOUBLE_ELIMINATION]: 4,
+  [BracketType.ROUND_ROBIN]: 3,
+  [BracketType.GROUPS_THEN_ELIMINATION]: 4,
+};
+
 const BRACKET_INCLUDE = {
   category: { select: { id: true, type: true, format: true, modality: true, bestOfSets: true } },
   matches: {
@@ -21,7 +32,15 @@ const BRACKET_INCLUDE = {
       sets: { orderBy: { setNumber: 'asc' as const } },
       pointEvents: { orderBy: { timestamp: 'asc' as const } },
     },
-    orderBy: [{ round: 'asc' as const }, { position: 'asc' as const }],
+    // group and id break ties: matches from different brackets/groups can share
+    // the same (round, position) — without these, Postgres doesn't guarantee a
+    // stable order for tied rows, so the list visibly reshuffled between fetches.
+    orderBy: [
+      { group: 'asc' as const },
+      { round: 'asc' as const },
+      { position: 'asc' as const },
+      { id: 'asc' as const },
+    ],
   },
 };
 
@@ -41,11 +60,7 @@ export class BracketsService {
     const tournament = await this.tournamentsService.verifyOwnership(tournamentId, userId);
     this.logger.debug(`tournament status=${tournament.status}`);
 
-    if (
-      tournament.status !== TournamentStatus.REGISTRATION_CLOSED &&
-      tournament.status !== TournamentStatus.REGISTRATION_OPEN &&
-      tournament.status !== TournamentStatus.PUBLISHED
-    ) {
+    if (tournament.status !== TournamentStatus.REGISTRATION_CLOSED) {
       this.logger.warn(`generateBracket rejected: tournament not ready status=${tournament.status}`);
       throw AppError.tournamentNotReady();
     }
@@ -92,6 +107,22 @@ export class BracketsService {
       throw AppError.noConfirmedTeams();
     }
 
+    const minTeams = MIN_TEAMS_BY_BRACKET_TYPE[dto.type];
+    if (minTeams && registrations.length < minTeams) {
+      this.logger.warn(`generateBracket rejected: ${registrations.length} teams < min ${minTeams} for ${dto.type}`);
+      throw AppError.invalidTeamCount();
+    }
+
+    // Organizer-chosen group count only makes sense with >=2 teams per group —
+    // otherwise a group of 1 can't play a round-robin against itself.
+    if (dto.type === BracketType.GROUPS_THEN_ELIMINATION && dto.groupsCount) {
+      const maxGroups = Math.floor(registrations.length / 2);
+      if (dto.groupsCount > maxGroups) {
+        this.logger.warn(`generateBracket rejected: groupsCount=${dto.groupsCount} exceeds max ${maxGroups} for ${registrations.length} teams`);
+        throw AppError.invalidTeamCount();
+      }
+    }
+
     const teamIds = registrations.map((r) => r.teamId);
 
     // Always fetch category for bestOfSets
@@ -117,7 +148,13 @@ export class BracketsService {
       } else if (dto.type === BracketType.ROUND_ROBIN) {
         await this.generateRoundRobin(tx, bracket.id, teamIds, bestOfSets, semifinalBestOfSets, finalBestOfSets, tiebreakScore);
       } else if (dto.type === BracketType.GROUPS_THEN_ELIMINATION) {
-        await this.generateGroupsThenElimination(tx, bracket.id, teamIds, category!, bestOfSets, semifinalBestOfSets, finalBestOfSets);
+        // Organizer's explicit groupsCount (chosen at generation time) wins over
+        // whatever is stored on the category — that field is never set by the
+        // create-tournament flow today, so this is the only real place it's configured.
+        const groupsConfig = dto.groupsCount
+          ? { ...category, groupsCount: dto.groupsCount, teamsPerGroup: null }
+          : category!;
+        await this.generateGroupsThenElimination(tx, bracket.id, teamIds, groupsConfig, bestOfSets, semifinalBestOfSets, finalBestOfSets);
       } else {
         throw AppError.invalidBracketType();
       }
@@ -150,6 +187,32 @@ export class BracketsService {
     return result;
   }
 
+  /**
+   * Splits round-1 slots between byes (single team, auto-advances) and real
+   * matches (two teams), so a non-power-of-2 team count never leaves a match
+   * with zero teams. `matchesInRound` is the first-round match count (=
+   * totalSlots / 2); byes = totalSlots - numTeams. The first `byes` slots get
+   * one team each, the rest pair up two teams per slot — this uses every team
+   * exactly once (byes*1 + (matchesInRound-byes)*2 === numTeams).
+   */
+  private assignFirstRoundSlots(
+    shuffled: string[],
+    matchesInRound: number,
+  ): Array<{ teamAId?: string; teamBId?: string }> {
+    const numTeams = shuffled.length;
+    const byes = matchesInRound * 2 - numTeams;
+    const slots: Array<{ teamAId?: string; teamBId?: string }> = [];
+    let cursor = 0;
+    for (let pos = 0; pos < matchesInRound; pos++) {
+      if (pos < byes) {
+        slots.push({ teamAId: shuffled[cursor++] });
+      } else {
+        slots.push({ teamAId: shuffled[cursor++], teamBId: shuffled[cursor++] });
+      }
+    }
+    return slots;
+  }
+
   private async generateSingleElimination(
     tx: any,
     bracketId: string,
@@ -164,6 +227,7 @@ export class BracketsService {
     const totalSlots = Math.pow(2, numRounds);
 
     const shuffled = [...teamIds].sort(() => Math.random() - 0.5);
+    const firstRoundSlots = this.assignFirstRoundSlots(shuffled, totalSlots / 2);
 
     const matchMap: Map<string, string> = new Map();
 
@@ -197,15 +261,9 @@ export class BracketsService {
         }
 
         if (round === 1) {
-          const teamAIndex = pos * 2;
-          const teamBIndex = pos * 2 + 1;
-
-          if (teamAIndex < shuffled.length) {
-            matchData.teamAId = shuffled[teamAIndex];
-          }
-          if (teamBIndex < shuffled.length) {
-            matchData.teamBId = shuffled[teamBIndex];
-          }
+          const slot = firstRoundSlots[pos];
+          if (slot.teamAId) matchData.teamAId = slot.teamAId;
+          if (slot.teamBId) matchData.teamBId = slot.teamBId;
         }
 
         const match = await tx.match.create({ data: matchData });
@@ -262,6 +320,7 @@ export class BracketsService {
     const numRounds = Math.ceil(Math.log2(numTeams));
     const totalSlots = Math.pow(2, numRounds);
     const shuffled = [...teamIds].sort(() => Math.random() - 0.5);
+    const firstRoundSlots = this.assignFirstRoundSlots(shuffled, totalSlots / 2);
 
     const matchMap: Map<string, string> = new Map();
 
@@ -296,10 +355,9 @@ export class BracketsService {
         }
 
         if (round === 1) {
-          const teamAIndex = pos * 2;
-          const teamBIndex = pos * 2 + 1;
-          if (teamAIndex < shuffled.length) matchData.teamAId = shuffled[teamAIndex];
-          if (teamBIndex < shuffled.length) matchData.teamBId = shuffled[teamBIndex];
+          const slot = firstRoundSlots[pos];
+          if (slot.teamAId) matchData.teamAId = slot.teamAId;
+          if (slot.teamBId) matchData.teamBId = slot.teamBId;
         }
 
         const match = await tx.match.create({ data: matchData });
@@ -323,69 +381,35 @@ export class BracketsService {
     }
 
     // ─── Losers Bracket (group 1) ───
-    // In a standard double elimination:
-    // - Losers round 1: losers from winners round 1 play each other
-    // - Losers round 2: winners of losers round 1 play losers from winners round 2
-    // - This pattern continues: losers round N feeds from winners round N and previous losers round
-    // - Number of losers rounds = 2 * (numRounds - 1)
-    const losersRounds = 2 * (numRounds - 1);
-    let losersMatchCount = 0;
-
-    for (let lr = 1; lr <= losersRounds; lr++) {
-      // Number of matches in this losers round
-      // Odd rounds: half the remaining losers play each other
-      // Even rounds: winners from previous losers round face new losers from winners bracket
-      let matchesInLr: number;
-      if (lr === losersRounds) {
-        matchesInLr = 1; // Losers final
-      } else {
-        // Calculate based on remaining teams in losers bracket
-        const winnersRoundFeeding = Math.ceil(lr / 2) + 1; // which winners round feeds this losers round
-        const matchesInWinnersRound = Math.pow(2, numRounds - winnersRoundFeeding);
-        matchesInLr = lr % 2 === 1
-          ? matchesInWinnersRound / 2  // consolidation round
-          : matchesInWinnersRound;     // mixed round
-        if (matchesInLr < 1) matchesInLr = 1;
-      }
-
-      for (let pos = 0; pos < matchesInLr; pos++) {
-        const matchData: any = {
-          bracketId,
-          round: lr,
-          position: pos,
-          group: 1,
-          status: MatchStatus.SCHEDULED,
-          bestOfSets,
-        };
-
-        if (lr === losersRounds) {
-          matchData.label = 'LF'; // Losers Final
-          matchData.bestOfSets = finalBestOfSets;
-          if (tiebreakScore) matchData.tiebreakScore = tiebreakScore;
-        }
-
-        // Link to next losers round or grand final
-        if (lr < losersRounds) {
-          const nextLrKey = `L${lr + 1}-${Math.floor(pos / 2)}`;
-          if (matchMap.has(nextLrKey)) {
-            matchData.nextMatchId = matchMap.get(nextLrKey);
-          }
-        }
-
-        const match = await tx.match.create({ data: matchData });
-        matchMap.set(`L${lr}-${pos}`, match.id);
-        losersMatchCount++;
-      }
-    }
+    // NOT precreated here. A fixed pre-planned grid (what used to be built in
+    // this spot) assumes the losers bracket's round sizes stay in lockstep
+    // with the winners bracket's — true only when the team count is an exact
+    // power of 2. The moment round-1 byes shrink the real loser count, every
+    // later round's size drifts out of sync with the fixed winners-bracket
+    // sizes feeding it, and the grid either strands matches with zero teams
+    // or leaves teams with no opponent to advance past.
+    //
+    // Instead, losers-bracket matches are created ON DEMAND by
+    // `advanceDoubleElimination` (called from matches.service.ts whenever a
+    // match finishes): each arriving loser/winner is placed into the next
+    // open slot of its target round, or a new match is created for it if none
+    // is open. A round's exact size is therefore whatever it turns out to be
+    // — no formula to get wrong — and `placeInLosersBracketRound` walks over
+    // any team left without an opponent once every expected arrival for that
+    // round has shown up (computed via `computeLosersTopology`, still a pure
+    // function of team count/byes, just no longer used to pre-lay a grid).
 
     // ─── Grand Final (group 2) ───
+    // Created empty now; the winners-bracket champion and the losers-bracket
+    // champion are routed into it later (WB final's nextMatchId already
+    // points here; the losers final is wired to it the moment
+    // placeInLosersBracketRound creates that match).
     const winnersFinalId = matchMap.get(`W${numRounds}-0`);
-    const losersFinalId = matchMap.get(`L${losersRounds}-0`);
 
     const grandFinal = await tx.match.create({
       data: {
         bracketId,
-        round: numRounds + losersRounds + 1,
+        round: numRounds + 2 * (numRounds - 1) + 1,
         position: 0,
         group: 2,
         status: MatchStatus.SCHEDULED,
@@ -395,17 +419,173 @@ export class BracketsService {
       },
     });
 
-    // Link winners final and losers final to grand final
     if (winnersFinalId) {
       await tx.match.update({
         where: { id: winnersFinalId },
         data: { nextMatchId: grandFinal.id },
       });
     }
-    if (losersFinalId) {
-      await tx.match.update({
-        where: { id: losersFinalId },
-        data: { nextMatchId: grandFinal.id },
+  }
+
+  /**
+   * Pure function of (numRounds, byes): how many teams arrive at each losers
+   * round, and how many matches/winners it produces. Round 1 only ever
+   * receives REAL round-1 losers (byes produce none); round k (even, k>1)
+   * is "mixed" — it receives round (k-1)'s winners plus the next winners-
+   * round's losers (winners rounds 2+ never have byes, so that count is
+   * always the full 2^(numRounds-r)); round k (odd, k>1) is "consolidation"
+   * — it only receives round (k-1)'s winners. `Math.ceil` at every step is
+   * what makes an odd arrival count a bye instead of a stuck lone team.
+   */
+  private computeLosersTopology(numRounds: number, byes: number) {
+    const winnersRoundMatches = (r: number) => Math.pow(2, numRounds - r);
+    const losersRounds = 2 * (numRounds - 1);
+    const realRound1Losers = winnersRoundMatches(1) - byes;
+
+    const arrivals: number[] = [];
+    const output: number[] = [];
+    arrivals[1] = realRound1Losers;
+    output[1] = Math.ceil(arrivals[1] / 2);
+    for (let k = 2; k <= losersRounds; k++) {
+      if (k % 2 === 0) {
+        const feedingWbRound = k / 2 + 1;
+        arrivals[k] = output[k - 1] + winnersRoundMatches(feedingWbRound);
+      } else {
+        arrivals[k] = output[k - 1];
+      }
+      output[k] = Math.ceil(arrivals[k] / 2);
+    }
+    return { losersRounds, arrivals };
+  }
+
+  /**
+   * Places one team into losers-bracket `round`, creating a new match if no
+   * existing one in that round still has an open slot. Once every arrival
+   * expected for this round (per `computeLosersTopology`) has been placed, a
+   * team left alone in a match has no opponent coming — it's walked over
+   * into the next round (or straight into the grand final, if this was the
+   * losers final) instead of sitting stuck forever.
+   */
+  private async placeInLosersBracketRound(
+    bracketId: string,
+    round: number,
+    teamId: string,
+    ctx: {
+      losersRounds: number;
+      arrivals: number[];
+      bestOfSets: number;
+      finalBestOfSets: number;
+      tiebreakScore: number | null;
+      grandFinalId: string;
+    },
+  ) {
+    const isFinal = round === ctx.losersRounds;
+
+    const incomplete = await this.prisma.match.findFirst({
+      where: { bracketId, group: 1, round, teamAId: { not: null }, teamBId: null },
+      orderBy: { position: 'asc' },
+    });
+
+    if (incomplete) {
+      await this.prisma.match.update({ where: { id: incomplete.id }, data: { teamBId: teamId } });
+    } else {
+      const existingCount = await this.prisma.match.count({ where: { bracketId, group: 1, round } });
+      await this.prisma.match.create({
+        data: {
+          bracketId,
+          round,
+          position: existingCount,
+          group: 1,
+          status: MatchStatus.SCHEDULED,
+          teamAId: teamId,
+          bestOfSets: isFinal ? ctx.finalBestOfSets : ctx.bestOfSets,
+          ...(isFinal && ctx.tiebreakScore ? { tiebreakScore: ctx.tiebreakScore } : {}),
+          ...(isFinal ? { label: 'LF', nextMatchId: ctx.grandFinalId } : {}),
+        },
+      });
+    }
+
+    const roundMatches = await this.prisma.match.findMany({ where: { bracketId, group: 1, round } });
+    const placedCount = roundMatches.reduce((sum, m) => sum + (m.teamAId ? 1 : 0) + (m.teamBId ? 1 : 0), 0);
+    if (placedCount < ctx.arrivals[round]) return;
+
+    const lone = roundMatches.find((m) => m.teamAId && !m.teamBId);
+    if (!lone || !lone.teamAId) return;
+
+    await this.prisma.match.update({
+      where: { id: lone.id },
+      data: { status: MatchStatus.WALKOVER, winnerId: lone.teamAId },
+    });
+
+    if (isFinal) {
+      await this.advanceTeamToNextMatch(this.prisma, ctx.grandFinalId, lone.teamAId, 'A');
+    } else {
+      await this.placeInLosersBracketRound(bracketId, round + 1, lone.teamAId, ctx);
+    }
+  }
+
+  /**
+   * Routes a finished DOUBLE_ELIMINATION match's outcome into the losers
+   * bracket. Winners-bracket matches (group=0) send their LOSER in (a bye has
+   * no second team, so no loser to route); losers-bracket matches (group=1)
+   * send their WINNER to the next losers round — except the losers final,
+   * whose winner already reaches the grand final via its own `nextMatchId`
+   * (set the moment `placeInLosersBracketRound` creates that match), so
+   * nothing further is needed here for it.
+   */
+  async advanceDoubleElimination(matchId: string) {
+    const match = await this.prisma.match.findUnique({ where: { id: matchId }, include: { bracket: true } });
+    if (!match || !match.bracket) return;
+    if (match.bracket.type !== BracketType.DOUBLE_ELIMINATION) return;
+    if (!match.winnerId) return;
+    if (match.group !== 0 && match.group !== 1) return;
+
+    const numRoundsAgg = await this.prisma.match.aggregate({
+      where: { bracketId: match.bracketId!, group: 0 },
+      _max: { round: true },
+    });
+    const numRounds = numRoundsAgg._max.round;
+    if (!numRounds) return;
+
+    if (match.group === 0) {
+      if (!match.teamAId || !match.teamBId) return; // bye — no real loser
+      const loserId = match.winnerId === match.teamAId ? match.teamBId : match.teamAId;
+      if (!loserId) return;
+
+      const wb1Matches = await this.prisma.match.findMany({ where: { bracketId: match.bracketId!, group: 0, round: 1 } });
+      const byes = wb1Matches.filter((m) => m.teamAId && !m.teamBId).length;
+      const { losersRounds, arrivals } = this.computeLosersTopology(numRounds, byes);
+
+      const category = await this.prisma.tournamentCategory.findUnique({ where: { id: match.bracket.categoryId } });
+      const bestOfSets = category?.bestOfSets ?? 1;
+      const finalBestOfSets = (category as any)?.finalBestOfSets ?? bestOfSets;
+      const tiebreakScore = (category as any)?.tiebreakScore ?? null;
+
+      const grandFinal = await this.prisma.match.findFirst({ where: { bracketId: match.bracketId!, group: 2 } });
+      if (!grandFinal) return;
+
+      const destRound = match.round === 1 ? 1 : 2 * (match.round - 1);
+      await this.placeInLosersBracketRound(match.bracketId!, destRound, loserId, {
+        losersRounds, arrivals, bestOfSets, finalBestOfSets, tiebreakScore, grandFinalId: grandFinal.id,
+      });
+    } else {
+      const losersRounds = 2 * (numRounds - 1);
+      if (match.round === losersRounds) return; // losers final — handled by its own nextMatchId
+
+      const wb1Matches = await this.prisma.match.findMany({ where: { bracketId: match.bracketId!, group: 0, round: 1 } });
+      const byes = wb1Matches.filter((m) => m.teamAId && !m.teamBId).length;
+      const { arrivals } = this.computeLosersTopology(numRounds, byes);
+
+      const category = await this.prisma.tournamentCategory.findUnique({ where: { id: match.bracket.categoryId } });
+      const bestOfSets = category?.bestOfSets ?? 1;
+      const finalBestOfSets = (category as any)?.finalBestOfSets ?? bestOfSets;
+      const tiebreakScore = (category as any)?.tiebreakScore ?? null;
+
+      const grandFinal = await this.prisma.match.findFirst({ where: { bracketId: match.bracketId!, group: 2 } });
+      if (!grandFinal) return;
+
+      await this.placeInLosersBracketRound(match.bracketId!, match.round + 1, match.winnerId, {
+        losersRounds, arrivals, bestOfSets, finalBestOfSets, tiebreakScore, grandFinalId: grandFinal.id,
       });
     }
   }
@@ -483,7 +663,7 @@ export class BracketsService {
     tx: any,
     bracketId: string,
     teamIds: string[],
-    category: { groupsCount?: number | null; teamsPerGroup?: number | null; teamsAdvancing?: number | null },
+    category: { id?: string; groupsCount?: number | null; teamsPerGroup?: number | null; teamsAdvancing?: number | null },
     bestOfSets: number,
     semifinalBestOfSets: number,
     finalBestOfSets: number,
@@ -510,21 +690,33 @@ export class BracketsService {
     // Recalculate actual teams per group (after rounding)
     const actualTeamsPerGroup = Math.ceil(numTeams / groupsCount);
 
-    // Default advancing rules:
-    // 3 or fewer per group → all advance (todos contra todos)
-    // 4 per group → top 3 advance
-    // 5+ per group → top 3 advance
+    // Default advancing rule: top 2 per group, always leaving at least one
+    // team behind. "Grupos + Eliminatória" means there MUST be a knockout
+    // phase after groups — that's the entire point of the format (as opposed
+    // to plain "Todos contra Todos"). A group of exactly 2 teams already
+    // decides its own winner by playing each other, so only 1 advances.
     let teamsAdvancing: number;
     if (category.teamsAdvancing) {
       teamsAdvancing = category.teamsAdvancing;
-    } else if (actualTeamsPerGroup <= 3) {
-      teamsAdvancing = actualTeamsPerGroup; // all advance
+    } else if (actualTeamsPerGroup <= 2) {
+      teamsAdvancing = 1;
     } else {
-      teamsAdvancing = 3; // top 3
+      teamsAdvancing = Math.min(2, actualTeamsPerGroup - 1);
     }
 
     // If all teams advance from each group, skip elimination phase
     const needsElimination = teamsAdvancing < actualTeamsPerGroup;
+
+    // checkAndAdvanceGroupTeams reads teamsAdvancing straight off the category
+    // row once every group match is finished — it was never persisted here
+    // when only the default-rule fallback was used, so it stayed null and the
+    // elimination bracket's TBD slots never got filled in.
+    if (category.id && !category.teamsAdvancing) {
+      await tx.tournamentCategory.update({
+        where: { id: category.id },
+        data: { teamsAdvancing },
+      });
+    }
 
     // Distribute teams evenly across groups
     const groups: string[][] = Array.from({ length: groupsCount }, () => []);
@@ -719,13 +911,18 @@ export class BracketsService {
     const minRound = Math.min(...eliminationMatches.map((m) => m.round));
     const firstRoundMatches = eliminationMatches.filter((m) => m.round === minRound);
 
+    // Same bye-allocation rule as generateSingleElimination/generateDoubleElimination:
+    // if totalAdvancing isn't a power of 2, the first `byes` matches get a single
+    // team (auto-advance) instead of leaving trailing matches with zero teams.
+    const byes = Math.max(0, firstRoundMatches.length * 2 - reordered.length);
     let teamIdx = 0;
-    for (const elimMatch of firstRoundMatches) {
+    for (let i = 0; i < firstRoundMatches.length; i++) {
+      const elimMatch = firstRoundMatches[i];
       const updateData: any = {};
       if (!elimMatch.teamAId && teamIdx < reordered.length) {
         updateData.teamAId = reordered[teamIdx++];
       }
-      if (!elimMatch.teamBId && teamIdx < reordered.length) {
+      if (i >= byes && !elimMatch.teamBId && teamIdx < reordered.length) {
         updateData.teamBId = reordered[teamIdx++];
       }
 
@@ -903,6 +1100,7 @@ export class BracketsService {
     }
   }
 
+
   async getBracket(tournamentId: string, categoryId?: string) {
     const where: any = { tournamentId };
     if (categoryId) where.categoryId = categoryId;
@@ -929,5 +1127,63 @@ export class BracketsService {
       rounds[match.round].push(match);
     }
     return rounds;
+  }
+
+  // Team profile stats ("torneios / vitórias / win rate") are computed on
+  // demand from real match history instead of maintained counters — no
+  // migration/backfill needed, and it's automatically correct for
+  // tournaments that finished before this feature existed.
+  async getTournamentChampionTeamIds(tournamentId: string): Promise<Set<string>> {
+    const brackets = await this.prisma.bracket.findMany({ where: { tournamentId }, select: { id: true } });
+    const championIds = new Set<string>();
+    for (const b of brackets) {
+      const champion = await this.getBracketChampion(b.id);
+      if (champion) championIds.add(champion);
+    }
+    return championIds;
+  }
+
+  // A bracket's champion is whoever won its FINAL/GRAND_FINAL match. Small
+  // round-robins (<4 teams) and "groups where everyone advances" never
+  // create that match, so fall back to the best win/loss record instead.
+  private async getBracketChampion(bracketId: string): Promise<string | null> {
+    const matches = await this.prisma.match.findMany({
+      where: { bracketId },
+      select: {
+        teamAId: true, teamBId: true, winnerId: true, status: true, label: true,
+        sets: { select: { scoreA: true, scoreB: true } },
+      },
+    });
+
+    const finalMatch = matches.find(
+      (m) => (m.label === 'FINAL' || m.label === 'GRAND_FINAL')
+        && (m.status === MatchStatus.FINISHED || m.status === MatchStatus.WALKOVER)
+        && m.winnerId,
+    );
+    if (finalMatch) return finalMatch.winnerId;
+
+    const decided = matches.filter(
+      (m) => (m.status === MatchStatus.FINISHED || m.status === MatchStatus.WALKOVER) && m.teamAId && m.teamBId,
+    );
+    if (decided.length === 0) return null;
+
+    const table = new Map<string, { wins: number; pf: number; pa: number }>();
+    for (const m of decided) {
+      const a = m.teamAId!, b = m.teamBId!;
+      if (!table.has(a)) table.set(a, { wins: 0, pf: 0, pa: 0 });
+      if (!table.has(b)) table.set(b, { wins: 0, pf: 0, pa: 0 });
+      const ea = table.get(a)!, eb = table.get(b)!;
+      const pf = m.sets.reduce((s, x) => s + x.scoreA, 0);
+      const pa = m.sets.reduce((s, x) => s + x.scoreB, 0);
+      ea.pf += pf; ea.pa += pa;
+      eb.pf += pa; eb.pa += pf;
+      if (m.winnerId === a) ea.wins++;
+      else if (m.winnerId === b) eb.wins++;
+    }
+    const sorted = [...table.entries()].sort((x, y) => {
+      if (y[1].wins !== x[1].wins) return y[1].wins - x[1].wins;
+      return (y[1].pf - y[1].pa) - (x[1].pf - x[1].pa);
+    });
+    return sorted[0]?.[0] ?? null;
   }
 }

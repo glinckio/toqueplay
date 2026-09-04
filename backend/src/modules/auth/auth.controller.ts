@@ -121,6 +121,7 @@ export class AuthController {
   @Public()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60000, limit: 5 } })
   @ApiOperation({ summary: 'Redefinir senha com codigo' })
   @ApiResponse({ status: 200, description: 'Senha redefinida com sucesso' })
   @ApiResponse({ status: 400, description: 'Codigo invalido ou expirado' })

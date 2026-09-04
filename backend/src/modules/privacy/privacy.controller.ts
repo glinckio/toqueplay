@@ -19,7 +19,7 @@ import { Request } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { PrivacyService } from './privacy.service';
-import { IsEmail, IsNotEmpty, IsBoolean, IsOptional, IsEnum, IsInt, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsBoolean, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   CreateDpoRequestDto,
@@ -73,6 +73,13 @@ export class PrivacyController {
   @ApiResponse({ status: 200, description: 'Estado atual dos consentimentos' })
   getConsents(@CurrentUser('id') userId: string) {
     return this.privacyService.getConsents(userId);
+  }
+
+  @Get('consents/history')
+  @ApiOperation({ summary: 'Histórico completo de consentimentos (LGPD art. 37)' })
+  @ApiResponse({ status: 200, description: 'Lista de todos os registros de consentimento do usuário' })
+  getConsentHistory(@CurrentUser('id') userId: string) {
+    return this.privacyService.getConsentHistory(userId);
   }
 
   @Put('consents')
@@ -170,6 +177,12 @@ export class PrivacyController {
   }
 }
 
+// DPO/security-incident back-office tooling — LGPD arts. 18/19 (holder
+// response obligation) and 48 (breach-notification lifecycle). No app screen
+// calls this; it's meant for staff to drive directly (Swagger/Postman/curl),
+// same as any other internal-only compliance tool. Do NOT remove as "unused
+// by the app" — removing it once already left submitted DPO requests with no
+// way to ever be resolved.
 @ApiTags('Admin · Privacy')
 @ApiBearerAuth()
 @Controller('admin/privacy')

@@ -38,16 +38,10 @@ const CATEGORY_FORMAT_ATHLETE_COUNT: Record<string, number> = {
 
 @Injectable()
 export class FriendliesService {
-  private chatService: any; // injected lazily to avoid circular dep
-
   constructor(
     private prisma: PrismaService,
     private notificationService: NotificationService,
   ) {}
-
-  setChatService(chatService: any) {
-    this.chatService = chatService;
-  }
 
   async create(userId: string, dto: CreateFriendlyDto) {
     // Verify requesterTeam belongs to user if provided
@@ -135,6 +129,10 @@ export class FriendliesService {
           date: parseDate(dto.date) ?? new Date(),
           startTime: dto.startTime ? parseDate(dto.startTime) ?? undefined : undefined,
           address: dto.address,
+          addressNumber: dto.addressNumber,
+          complement: dto.complement,
+          neighborhood: dto.neighborhood,
+          cep: dto.cep,
           city: dto.city,
           state: dto.state,
           latitude: dto.latitude,
@@ -193,11 +191,6 @@ export class FriendliesService {
           });
         }
       }
-    }
-
-    // Auto-create inter-team chat if both teams present
-    if (this.chatService && dto.requesterTeamId && dto.challengedTeamId) {
-      await this.chatService.createInterTeamChat(dto.requesterTeamId, dto.challengedTeamId);
     }
 
     return result;
@@ -328,11 +321,6 @@ export class FriendliesService {
         type: 'FRIENDLY_ACCEPTED',
         referenceId: friendlyId,
       });
-    }
-
-    // Auto-create inter-team chat if both teams present
-    if (this.chatService && accepted?.requesterTeamId && accepted?.challengedTeamId) {
-      await this.chatService.createInterTeamChat(accepted.requesterTeamId, accepted.challengedTeamId);
     }
 
     return accepted;
@@ -692,47 +680,6 @@ export class FriendliesService {
     }
 
     return friendly;
-  }
-
-  async explore(query: NearbyQueryDto & { dateFrom?: string; dateTo?: string; city?: string }) {
-    const where: any = {
-      status: { in: [FriendlyStatus.PENDING, FriendlyStatus.ACCEPTED] },
-      latitude: { not: null },
-      longitude: { not: null },
-    };
-
-    if (query.city) {
-      where.city = { equals: query.city, mode: 'insensitive' as const };
-    }
-
-    if (query.dateFrom || query.dateTo) {
-      where.date = {
-        ...(query.dateFrom && { gte: new Date(query.dateFrom) }),
-        ...(query.dateTo && { lte: new Date(query.dateTo) }),
-      };
-    }
-
-    if (query.latitude && query.longitude) {
-      const radius = query.radius || 50;
-      const kmPerDegreeLat = 111;
-      const kmPerDegreeLng = 111 * Math.cos((query.latitude * Math.PI) / 180);
-      const latDelta = radius / kmPerDegreeLat;
-      const lngDelta = radius / kmPerDegreeLng;
-
-      where.AND = [
-        { latitude: { gte: query.latitude - latDelta } },
-        { latitude: { lte: query.latitude + latDelta } },
-        { longitude: { gte: query.longitude - lngDelta } },
-        { longitude: { lte: query.longitude + lngDelta } },
-      ];
-    }
-
-    return this.prisma.friendly.findMany({
-      where,
-      include: FRIENDLY_INCLUDE,
-      orderBy: { date: 'asc' },
-      take: 20,
-    });
   }
 
   private async findFriendlyOrThrow(friendlyId: string) {
