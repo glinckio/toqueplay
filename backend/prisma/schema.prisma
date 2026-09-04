@@ -120,6 +120,10 @@ model User {
   role                        Role            @default(ATLETA)
   status                      UserStatus      @default(ACTIVE)
   avatarUrl                   String?
+  bannerUrl                   String?
+  themeMode                   String          @default("dark")
+  nameColor                   String?
+  emailColor                  String?
   phone                       String?
   bio                         String?
   googleId                    String?         @unique
@@ -129,6 +133,7 @@ model User {
   latitude                    Float?
   longitude                   Float?
   enableLocationNotifications Boolean         @default(false)
+  nearbyRadiusKm              Int             @default(50)
   notificationPreferences     Json?
   twoFactorSecret             String?
   twoFactorEnabled            Boolean         @default(false)
@@ -331,6 +336,7 @@ model TournamentStage {
   maxTeams     Int?
   street       String?
   number       String?
+  complement   String?
   neighborhood String?
   address      String?
   city         String?
@@ -536,6 +542,9 @@ model Friendly {
   startTime     DateTime?
   address       String?
   addressNumber String?
+  complement    String?
+  neighborhood  String?
+  cep           String?
   city          String?
   state         String?
   latitude      Float?

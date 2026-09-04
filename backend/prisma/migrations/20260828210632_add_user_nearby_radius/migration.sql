@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "nearbyRadiusKm" INTEGER NOT NULL DEFAULT 50;
