@@ -25,7 +25,8 @@
     "db:migrate:status": "npx prisma migrate status",
     "db:migrate:resolve": "npx prisma migrate resolve",
     "db:seed": "npx prisma db seed",
-    "db:reset": "npx prisma migrate reset --force"
+    "db:reset": "npx prisma migrate reset --force",
+    "db:seed:masc": "npx ts-node prisma/seed-torneio-dupla-masc.ts"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -48,8 +49,8 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
+    "expo-server-sdk": "^7.2.0",
     "file-type": "^16.5.4",
-    "firebase-admin": "^13.8.0",
     "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "ioredis": "^5.6.1",
@@ -70,11 +71,10 @@
     "@nestjs/testing": "^11.0.1",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
-    "@types/jest": "^30.0.0",
+    "@types/jest": "^29.5.14",
     "@types/multer": "^2.1.0",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
-    "@types/jest": "^29.5.14",
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
@@ -105,6 +105,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!expo-server-sdk)"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],
