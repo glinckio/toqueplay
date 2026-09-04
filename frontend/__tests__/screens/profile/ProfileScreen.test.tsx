@@ -24,62 +24,82 @@ jest.mock("expo-linear-gradient", () => ({
   LinearGradient: "LinearGradient",
 }));
 
+jest.mock("expo-image-picker", () => ({
+  launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: true, assets: [] }),
+}));
+
+jest.mock("@react-navigation/native", () => ({
+  useFocusEffect: (cb: any) => cb(),
+}));
+
+jest.mock("@/stores/authStore", () => ({
+  useAuthStore: { getState: () => ({ logout: jest.fn() }) },
+}));
+
+jest.mock("@/services/authService", () => ({
+  authService: { logout: jest.fn().mockResolvedValue(undefined) },
+}));
+
 const mockNavigation = { navigate: jest.fn(), goBack: jest.fn() };
 
 describe("ProfileScreen", () => {
   beforeEach(() => jest.clearAllMocks());
 
-  it("renders profile info", () => {
+  it("renders profile info with name and username", () => {
     const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
-    expect(getByText("Perfil")).toBeTruthy();
     expect(getByText("Lucas Costa")).toBeTruthy();
-    expect(getByText("@lucascosta")).toBeTruthy();
+    expect(getByText(/@lucascosta/)).toBeTruthy();
   });
 
-  it("renders stats bar", () => {
+  it("renders role badges", () => {
+    const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
+    expect(getByText("ATLETA")).toBeTruthy();
+    expect(getByText("ORGANIZADOR")).toBeTruthy();
+  });
+
+  it("renders stats bar with 3 items", () => {
     const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
     expect(getByText("Torneios")).toBeTruthy();
     expect(getByText("Vitórias")).toBeTruthy();
     expect(getByText("Win rate")).toBeTruthy();
-    expect(getByText("Times")).toBeTruthy();
   });
 
-  it("renders contact info cards", () => {
+  it("renders quick links section", () => {
     const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
-    expect(getByText("lucas@email.com")).toBeTruthy();
-    expect(getByText("(21) 99999-0000")).toBeTruthy();
-    expect(getByText("Rio de Janeiro, RJ")).toBeTruthy();
-  });
-
-  it("renders menu items", () => {
-    const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
+    expect(getByText("LINKS RÁPIDOS")).toBeTruthy();
     expect(getByText("Meus times")).toBeTruthy();
-    expect(getByText("Meus torneios")).toBeTruthy();
-    expect(getByText("Amistosos")).toBeTruthy();
-    expect(getByText("Notificações")).toBeTruthy();
-    expect(getByText("Privacidade & LGPD")).toBeTruthy();
   });
 
-  it("navigates to menu screens on press", () => {
+  it("renders recent tournaments section", () => {
+    const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
+    expect(getByText("TORNEIOS RECENTES")).toBeTruthy();
+    expect(getByText("Copa Verão Beach 2026")).toBeTruthy();
+  });
+
+  it("navigates back on back press", () => {
     const { getByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
-    fireEvent.press(getByLabelText("Meus times"));
-    expect(mockNavigation.navigate).toHaveBeenCalledWith("ManageTeams");
-    fireEvent.press(getByLabelText("Notificações"));
-    expect(mockNavigation.navigate).toHaveBeenCalledWith("Notifications");
+    fireEvent.press(getByLabelText("Voltar"));
+    expect(mockNavigation.goBack).toHaveBeenCalled();
   });
 
-  it("toggles edit mode", () => {
+  it("enters edit mode on more button press", () => {
     const { getByLabelText, getByText } = render(<ProfileScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Editar perfil"));
-    expect(getByLabelText("Nome")).toBeTruthy();
+    expect(getByText("Editar perfil")).toBeTruthy();
+    expect(getByLabelText("NOME COMPLETO")).toBeTruthy();
     expect(getByLabelText("Bio")).toBeTruthy();
-    expect(getByLabelText("Telefone")).toBeTruthy();
+  });
+
+  it("shows logout button in edit mode", () => {
+    const { getByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
+    fireEvent.press(getByLabelText("Editar perfil"));
+    expect(getByLabelText("Sair da conta")).toBeTruthy();
   });
 
   it("saves and exits edit mode", async () => {
     const { getByLabelText, queryByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Editar perfil"));
     fireEvent.press(getByLabelText("Salvar perfil"));
-    await waitFor(() => expect(queryByLabelText("Nome")).toBeNull());
+    await waitFor(() => expect(queryByLabelText("NOME COMPLETO")).toBeNull());
   });
 });

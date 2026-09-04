@@ -2,6 +2,61 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 import { BracketScreen } from "@/screens/tournaments/BracketScreen";
 
+const mockBracketData = [
+  {
+    id: "b1",
+    matches: [
+      {
+        id: "m1",
+        round: 1,
+        position: 0,
+        status: "FINISHED",
+        label: null,
+        teamAId: "ta1",
+        teamBId: "tb1",
+        teamA: { id: "ta1", name: "Silva & Rocha", avatarUrl: null },
+        teamB: { id: "tb1", name: "Thunder Flex", avatarUrl: null },
+        scoreTeamA: 21,
+        scoreTeamB: 15,
+        winnerId: "ta1",
+        sets: [],
+      },
+      {
+        id: "m2",
+        round: 1,
+        position: 1,
+        status: "IN_PROGRESS",
+        label: null,
+        teamAId: "ta2",
+        teamBId: "tb2",
+        teamA: { id: "ta2", name: "Praia Aces", avatarUrl: null },
+        teamB: { id: "tb2", name: "Sand Blockers", avatarUrl: null },
+        scoreTeamA: null,
+        scoreTeamB: null,
+        winnerId: null,
+        sets: [],
+      },
+      {
+        id: "m3",
+        round: 2,
+        position: 0,
+        status: "PENDING",
+        label: "FINAL",
+        teamAId: null,
+        teamBId: null,
+        teamA: null,
+        teamB: null,
+        scoreTeamA: null,
+        scoreTeamB: null,
+        winnerId: null,
+        sets: [],
+      },
+    ],
+  },
+];
+
+let mockData: any = mockBracketData;
+
 jest.mock("@/hooks/useTheme", () => ({
   useTheme: () => ({
     isDark: true,
@@ -15,6 +70,15 @@ jest.mock("@/hooks/useTheme", () => ({
   }),
 }));
 
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({
+    data: mockData,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
+}));
+
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -24,24 +88,25 @@ jest.mock("expo-linear-gradient", () => ({
   LinearGradient: "LinearGradient",
 }));
 
-const mockNavigation = { goBack: jest.fn() } as any;
-const mockRoute = { params: { tournamentId: "t1", tournamentName: "Copa Verão 2026 · Masc Dupla" } };
+const mockNavigation = { goBack: jest.fn(), navigate: jest.fn() } as any;
+const mockRoute = { params: { tournamentId: "t1" } };
 
 describe("BracketScreen", () => {
-  it("renders screen title and subtitle", () => {
+  beforeEach(() => {
+    mockData = mockBracketData;
+  });
+
+  it("renders screen title", () => {
     const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
     expect(getByText("Chaveamento")).toBeTruthy();
-    expect(getByText("Copa Verão 2026 · Masc Dupla")).toBeTruthy();
   });
 
-  it("renders phase tabs", () => {
+  it("renders Todos tab", () => {
     const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("Quartas")).toBeTruthy();
-    expect(getByText("Semis")).toBeTruthy();
-    expect(getByText("Final")).toBeTruthy();
+    expect(getByText("Todos")).toBeTruthy();
   });
 
-  it("renders match cards with team names", () => {
+  it("renders team names from bracket data", () => {
     const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
     expect(getByText("Silva & Rocha")).toBeTruthy();
     expect(getByText("Thunder Flex")).toBeTruthy();
@@ -49,10 +114,11 @@ describe("BracketScreen", () => {
     expect(getByText("Sand Blockers")).toBeTruthy();
   });
 
-  it("renders game statuses", () => {
-    const { getAllByText, getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getAllByText("CONCLUÍDO").length).toBe(2);
-    expect(getByText("AO VIVO · SET 2")).toBeTruthy();
+  it("renders match statuses", () => {
+    const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
+    expect(getByText("CONCLUÍDO")).toBeTruthy();
+    expect(getByText("AO VIVO")).toBeTruthy();
+    expect(getByText("PENDENTE")).toBeTruthy();
   });
 
   it("renders legend", () => {
@@ -62,9 +128,14 @@ describe("BracketScreen", () => {
     expect(getByText("Pendente")).toBeTruthy();
   });
 
-  it("renders court labels", () => {
+  it("renders A definir for matches without teams", () => {
+    const { getAllByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
+    expect(getAllByText("A definir").length).toBe(2);
+  });
+
+  it("renders empty state when no bracket data", () => {
+    mockData = [];
     const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("Jogo 1 · Quadra A")).toBeTruthy();
-    expect(getByText("Jogo 2 · Quadra B")).toBeTruthy();
+    expect(getByText("Nenhum chaveamento gerado ainda.")).toBeTruthy();
   });
 });

@@ -35,14 +35,101 @@ jest.mock("@react-navigation/native", () => ({
   }),
 }));
 
-jest.mock("@/stores/authStore", () => ({
-  useAuthStore: (selector: any) =>
-    selector({
-      user: { name: "Lucas Mendes", email: "lucas@test.com" },
-      isAuthenticated: true,
-      _hasHydrated: true,
-    }),
+jest.mock("@/stores/authStore", () => {
+  const store = {
+    user: { name: "Lucas Mendes", email: "lucas@test.com", avatarUrl: null },
+    isAuthenticated: true,
+    _hasHydrated: true,
+    getState: () => store,
+    setUser: jest.fn(),
+  };
+  return {
+    useAuthStore: (selector: any) => selector(store),
+  };
+});
+
+const mockDashboard = {
+  liveMatches: [
+    {
+      id: "match-1",
+      tournament: { name: "Copa Verão" },
+      round: "Semifinal",
+      court: "Quadra 1",
+      currentSet: 3,
+      teamA: { initials: "SR", name: "Silva & Rocha", color: "#7C3AED" },
+      teamB: { initials: "CL", name: "Costa & Lima", color: "#241B38" },
+      scoreA: 2,
+      scoreB: 1,
+      setScores: "25-21, 20-25, 15-12",
+    },
+  ],
+  nearbyTournaments: [
+    {
+      id: "t1",
+      name: "Copa Praia Grande",
+      distance: 2.3,
+      coverUrl: null,
+      categoryFormat: "PAIR",
+      date: "15 de ago",
+      city: "Praia Grande",
+    },
+    {
+      id: "t2",
+      name: "Circuito Litoral",
+      distance: 5.1,
+      coverUrl: null,
+      categoryFormat: "PAIR",
+      date: "20 de ago",
+      city: "Santos",
+    },
+  ],
+  myTournaments: [
+    {
+      id: "t3",
+      name: "Circuito Litoral",
+      coverUrl: null,
+      date: "22 de ago",
+      categoryFormat: "Dupla Masculina",
+      registrationStatus: "PAID",
+    },
+  ],
+  unreadNotifications: 0,
+};
+
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({
+    data: mockDashboard,
+    loading: false,
+    error: null,
+    refetch: jest.fn(),
+  }),
 }));
+
+jest.mock("@/services/homeService", () => ({
+  homeService: { getDashboard: jest.fn() },
+}));
+
+jest.mock("@/services/usersService", () => ({
+  usersService: {
+    getProfile: () => Promise.resolve({ avatarUrl: null }),
+    updateLocation: () => Promise.resolve(),
+  },
+}));
+
+jest.mock("expo-location", () => ({
+  getForegroundPermissionsAsync: () => Promise.resolve({ status: "denied" }),
+  getCurrentPositionAsync: () => Promise.resolve({ coords: { latitude: 0, longitude: 0 } }),
+}));
+
+jest.mock("react-native-svg", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    default: "Svg",
+    Path: "Path",
+    Polyline: "Polyline",
+  };
+});
 
 describe("HomeScreen", () => {
   it("renders greeting with user first name", () => {
@@ -72,12 +159,11 @@ describe("HomeScreen", () => {
     const { getByText, getAllByText } = render(<HomeScreen />);
     expect(getByText("Torneios próximos")).toBeTruthy();
     expect(getAllByText("Copa Praia Grande").length).toBeGreaterThanOrEqual(1);
-    expect(getByText("Circuito Litoral")).toBeTruthy();
+    expect(getAllByText("Circuito Litoral").length).toBeGreaterThanOrEqual(1);
   });
 
   it("renders my tournaments section", () => {
     const { getByText } = render(<HomeScreen />);
     expect(getByText("Meus torneios")).toBeTruthy();
-    expect(getByText("Circuito Litoral · Et. 2")).toBeTruthy();
   });
 });

@@ -42,7 +42,7 @@ describe("VerifyEmailScreen", () => {
     const { getByText } = render(
       <VerifyEmailScreen navigation={mockNavigation} route={mockRoute} />,
     );
-    expect(getByText("VERIFICAR")).toBeTruthy();
+    expect(getByText("Verificar")).toBeTruthy();
     expect(getByText(/test@mail.com/)).toBeTruthy();
   });
 

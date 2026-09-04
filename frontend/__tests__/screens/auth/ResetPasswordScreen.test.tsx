@@ -40,14 +40,14 @@ describe("ResetPasswordScreen", () => {
     expect(getByText("Código de verificação")).toBeTruthy();
     expect(getAllByText(/Nova senha/i).length).toBeGreaterThanOrEqual(1);
     expect(getByText("Confirmar senha")).toBeTruthy();
-    expect(getByText("REDEFINIR SENHA")).toBeTruthy();
+    expect(getAllByText("Redefinir senha").length).toBeGreaterThanOrEqual(2);
   });
 
   it("shows error for short code", () => {
-    const { getByText } = render(
+    const { getAllByText, getByText } = render(
       <ResetPasswordScreen navigation={mockNavigation} route={mockRoute} />,
     );
-    fireEvent.press(getByText("REDEFINIR SENHA"));
+    fireEvent.press(getAllByText("Redefinir senha")[1]);
     expect(getByText("Código deve ter 6 dígitos")).toBeTruthy();
   });
 

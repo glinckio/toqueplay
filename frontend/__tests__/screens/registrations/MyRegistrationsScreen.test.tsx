@@ -49,7 +49,7 @@ function makeReg(overrides: Partial<RegistrationDTO> = {}): RegistrationDTO {
       modality: TournamentModality.BEACH,
       registrationPrice: 120,
     },
-    team: { id: "team-1", name: "Beach Titans" },
+    team: { id: "team-1", name: "Beach Titans", avatarUrl: null },
     user: { id: "u-1", name: "Lucas", email: "lucas@test.com" },
     members: [],
     ...overrides,

@@ -72,6 +72,9 @@ jest.mock("@/services/tournamentsService", () => ({
     visitorNearby: jest.fn().mockReturnValue([]),
     publish: jest.fn().mockReturnValue({}),
     saveDraft: jest.fn().mockReturnValue({}),
+    openRegistration: jest.fn().mockReturnValue({}),
+    closeRegistration: jest.fn().mockReturnValue({}),
+    generateBracket: jest.fn().mockReturnValue({}),
     start: jest.fn().mockReturnValue({}),
     complete: jest.fn().mockReturnValue({}),
     remove: jest.fn().mockReturnValue(undefined),
@@ -222,6 +225,12 @@ jest.mock("@/services/usersService", () => ({
     getNotificationPreferences: jest.fn().mockReturnValue({}),
     updateNotificationPreferences: jest.fn().mockReturnValue({}),
     uploadAvatar: jest.fn().mockReturnValue({}),
+    getPublicProfile: jest.fn().mockReturnValue({
+      id: "u1", name: "Lucas Costa", username: "lucascosta",
+      email: "lucas@email.com", avatarUrl: null,
+      bio: "Jogador de vôlei de praia", city: "Rio de Janeiro", state: "RJ",
+      stats: { matchesPlayed: 12, matchesWon: 8, winRate: 67 },
+    }),
   },
 }));
 

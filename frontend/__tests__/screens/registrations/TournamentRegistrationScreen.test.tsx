@@ -151,7 +151,7 @@ describe("TournamentRegistrationScreen — step 2", () => {
     const { getByText } = renderScreen2();
     fireEvent.press(getByText("Lucas Menezes"));
     fireEvent.press(getByText("Rafael Rocha"));
-    fireEvent.press(getByText("CONFIRMAR INSCRIÇÃO"));
+    fireEvent.press(getByText("Confirmar inscrição"));
     await waitFor(() => expect(mockRegisterTeam).toHaveBeenCalledWith("t-1", {
       teamId: "team-1",
       categoryId: "cat-1",

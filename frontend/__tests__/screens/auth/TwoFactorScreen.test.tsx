@@ -37,7 +37,7 @@ describe("TwoFactorScreen", () => {
     const { getByText } = render(
       <TwoFactorScreen navigation={mockNavigation} route={mockRoute} />,
     );
-    expect(getByText("VERIFICAR")).toBeTruthy();
+    expect(getByText("Verificar")).toBeTruthy();
     expect(getByText(/aplicativo autenticador/)).toBeTruthy();
   });
 

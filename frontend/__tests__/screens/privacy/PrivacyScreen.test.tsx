@@ -27,46 +27,44 @@ describe("PrivacyScreen", () => {
 
   it("renders title", () => {
     const { getByText } = render(<PrivacyScreen navigation={mockNavigation} />);
-    expect(getByText("Privacidade & LGPD")).toBeTruthy();
+    expect(getByText("Privacidade")).toBeTruthy();
   });
 
-  it("renders consent toggles", () => {
+  it("renders shield header card", () => {
     const { getByText } = render(<PrivacyScreen navigation={mockNavigation} />);
-    expect(getByText("Notificações push")).toBeTruthy();
-    expect(getByText("Localização")).toBeTruthy();
-    expect(getByText("Emails de marketing")).toBeTruthy();
+    expect(getByText(/Seus dados est.o protegidos/)).toBeTruthy();
+    expect(getByText(/LGPD .* Lei 13.709\/2018/)).toBeTruthy();
   });
 
-  it("renders data summary", () => {
+  it("renders consent section", () => {
     const { getByText } = render(<PrivacyScreen navigation={mockNavigation} />);
-    expect(getByText("SEUS DADOS")).toBeTruthy();
-    expect(getByText("Times")).toBeTruthy();
-    expect(getByText("Torneios")).toBeTruthy();
-    expect(getByText("Partidas")).toBeTruthy();
+    expect(getByText("Consentimentos")).toBeTruthy();
   });
 
-  it("renders action buttons", () => {
-    const { getByLabelText } = render(<PrivacyScreen navigation={mockNavigation} />);
+  it("renders MEUS DADOS section with rows", () => {
+    const { getByText, getByLabelText } = render(<PrivacyScreen navigation={mockNavigation} />);
+    expect(getByText("Meus dados")).toBeTruthy();
     expect(getByLabelText("Exportar meus dados")).toBeTruthy();
-    expect(getByLabelText("Contato DPO")).toBeTruthy();
-    expect(getByLabelText("Excluir minha conta")).toBeTruthy();
+    expect(getByText(/Download em JSON/)).toBeTruthy();
   });
 
-  it("renders LGPD article references", () => {
-    const { getByText } = render(<PrivacyScreen navigation={mockNavigation} />);
-    expect(getByText("LGPD Art. 18, V — Portabilidade")).toBeTruthy();
-    expect(getByText("LGPD Art. 18, VI — Eliminação")).toBeTruthy();
+  it("renders DPO section", () => {
+    const { getByText, getByLabelText } = render(<PrivacyScreen navigation={mockNavigation} />);
+    expect(getByText("Encarregado de dados (DPO)")).toBeTruthy();
+    expect(getByText("dpo@toqueplay.com.br")).toBeTruthy();
+    expect(getByLabelText("Enviar mensagem ao DPO")).toBeTruthy();
+  });
+
+  it("renders danger zone", () => {
+    const { getByText, getByLabelText } = render(<PrivacyScreen navigation={mockNavigation} />);
+    expect(getByText("Zona de perigo")).toBeTruthy();
+    expect(getByText("Excluir minha conta")).toBeTruthy();
+    expect(getByLabelText("Excluir conta")).toBeTruthy();
   });
 
   it("navigates back", () => {
     const { getByLabelText } = render(<PrivacyScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Voltar"));
     expect(mockNavigation.goBack).toHaveBeenCalled();
-  });
-
-  it("renders consent descriptions", () => {
-    const { getByText } = render(<PrivacyScreen navigation={mockNavigation} />);
-    expect(getByText("Receber notificações sobre partidas e torneios")).toBeTruthy();
-    expect(getByText("Usar localização para descobrir torneios próximos")).toBeTruthy();
   });
 });

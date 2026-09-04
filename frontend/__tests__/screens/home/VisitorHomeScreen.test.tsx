@@ -38,13 +38,13 @@ describe("VisitorHomeScreen", () => {
 
   it("renders ENTRAR button in header", () => {
     const { getByText } = render(<VisitorHomeScreen navigation={mockNavigation} />);
-    expect(getByText("ENTRAR")).toBeTruthy();
+    expect(getByText("Entrar")).toBeTruthy();
   });
 
   it("renders CTA banner with create account button", () => {
     const { getByText } = render(<VisitorHomeScreen navigation={mockNavigation} />);
     expect(getByText("Participe de torneios!")).toBeTruthy();
-    expect(getByText("CRIAR CONTA GRÁTIS")).toBeTruthy();
+    expect(getByText("Criar conta grátis")).toBeTruthy();
   });
 
   it("renders location banner", () => {
