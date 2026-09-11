@@ -275,6 +275,10 @@ model Tournament {
   refereeCode          String?
   refereeCodeExpiresAt DateTime?
 
+  // Liga/circuito com varias etapas: por padrao um atleta so joga por um time no mesmo torneio.
+  // O organizador pode liberar a troca de time entre etapas ligando esta opcao.
+  allowSameAthleteMultipleTeams Boolean @default(false)
+
   deletedAt DateTime?
 
   createdAt DateTime @default(now())

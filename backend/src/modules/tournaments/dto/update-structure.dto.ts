@@ -242,6 +242,16 @@ export class UpdateStructureDto {
   @IsEnum(TournamentEventType)
   eventType: TournamentEventType;
 
+  @ApiPropertyOptional({
+    description:
+      'Permite que o mesmo atleta (mesmo CPF) jogue por times diferentes no mesmo torneio. ' +
+      'Util em ligas de varias etapas. Padrao: false.',
+    default: false,
+  })
+  @IsBoolean()
+  @IsOptional()
+  allowSameAthleteMultipleTeams?: boolean;
+
   @ApiPropertyOptional({ description: 'Etapas (obrigatorio se CIRCUIT)', type: [StageDto] })
   @IsArray()
   @IsOptional()
