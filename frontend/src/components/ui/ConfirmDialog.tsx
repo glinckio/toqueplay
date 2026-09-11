@@ -1,5 +1,6 @@
 import React from "react";
 import { Modal, View, Text, Pressable, ActivityIndicator } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Svg, { Path } from "react-native-svg";
 import { useTheme } from "@/hooks/useTheme";
 
@@ -55,7 +56,9 @@ export function ConfirmDialog({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={{ flex: 1, backgroundColor: D.overlay, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
+      {/* Alguns dialogos tem campo de texto (ex.: codigo de arbitro). Sem isto o teclado sobe
+          por cima do card, que fica centralizado e nao tem como escapar. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: D.overlay, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }}>
         <Pressable onPress={onCancel} style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} accessibilityLabel="Fechar" />
 
         <View style={{ width: "100%", maxWidth: 380, backgroundColor: D.card, borderWidth: 1, borderColor: D.cardBorder, borderRadius: 22, padding: 22 }}>
@@ -103,7 +106,7 @@ export function ConfirmDialog({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, Modal, PanResponder, TextInput } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Path } from "react-native-svg";
 import { hsvToHex, hexToHsv, isValidHex } from "@/utils/color";
@@ -117,7 +118,8 @@ function ColorPickerModal({
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onCancel}>
-      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", padding: 24 }}>
+      {/* O campo hex fica no rodape do card centralizado: sem isto o teclado cobre ele. */}
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.72)", alignItems: "center", justifyContent: "center", padding: 24 }}>
         <View style={{ backgroundColor: "#16181C", borderRadius: 24, padding: 20, width: "100%", maxWidth: 320, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)" }}>
           <Text style={{ color: "#FFFFFF", fontFamily: "Anton_400Regular", fontSize: 18, letterSpacing: 0.3, textTransform: "uppercase", marginBottom: 16 }}>Escolher cor</Text>
 
@@ -167,7 +169,7 @@ function ColorPickerModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
