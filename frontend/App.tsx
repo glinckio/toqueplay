@@ -4,6 +4,7 @@ import { StatusBar } from "expo-status-bar";
 import { NavigationContainer, DefaultTheme, DarkTheme, LinkingOptions, getStateFromPath } from "@react-navigation/native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import * as SplashScreen from "expo-splash-screen";
 import * as ScreenOrientation from "expo-screen-orientation";
 import {
@@ -199,8 +200,10 @@ export default function App() {
     return (
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SafeAreaProvider>
-          <DesignLabScreen />
-          <StatusBar style="light" />
+          <KeyboardProvider>
+            <DesignLabScreen />
+            <StatusBar style="light" />
+          </KeyboardProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     );
@@ -209,21 +212,25 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
-        <NavigationContainer linking={linking} theme={navTheme}>
-          {FORCE_AUTH ? (
-            <AuthNavigator />
-          ) : isAuthenticated ? (
-            <>
-              <RootNavigator />
-              <ConsentGateScreen visible={consentChecked && !hasAcceptedTerms} />
-            </>
-          ) : visitorActive ? (
-            <VisitorNavigator />
-          ) : (
-            <AuthNavigator />
-          )}
-        </NavigationContainer>
-        <StatusBar style={themeMode === "dark" ? "light" : "dark"} />
+        {/* KeyboardProvider alimenta os insets do teclado usados pelas telas. Precisa ficar
+            acima da navegacao para valer em qualquer rota. */}
+        <KeyboardProvider>
+          <NavigationContainer linking={linking} theme={navTheme}>
+            {FORCE_AUTH ? (
+              <AuthNavigator />
+            ) : isAuthenticated ? (
+              <>
+                <RootNavigator />
+                <ConsentGateScreen visible={consentChecked && !hasAcceptedTerms} />
+              </>
+            ) : visitorActive ? (
+              <VisitorNavigator />
+            ) : (
+              <AuthNavigator />
+            )}
+          </NavigationContainer>
+          <StatusBar style={themeMode === "dark" ? "light" : "dark"} />
+        </KeyboardProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Path, Circle } from "react-native-svg";
@@ -56,7 +57,7 @@ export function TwoFactorScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: AC.bg }} edges={["top"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
           <BackButton title="Voltar" onPress={() => navigation.goBack()} />
 

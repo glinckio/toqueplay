@@ -3,12 +3,11 @@ import {
   View,
   Text,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   StatusBar,
   Dimensions,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Rect, Path, Circle } from "react-native-svg";
 import { Banner } from "@/components/ui/Banner";
@@ -95,7 +94,7 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   return (
     <View style={{ flex: 1, backgroundColor: AC.bg }}>
       <StatusBar barStyle={AC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 28 }} keyboardShouldPersistTaps="handled" bounces={false}>
           <AuthHero
             image={HERO_IMAGE}

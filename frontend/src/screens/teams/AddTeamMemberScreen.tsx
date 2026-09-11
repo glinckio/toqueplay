@@ -5,9 +5,8 @@ import {
   Pressable,
   StatusBar,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Icon } from "@/components/ui/Icon";
 import Svg, { Path } from "react-native-svg";
@@ -98,7 +97,7 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
       <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         <View style={{ flex: 1, paddingHorizontal: 22, paddingTop: 16 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }}>
             <BackButton onPress={() => navigation?.goBack()} />

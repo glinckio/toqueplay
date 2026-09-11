@@ -6,13 +6,12 @@ import {
   Pressable,
   StatusBar,
   TextInput,
-  KeyboardAvoidingView,
-  Platform,
   Alert,
   ActivityIndicator,
   Modal,
   FlatList,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -350,7 +349,7 @@ export function CreateFriendlyScreen({ navigation }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}

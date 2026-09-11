@@ -4,8 +4,6 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Platform,
-  KeyboardAvoidingView,
   TextInput,
   Alert,
   ActivityIndicator,
@@ -13,6 +11,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -454,7 +453,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         {/* Header */}
         <View style={{ paddingHorizontal: 22, paddingTop: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 }}>
