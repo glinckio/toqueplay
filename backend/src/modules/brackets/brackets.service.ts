@@ -171,8 +171,8 @@ export class BracketsService {
     });
 
     // Notify confirmed teams about bracket generation
-    const tournamentData = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournamentData = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
     });
     if (tournamentData) {
       const userIds = await this.notificationService.getRegisteredAthleteUserIds(tournamentId);

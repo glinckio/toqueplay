@@ -29,8 +29,8 @@ export class RankingService {
   constructor(private prisma: PrismaService) {}
 
   async getRanking(tournamentId: string) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: { stages: true },
     });
 

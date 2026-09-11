@@ -121,6 +121,7 @@ export class HomeService {
 
     const tournaments = await this.prisma.tournament.findMany({
       where: {
+        deletedAt: null,
         status: activeStatus,
         stages: {
           some: {
@@ -282,6 +283,7 @@ export class HomeService {
 
     const tournaments = await this.prisma.tournament.findMany({
       where: {
+        deletedAt: null,
         createdAt: { gte: weekAgo },
         status: { not: TournamentStatus.CANCELLED },
         stages: {

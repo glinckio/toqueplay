@@ -43,8 +43,8 @@ export class MatchesService {
     });
     if (pendingMatches > 0) return;
 
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       select: { status: true, name: true },
     });
     if (!tournament || tournament.status !== TournamentStatus.IN_PROGRESS) return;
@@ -1264,8 +1264,8 @@ export class MatchesService {
       throw AppError.matchNotFound();
     }
 
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: match.bracket.tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: match.bracket.tournamentId, deletedAt: null },
     });
 
     if (!tournament || tournament.ownerId !== userId) {
