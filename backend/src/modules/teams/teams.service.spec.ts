@@ -10,15 +10,7 @@ describe('TeamsService', () => {
   // computeTeamStats sem inscricao confirmada em torneio encerrado.
   const emptyStats = { tournaments: 0, wins: 0, winRate: 0 };
   let service: TeamsService;
-  let prisma: {
-    team: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findUnique: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
-    };
-  };
+  let prisma: any;
 
   beforeEach(async () => {
     prisma = {

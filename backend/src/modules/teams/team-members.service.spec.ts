@@ -12,17 +12,7 @@ import { NotificationService } from '../../common/services/notification.service'
 
 describe('TeamMembersService', () => {
   let service: TeamMembersService;
-  let prisma: {
-    user: { findUnique: jest.Mock };
-    teamMember: {
-      create: jest.Mock;
-      findMany: jest.Mock;
-      findFirst: jest.Mock;
-      findUnique: jest.Mock;
-      update: jest.Mock;
-      delete: jest.Mock;
-    };
-  };
+  let prisma: any;
   let teamsService: { verifyOwnership: jest.Mock; findOne: jest.Mock };
   let notificationService: { sendToUsers: jest.Mock };
 

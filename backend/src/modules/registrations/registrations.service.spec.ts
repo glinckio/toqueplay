@@ -301,8 +301,15 @@ describe('RegistrationsService', () => {
   });
 
   describe('rejectRegistration', () => {
+    // So da para recusar enquanto as inscricoes estao abertas: o mockTournament padrao esta
+    // PUBLISHED, que ja e um estado em que o chaveamento pode existir.
+    const torneioComInscricoesAbertas = {
+      ...mockTournament,
+      status: TournamentStatus.REGISTRATION_OPEN,
+    };
+
     it('should reject a registration', async () => {
-      tournamentsService.verifyOwnership.mockResolvedValue(mockTournament);
+      tournamentsService.verifyOwnership.mockResolvedValue(torneioComInscricoesAbertas);
       prisma.registration.findUnique.mockResolvedValue({
         ...mockRegistration,
         status: RegistrationStatus.PENDING_CONFIRMATION,
@@ -315,7 +322,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if already cancelled', async () => {
-      tournamentsService.verifyOwnership.mockResolvedValue(mockTournament);
+      tournamentsService.verifyOwnership.mockResolvedValue(torneioComInscricoesAbertas);
       prisma.registration.findUnique.mockResolvedValue({
         ...mockRegistration,
         status: RegistrationStatus.CANCELLED,
@@ -324,6 +331,18 @@ describe('RegistrationsService', () => {
       await expect(
         service.rejectRegistration('t1', 'reg1', 'owner-1'),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject once the tournament has left REGISTRATION_OPEN', async () => {
+      tournamentsService.verifyOwnership.mockResolvedValue({
+        ...mockTournament,
+        status: TournamentStatus.IN_PROGRESS,
+      });
+
+      await expect(
+        service.rejectRegistration('t1', 'reg1', 'owner-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.registration.update).not.toHaveBeenCalled();
     });
   });
 

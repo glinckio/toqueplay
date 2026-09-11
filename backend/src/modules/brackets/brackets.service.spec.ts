@@ -23,7 +23,7 @@ describe('BracketsService', () => {
       tournamentStage: { findMany: jest.fn() },
       bracket: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       registration: { findMany: jest.fn() },
-      tournament: { update: jest.fn() },
+      tournament: { update: jest.fn(), findFirst: jest.fn().mockResolvedValue(null) },
       match: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       $transaction: jest.fn((fn) => fn(prisma)),
     };
@@ -114,7 +114,7 @@ describe('BracketsService', () => {
       ]);
 
       prisma.bracket.create.mockResolvedValue({ id: 'bracket-1' });
-      prisma.match.create.mockImplementation(({ data }) =>
+      prisma.match.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: `match-${data.round}-${data.position}`, ...data }),
       );
       prisma.tournament.update.mockResolvedValue({ ...mockTournament, status: TournamentStatus.BRACKET_GENERATED });
@@ -144,7 +144,7 @@ describe('BracketsService', () => {
       ]);
 
       prisma.bracket.create.mockResolvedValue({ id: 'bracket-1' });
-      prisma.match.create.mockImplementation(({ data }) =>
+      prisma.match.create.mockImplementation(({ data }: any) =>
         Promise.resolve({ id: `match-${data.round}-${data.position}`, ...data }),
       );
       prisma.tournament.update.mockResolvedValue({ ...mockTournament, status: TournamentStatus.BRACKET_GENERATED });
