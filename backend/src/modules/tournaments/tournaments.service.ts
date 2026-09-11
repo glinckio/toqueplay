@@ -45,8 +45,8 @@ export class TournamentsService {
   }
 
   async update(tournamentId: string, userId: string, dto: CreateTournamentDto) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: { stages: true },
     });
     if (!tournament || tournament.ownerId !== userId) {
@@ -65,8 +65,8 @@ export class TournamentsService {
     userId: string,
     dto: UpdateStructureDto,
   ) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: { stages: true },
     });
     if (!tournament || tournament.ownerId !== userId) {
@@ -92,6 +92,10 @@ export class TournamentsService {
         where: { id: tournamentId },
         data: {
           eventType: dto.eventType,
+          // Omitido no payload = mantem o valor atual, em vez de voltar ao padrao.
+          ...(dto.allowSameAthleteMultipleTeams !== undefined && {
+            allowSameAthleteMultipleTeams: dto.allowSameAthleteMultipleTeams,
+          }),
           stages: dto.stages
             ? {
                 create: geocodedStages.map((s) => ({
@@ -253,8 +257,8 @@ export class TournamentsService {
       })),
     });
 
-    return this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    return this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: { sponsors: true },
     });
   }
@@ -280,8 +284,8 @@ export class TournamentsService {
   async getSummary(tournamentId: string, userId: string) {
     await this.verifyOwnership(tournamentId, userId);
 
-    return this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    return this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: FULL_INCLUDE,
     });
   }
@@ -293,8 +297,8 @@ export class TournamentsService {
       throw AppError.tournamentAlreadyPublished();
     }
 
-    const tournamentWithRelations = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournamentWithRelations = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: { stages: true, categories: true },
     });
 
@@ -400,7 +404,7 @@ export class TournamentsService {
       throw AppError.tournamentNotReady();
     }
 
-    const t = await this.prisma.tournament.findUnique({ where: { id: tournamentId } });
+    const t = await this.prisma.tournament.findFirst({ where: { id: tournamentId, deletedAt: null } });
     if (t?.refereeCode) {
       return { code: t.refereeCode };
     }
@@ -419,6 +423,7 @@ export class TournamentsService {
     const tournament = await this.prisma.tournament.findFirst({
       where: {
         refereeCode: code,
+        deletedAt: null,
         status: { in: [TournamentStatus.BRACKET_GENERATED, TournamentStatus.IN_PROGRESS] },
       },
     });
@@ -456,8 +461,8 @@ export class TournamentsService {
     });
 
     // Notify the referee
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       select: { name: true },
     });
     await this.notificationService.createNotification(
@@ -582,7 +587,7 @@ export class TournamentsService {
     }
 
     return this.prisma.tournament.findMany({
-      where,
+      where: { ...where, deletedAt: null },
       include: {
         owner: OWNER_INCLUDE,
         categories: true,
@@ -594,7 +599,7 @@ export class TournamentsService {
 
   async findMine(userId: string) {
     return this.prisma.tournament.findMany({
-      where: { ownerId: userId },
+      where: { ownerId: userId, deletedAt: null },
       include: {
         owner: OWNER_INCLUDE,
         stages: { orderBy: { date: 'asc' } },
@@ -605,8 +610,8 @@ export class TournamentsService {
   }
 
   async findOne(tournamentId: string) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: FULL_INCLUDE,
     });
 
@@ -631,9 +636,32 @@ export class TournamentsService {
     });
   }
 
-  async verifyOwnership(tournamentId: string, userId: string) {
-    const tournament = await this.prisma.tournament.findUnique({
+  /**
+   * Exclusao logica. Torneio IN_PROGRESS ou FINISHED guarda historico de partidas e resultados que
+   * pertence tambem aos inscritos, nao so ao organizador — apagar isso da vista de todos a partir
+   * de um botao de tela seria destrutivo demais, entao esses dois estados sao bloqueados.
+   */
+  async remove(tournamentId: string, userId: string) {
+    const tournament = await this.verifyOwnership(tournamentId, userId);
+
+    const bloqueados: TournamentStatus[] = [
+      TournamentStatus.IN_PROGRESS,
+      TournamentStatus.FINISHED,
+    ];
+    if (bloqueados.includes(tournament.status)) {
+      throw AppError.tournamentCannotDelete();
+    }
+
+    await this.prisma.tournament.update({
       where: { id: tournamentId },
+      data: { deletedAt: new Date() },
+    });
+  }
+
+  async verifyOwnership(tournamentId: string, userId: string) {
+    // findFirst e nao findUnique: precisa filtrar deletedAt, e o findUnique so aceita campo unico.
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
     });
 
     if (!tournament) {
@@ -716,7 +744,7 @@ export class TournamentsService {
     const cursorObj = query.cursor ? { id: query.cursor } : undefined;
 
     return this.prisma.tournament.findMany({
-      where,
+      where: { ...where, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -777,7 +805,7 @@ export class TournamentsService {
       }
 
       nearby = await this.prisma.tournament.findMany({
-        where: nearbyWhere,
+        where: { ...nearbyWhere, deletedAt: null },
         select: {
           id: true,
           name: true,
@@ -841,7 +869,7 @@ export class TournamentsService {
     }
 
     const all = await this.prisma.tournament.findMany({
-      where: allWhere,
+      where: { ...allWhere, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -949,8 +977,8 @@ export class TournamentsService {
   }
 
   async getPublicDetails(tournamentId: string, userId?: string) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
       include: {
         owner: OWNER_INCLUDE,
         categories: {
@@ -1068,7 +1096,7 @@ export class TournamentsService {
   }
 
   async uploadCover(tournamentId: string, userId: string, file: Express.Multer.File) {
-    const tournament = await this.prisma.tournament.findUnique({ where: { id: tournamentId } });
+    const tournament = await this.prisma.tournament.findFirst({ where: { id: tournamentId, deletedAt: null } });
     if (!tournament || tournament.ownerId !== userId) {
       throw AppError.notTournamentOwner();
     }

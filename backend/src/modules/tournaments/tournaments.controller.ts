@@ -65,6 +65,22 @@ export class TournamentsController {
     return this.tournamentsService.update(id, userId, dto);
   }
 
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Excluir torneio (somente o organizador)' })
+  @ApiResponse({ status: 204, description: 'Torneio excluido' })
+  @ApiResponse({ status: 403, description: 'Somente o organizador pode excluir' })
+  @ApiResponse({ status: 400, description: 'Torneio em andamento ou concluido nao pode ser excluido' })
+  @Audit('TOURNAMENT_DELETED', 'Tournament', {
+    fetchBefore: async (prisma, id) => prisma.tournament.findUnique({ where: { id }, select: { id: true, name: true, status: true, ownerId: true } }),
+  })
+  async remove(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    await this.tournamentsService.remove(id, userId);
+  }
+
   @Patch(':id/structure')
   @ApiOperation({ summary: 'Etapa 2 - Definir estrutura do evento' })
   @ApiResponse({ status: 403, description: 'Somente o owner pode editar' })
