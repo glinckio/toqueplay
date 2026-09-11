@@ -17,6 +17,8 @@ export enum TournamentsErrorCode {
   TOURNAMENT_HAS_PENDING_MATCHES = 'TOURNAMENT_HAS_PENDING_MATCHES',
   REFEREE_NOT_INVITED = 'REFEREE_NOT_INVITED',
   REFEREE_ALREADY_IN_MATCH = 'REFEREE_ALREADY_IN_MATCH',
+  TOURNAMENT_CANNOT_DELETE = 'TOURNAMENT_CANNOT_DELETE',
+  ATHLETE_ALREADY_IN_TOURNAMENT = 'ATHLETE_ALREADY_IN_TOURNAMENT',
 }
 
 export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
@@ -38,4 +40,7 @@ export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
   [TournamentsErrorCode.TOURNAMENT_HAS_PENDING_MATCHES]: 'Cannot complete: there are pending matches',
   [TournamentsErrorCode.REFEREE_NOT_INVITED]: 'You have not been invited to referee this tournament',
   [TournamentsErrorCode.REFEREE_ALREADY_IN_MATCH]: 'You must finish your current match before claiming another',
+  [TournamentsErrorCode.TOURNAMENT_CANNOT_DELETE]: 'Cannot delete a tournament that has already started',
+  [TournamentsErrorCode.ATHLETE_ALREADY_IN_TOURNAMENT]:
+    'This athlete is already registered with another team in this tournament',
 };

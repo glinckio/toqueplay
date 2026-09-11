@@ -144,6 +144,12 @@ export const AppError = {
   notTournamentOwner: () =>
     withCode(ForbiddenException, TournamentsErrorCode.NOT_TOURNAMENT_OWNER),
 
+  tournamentCannotDelete: () =>
+    withCode(BadRequestException, TournamentsErrorCode.TOURNAMENT_CANNOT_DELETE),
+
+  athleteAlreadyInTournament: () =>
+    withCode(ConflictException, TournamentsErrorCode.ATHLETE_ALREADY_IN_TOURNAMENT),
+
   tournamentNotDraft: () =>
     withCode(BadRequestException, TournamentsErrorCode.TOURNAMENT_NOT_DRAFT),
 
