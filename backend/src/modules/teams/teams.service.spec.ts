@@ -7,6 +7,8 @@ import { StorageService } from '../storage/storage.service';
 import { BracketsService } from '../brackets/brackets.service';
 
 describe('TeamsService', () => {
+  // computeTeamStats sem inscricao confirmada em torneio encerrado.
+  const emptyStats = { tournaments: 0, wins: 0, winRate: 0 };
   let service: TeamsService;
   let prisma: {
     team: {
@@ -34,7 +36,8 @@ describe('TeamsService', () => {
       providers: [
         TeamsService,
         { provide: PrismaService, useValue: prisma },
-        { provide: BracketsService, useValue: { getTournamentChampionTeamIds: jest.fn().mockResolvedValue([]) } },
+        // Set, nao array: computeTeamStats chama `.has()` no retorno.
+        { provide: BracketsService, useValue: { getTournamentChampionTeamIds: jest.fn().mockResolvedValue(new Set<string>()) } },
         { provide: StorageService, useValue: { uploadFile: jest.fn(), deleteFile: jest.fn(), extractKeyFromUrl: jest.fn() } },
       ],
     }).compile();
@@ -80,7 +83,9 @@ describe('TeamsService', () => {
 
       const result = await service.findAll('user-1');
 
-      expect(result).toEqual(mockTeams);
+      // findAll enriquece cada time com as estatisticas de torneios; sem inscricao confirmada
+      // em torneio encerrado, tudo zero.
+      expect(result).toEqual(mockTeams.map((team) => ({ ...team, stats: emptyStats })));
       expect(prisma.team.findMany).toHaveBeenCalledWith({
         where: {
           OR: [
@@ -88,7 +93,16 @@ describe('TeamsService', () => {
             { members: { some: { userId: 'user-1' } } },
           ],
         },
-        include: { _count: { select: { members: true } } },
+        include: {
+          _count: { select: { members: true } },
+          members: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true, avatarUrl: true },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       });
     });
@@ -105,7 +119,7 @@ describe('TeamsService', () => {
       prisma.team.findUnique.mockResolvedValue(mockTeam);
 
       const result = await service.findOne('team-1', 'user-1');
-      expect(result).toEqual(mockTeam);
+      expect(result).toEqual({ ...mockTeam, stats: emptyStats });
     });
 
     it('should return team details when user is member', async () => {
@@ -121,7 +135,7 @@ describe('TeamsService', () => {
       prisma.team.findUnique.mockResolvedValue(mockTeam);
 
       const result = await service.findOne('team-1', 'user-1');
-      expect(result).toEqual(mockTeam);
+      expect(result).toEqual({ ...mockTeam, stats: emptyStats });
     });
 
     it('should throw TEAM_NOT_FOUND when team does not exist', async () => {
