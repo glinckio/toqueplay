@@ -22,6 +22,14 @@ describe('FriendliesService', () => {
     challengedTeam: null,
   };
 
+  // Aceitar e recusar exigem que o desafiado tenha um time e que o usuario seja dono dele
+  // (ver accept/reject: notChallengedTeamOwner). O mockFriendly puro e usuario-contra-usuario.
+  const mockTeamFriendly = {
+    ...mockFriendly,
+    challengedTeamId: 'team-2',
+    challengedTeam: { id: 'team-2', name: 'Team 2', ownerId: 'user-2' },
+  };
+
   beforeEach(async () => {
     prisma = {
       teamMember: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
@@ -43,6 +51,8 @@ describe('FriendliesService', () => {
       friendlyAthlete: {
         createMany: jest.fn(),
         deleteMany: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
       },
       $transaction: jest.fn((fn) => fn({
         friendly: {
@@ -129,10 +139,17 @@ describe('FriendliesService', () => {
   describe('accept', () => {
     it('should accept a friendly as challenged', async () => {
       const acceptedFriendly = {
-        ...mockFriendly,
+        ...mockTeamFriendly,
         status: FriendlyStatus.ACCEPTED,
       };
-      prisma.friendly.findUnique.mockResolvedValue(mockFriendly);
+      // A 1a leitura e a do amistoso pendente; a 2a acontece no fim da transacao e e o que
+      // o accept devolve, ja com o status atualizado.
+      prisma.friendly.findUnique
+        .mockResolvedValueOnce(mockTeamFriendly)
+        .mockResolvedValue(acceptedFriendly);
+      prisma.team.findUnique.mockResolvedValue({ id: 'team-2', ownerId: 'user-2' });
+      // Os atletas escalados precisam ser membros do time desafiado.
+      prisma.teamMember.findMany.mockResolvedValue([{ id: 'tm-1' }]);
       prisma.friendly.update.mockResolvedValue(acceptedFriendly);
       prisma.match.create.mockResolvedValue({ id: 'match-1', friendlyId: 'f1' });
 
@@ -171,9 +188,10 @@ describe('FriendliesService', () => {
 
   describe('reject', () => {
     it('should reject a friendly as challenged', async () => {
-      prisma.friendly.findUnique.mockResolvedValue(mockFriendly);
+      prisma.friendly.findUnique.mockResolvedValue(mockTeamFriendly);
+      prisma.team.findUnique.mockResolvedValue({ id: 'team-2', ownerId: 'user-2' });
       prisma.friendly.update.mockResolvedValue({
-        ...mockFriendly,
+        ...mockTeamFriendly,
         status: FriendlyStatus.REJECTED,
       });
 
