@@ -39,8 +39,8 @@ export class RegistrationsService {
   ) {}
 
   async registerTeam(tournamentId: string, userId: string, dto: RegisterTeamDto) {
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
     });
     if (!tournament) throw AppError.tournamentNotFound();
 
@@ -103,6 +103,40 @@ export class RegistrationsService {
       });
       if (alreadyRegistered.length > 0) {
         throw AppError.teamAlreadyRegistered();
+      }
+
+      // A checagem acima e por teamMemberId — a mesma pessoa cadastrada em dois times tem ids
+      // diferentes e passaria batido. Numa liga de varias etapas isso deixaria o atleta jogar por
+      // times distintos. A comparacao por CPF fecha essa brecha; o organizador pode liberar
+      // ligando allowSameAthleteMultipleTeams no torneio.
+      if (!tournament.allowSameAthleteMultipleTeams) {
+        const membros = await tx.teamMember.findMany({
+          where: { id: { in: dto.memberIds } },
+          select: { cpf: true },
+        });
+        // Membro sem CPF cadastrado nao tem como ser cruzado — fica de fora da regra.
+        const cpfs = membros
+          .map((m) => m.cpf)
+          .filter((cpf): cpf is string => Boolean(cpf));
+
+        if (cpfs.length > 0) {
+          const jaInscritoPorOutroTime = await tx.registrationMember.findFirst({
+            where: {
+              teamMember: { cpf: { in: cpfs } },
+              registration: {
+                tournamentId,
+                teamId: { not: dto.teamId },
+                status: {
+                  notIn: [RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED],
+                },
+              },
+            },
+          });
+
+          if (jaInscritoPorOutroTime) {
+            throw AppError.athleteAlreadyInTournament();
+          }
+        }
       }
 
       return tx.registration.create({
@@ -338,8 +372,8 @@ export class RegistrationsService {
       throw AppError.registrationAlreadyCancelled();
     }
 
-    const tournament = await this.prisma.tournament.findUnique({
-      where: { id: registration.tournamentId },
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: registration.tournamentId, deletedAt: null },
     });
 
     if (
