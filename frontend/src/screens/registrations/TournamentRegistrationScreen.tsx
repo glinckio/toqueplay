@@ -26,6 +26,8 @@ import { useAuthStore } from "@/stores/authStore";
 import { CelebrationScreen } from "@/components/ui/CelebrationScreen";
 import { TournamentType, TournamentFormat, TournamentModality } from "@/types/enums";
 import { useTheme } from "@/hooks/useTheme";
+import { getErrorMessage } from "@/services/api";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 function useScreenColors() {
   const { isDark, colors } = useTheme();
@@ -133,6 +135,7 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [captainId, setCaptainId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState<string | null>(null);
   const [result, setResult] = useState<RegistrationDTO | null>(null);
 
   const currentUserId = useAuthStore((s) => s.user?.id);
@@ -221,8 +224,9 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
       });
       setResult(reg);
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Erro ao inscrever time";
-      Alert.alert("Erro na inscrição", msg);
+      // getErrorMessage traduz o `code` do backend — ler data.message cru traria "Conflict
+      // Exception" para o usuario final.
+      setErrorModal(getErrorMessage(err, "Não foi possível concluir a inscrição."));
       setSubmitting(false);
       return;
     }
@@ -589,6 +593,18 @@ export function TournamentRegistrationScreen({ navigation, route }: any) {
           </View>
         )}
       </LinearGradient>
+
+      {/* Aviso de inscricao recusada — uma acao so, no mesmo dialogo usado no resto do app. */}
+      <ConfirmDialog
+        visible={errorModal !== null}
+        title="Inscrição não permitida"
+        message={errorModal ?? ""}
+        cancelLabel={null}
+        actionLabel="Entendi"
+        danger
+        onCancel={() => setErrorModal(null)}
+        onConfirm={() => setErrorModal(null)}
+      />
     </SafeAreaView>
   );
 }
