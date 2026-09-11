@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { MatchesService } from './matches.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MatchesGateway } from './matches.gateway';
+import { ForbiddenException } from '@nestjs/common';
 import { MatchStatus } from '@prisma/client';
 import { RankingService } from '../ranking/ranking.service';
 import { BracketsService } from '../brackets/brackets.service';
@@ -29,6 +30,9 @@ describe('MatchesService', () => {
     scoreTeamA: 0,
     scoreTeamB: 0,
     nextMatchId: null,
+    // scoreTeamA/scoreTeamB contam sets, não pontos: com bestOfSets o finishMatch valida por
+    // sets ganhos (2 de 3). Sem esse campo ele cai na validação legada, por pontuação total.
+    bestOfSets: 3,
     winnerId: null,
     startedAt: null,
     finishedAt: null,
@@ -58,6 +62,7 @@ describe('MatchesService', () => {
       matchSet: {
         create: jest.fn(),
         findFirst: jest.fn(),
+        findMany: jest.fn().mockResolvedValue([]),
         findUnique: jest.fn(),
         update: jest.fn(),
       },
@@ -68,6 +73,8 @@ describe('MatchesService', () => {
 
     gateway = {
       emitToTournament: jest.fn(),
+      emitToFriendly: jest.fn(),
+      emitToMatch: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -75,7 +82,8 @@ describe('MatchesService', () => {
         MatchesService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationService, useValue: { getRegisteredAthleteUserIds: jest.fn().mockResolvedValue([]), getTeamMemberUserIds: jest.fn().mockResolvedValue([]), sendToUsers: jest.fn() } },
-        { provide: BracketsService, useValue: { advanceDoubleElimination: jest.fn(), checkAndAdvanceGroupTeams: jest.fn(), checkAndAdvanceRoundRobinTeams: jest.fn() } },
+        // Resolvido, não undefined: o service encadeia `.catch()` nessas chamadas.
+        { provide: BracketsService, useValue: { advanceDoubleElimination: jest.fn().mockResolvedValue(undefined), checkAndAdvanceGroupTeams: jest.fn().mockResolvedValue(undefined), checkAndAdvanceRoundRobinTeams: jest.fn().mockResolvedValue(undefined) } },
         { provide: RankingService, useValue: { updateStatsAfterMatch: jest.fn() } },
         { provide: MatchesGateway, useValue: gateway },
       ],
@@ -84,14 +92,21 @@ describe('MatchesService', () => {
     service = module.get<MatchesService>(MatchesService);
   });
 
-  const setupMatchOwnership = (matchOverrides: any = {}) => {
+  // Numa partida de torneio quem apita é o árbitro confirmado, não o dono do torneio
+  // (ver findMatchWithReferee). Por isso o mock precisa do tournamentReferee, não só do tournament.
+  const setupMatchAsReferee = (matchOverrides: any = {}) => {
     prisma.match.findUnique.mockResolvedValue(createMockMatch(matchOverrides));
     prisma.tournament.findFirst.mockResolvedValue(mockTournament);
+    prisma.tournamentReferee.findUnique.mockResolvedValue({
+      tournamentId: 't1',
+      userId: 'user-1',
+      codeConfirmed: true,
+    });
   };
 
   describe('startMatch', () => {
     it('should start a scheduled match', async () => {
-      setupMatchOwnership();
+      setupMatchAsReferee();
 
       const startedMatch = {
         ...createMockMatch({ status: MatchStatus.IN_PROGRESS }),
@@ -108,7 +123,7 @@ describe('MatchesService', () => {
     });
 
     it('should reject if match already started', async () => {
-      setupMatchOwnership({ status: MatchStatus.IN_PROGRESS });
+      setupMatchAsReferee({ status: MatchStatus.IN_PROGRESS });
 
       await expect(
         service.startMatch('match-1', 'user-1'),
@@ -116,17 +131,37 @@ describe('MatchesService', () => {
     });
 
     it('should reject if missing opponent', async () => {
-      setupMatchOwnership({ teamBId: null });
+      setupMatchAsReferee({ teamBId: null });
 
       await expect(
         service.startMatch('match-1', 'user-1'),
       ).rejects.toThrow();
     });
+
+    it('should reject the tournament owner when they are not a referee', async () => {
+      setupMatchAsReferee();
+      prisma.tournamentReferee.findUnique.mockResolvedValue(null);
+
+      await expect(service.startMatch('match-1', 'user-1')).rejects.toThrow(ForbiddenException);
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
+
+    it('should reject a referee that has not confirmed the code', async () => {
+      setupMatchAsReferee();
+      prisma.tournamentReferee.findUnique.mockResolvedValue({
+        tournamentId: 't1',
+        userId: 'user-1',
+        codeConfirmed: false,
+      });
+
+      await expect(service.startMatch('match-1', 'user-1')).rejects.toThrow(ForbiddenException);
+      expect(prisma.match.update).not.toHaveBeenCalled();
+    });
   });
 
   describe('registerPoint', () => {
     it('should register a point for team A', async () => {
-      setupMatchOwnership({ status: MatchStatus.IN_PROGRESS, scoreTeamA: 0, scoreTeamB: 0 });
+      setupMatchAsReferee({ status: MatchStatus.IN_PROGRESS, scoreTeamA: 0, scoreTeamB: 0 });
       prisma.matchSet.findFirst.mockResolvedValue({ id: 'set-1', setNumber: 1, scoreA: 0, scoreB: 0 });
       prisma.match.update.mockResolvedValue({});
       prisma.matchSet.update.mockResolvedValue({});
@@ -147,7 +182,7 @@ describe('MatchesService', () => {
     });
 
     it('should reject if match not in progress', async () => {
-      setupMatchOwnership({ status: MatchStatus.SCHEDULED });
+      setupMatchAsReferee({ status: MatchStatus.SCHEDULED });
 
       await expect(
         service.registerPoint('match-1', 'user-1', { team: 'A' }),
@@ -157,10 +192,13 @@ describe('MatchesService', () => {
 
   describe('finishSet', () => {
     it('should finish a set and create next set', async () => {
-      setupMatchOwnership({ status: MatchStatus.IN_PROGRESS });
+      setupMatchAsReferee({ status: MatchStatus.IN_PROGRESS });
       prisma.matchSet.findUnique
         .mockResolvedValueOnce({ id: 'set-1', setNumber: 1, scoreA: 21, scoreB: 18 });
       prisma.matchSet.findUnique.mockResolvedValueOnce(null); // next set doesn't exist
+      // countSetsWon lê os sets do banco: 1 a 0 para o time A, então a partida ainda não acabou
+      // (best of 3 precisa de 2) e o próximo set deve ser criado.
+      prisma.matchSet.findMany.mockResolvedValue([{ setNumber: 1, scoreA: 21, scoreB: 18 }]);
       prisma.matchSet.create.mockResolvedValue({ id: 'set-2', setNumber: 2 });
       prisma.match.findUnique.mockResolvedValue(createMockMatch({
         status: MatchStatus.IN_PROGRESS,
@@ -176,7 +214,7 @@ describe('MatchesService', () => {
     });
 
     it('should reject if set not found', async () => {
-      setupMatchOwnership({ status: MatchStatus.IN_PROGRESS });
+      setupMatchAsReferee({ status: MatchStatus.IN_PROGRESS });
       prisma.matchSet.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -187,7 +225,7 @@ describe('MatchesService', () => {
 
   describe('finishMatch', () => {
     it('should finish match and determine winner', async () => {
-      setupMatchOwnership({
+      setupMatchAsReferee({
         status: MatchStatus.IN_PROGRESS,
         scoreTeamA: 2,
         scoreTeamB: 1,
@@ -221,6 +259,11 @@ describe('MatchesService', () => {
         nextMatchId: 'next-match-1',
       }));
       prisma.tournament.findFirst.mockResolvedValue(mockTournament);
+      prisma.tournamentReferee.findUnique.mockResolvedValue({
+        tournamentId: 't1',
+        userId: 'user-1',
+        codeConfirmed: true,
+      });
 
       prisma.match.update.mockResolvedValue({
         id: 'match-1',
@@ -242,7 +285,7 @@ describe('MatchesService', () => {
     });
 
     it('should reject if match not in progress', async () => {
-      setupMatchOwnership({ status: MatchStatus.SCHEDULED });
+      setupMatchAsReferee({ status: MatchStatus.SCHEDULED });
 
       await expect(
         service.finishMatch('match-1', 'user-1'),
@@ -252,7 +295,7 @@ describe('MatchesService', () => {
 
   describe('declareWalkover', () => {
     it('should declare walkover for team A', async () => {
-      setupMatchOwnership({ status: MatchStatus.SCHEDULED });
+      setupMatchAsReferee({ status: MatchStatus.SCHEDULED });
 
       prisma.match.update.mockResolvedValue({
         id: 'match-1',
@@ -271,7 +314,7 @@ describe('MatchesService', () => {
     });
 
     it('should reject if match not scheduled', async () => {
-      setupMatchOwnership({ status: MatchStatus.IN_PROGRESS });
+      setupMatchAsReferee({ status: MatchStatus.IN_PROGRESS });
 
       await expect(
         service.declareWalkover('match-1', 'user-1', { winnerTeam: 'A' }),
