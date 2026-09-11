@@ -10,14 +10,17 @@
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
-        "EXPO_PUBLIC_API_URL": "TODO_SET_PREVIEW_API_URL"
+        "EXPO_PUBLIC_API_URL": "https://toqueplay-tp-api.splgti.easypanel.host/api"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_URL": "TODO_SET_PRODUCTION_API_URL"
+        "EXPO_PUBLIC_API_URL": "https://toqueplay-tp-api.splgti.easypanel.host/api"
       }
     }
   },
