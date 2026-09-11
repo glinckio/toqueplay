@@ -11,6 +11,12 @@ const GENERIC_MESSAGES = new Set([
   "Not Found",
 ]);
 
+/** Código de erro que a API devolve no corpo (ex.: "EMAIL_NOT_VERIFIED"), quando houver. */
+export function getErrorCode(err: any): string | undefined {
+  const code = err?.response?.data?.code;
+  return typeof code === "string" ? code : undefined;
+}
+
 export function getErrorMessage(err: any, fallback: string): string {
   const data = err?.response?.data;
   // Prefer the mapped friendly message for the backend error code.
@@ -43,6 +49,26 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   return config;
 });
 
+// Rotas que nao dependem de access token: um 401 vindo delas e a resposta em si (credencial
+// errada, email nao verificado, codigo invalido), nao um token expirado. Sem esta lista o
+// interceptor tentaria renovar o token e, se a renovacao falhasse, rejeitaria com o erro do
+// refresh — apagando o `code` que a tela precisa para reagir.
+const PUBLIC_AUTH_PATHS = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/verify-email",
+  "/auth/resend-code",
+  "/auth/forgot-password",
+  "/auth/reset-password",
+  "/auth/refresh",
+  "/auth/google",
+];
+
+function isPublicAuthRequest(url?: string) {
+  if (!url) return false;
+  return PUBLIC_AUTH_PATHS.some((path) => url.startsWith(path) || url.includes(path));
+}
+
 let isRefreshing = false;
 let failedQueue: Array<{
   resolve: (token: string) => void;
@@ -65,7 +91,11 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isPublicAuthRequest(originalRequest?.url)
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
