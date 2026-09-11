@@ -2,11 +2,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { TournamentsService } from './tournaments.service';
 import { PrismaService } from '../../common/prisma.service';
+import { StorageService } from '../storage/storage.service';
+import { NotificationService } from '../../common/services/notification.service';
 import { TournamentStatus, TournamentEventType, TournamentType, TournamentFormat, TournamentModality } from '@prisma/client';
 
 describe('TournamentsService', () => {
   let service: TournamentsService;
   let prisma: any;
+  let storage: any;
+  let notificationService: any;
 
   const mockTournament = {
     id: 't1',
@@ -25,10 +29,14 @@ describe('TournamentsService', () => {
   };
 
   beforeEach(async () => {
+    storage = { uploadFile: jest.fn(), deleteFile: jest.fn() };
+    notificationService = { notify: jest.fn(), sendToUser: jest.fn() };
+
     prisma = {
       tournament: {
         create: jest.fn(),
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         findMany: jest.fn(),
         update: jest.fn(),
         delete: jest.fn(),
@@ -61,6 +69,8 @@ describe('TournamentsService', () => {
       providers: [
         TournamentsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: StorageService, useValue: storage },
+        { provide: NotificationService, useValue: notificationService },
       ],
     }).compile();
 
@@ -88,7 +98,7 @@ describe('TournamentsService', () => {
 
   describe('updateStructure', () => {
     it('should update structure with stages and categories', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.stageFacility.deleteMany.mockResolvedValue({ count: 0 });
       prisma.tournamentStage.deleteMany.mockResolvedValue({ count: 0 });
       prisma.tournamentCategory.deleteMany.mockResolvedValue({ count: 0 });
@@ -109,7 +119,7 @@ describe('TournamentsService', () => {
     });
 
     it('should reject CIRCUIT without stages', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
 
       await expect(
         service.updateStructure('t1', 'user-1', {
@@ -120,7 +130,7 @@ describe('TournamentsService', () => {
     });
 
     it('should reject non-DRAFT tournament', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({
+      prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         status: TournamentStatus.PUBLISHED,
       });
@@ -135,7 +145,7 @@ describe('TournamentsService', () => {
 
   describe('addStageFacilities', () => {
     it('should add facilities to a stage', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentStage.findFirst.mockResolvedValue({ id: 's1', tournamentId: 't1' });
       prisma.stageFacility.createMany.mockResolvedValue({ count: 2 });
       prisma.tournamentStage.findUnique.mockResolvedValue({
@@ -152,7 +162,7 @@ describe('TournamentsService', () => {
     });
 
     it('should throw if stage not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentStage.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -163,7 +173,7 @@ describe('TournamentsService', () => {
 
   describe('removeStageFacility', () => {
     it('should remove a facility from a stage', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.stageFacility.findFirst.mockResolvedValue({ id: 'f1', stageId: 's1' });
       prisma.stageFacility.delete.mockResolvedValue({ id: 'f1' });
 
@@ -173,7 +183,7 @@ describe('TournamentsService', () => {
     });
 
     it('should throw if facility not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.stageFacility.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -184,9 +194,9 @@ describe('TournamentsService', () => {
 
   describe('addSponsors', () => {
     it('should add sponsors in batch', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.sponsor.createMany.mockResolvedValue({ count: 1 });
-      prisma.tournament.findUnique.mockResolvedValueOnce(mockTournament).mockResolvedValueOnce({
+      prisma.tournament.findFirst.mockResolvedValueOnce(mockTournament).mockResolvedValueOnce({
         ...mockTournament,
         sponsors: [{ name: 'Patrocinador 1' }],
       });
@@ -201,7 +211,7 @@ describe('TournamentsService', () => {
 
   describe('removeSponsor', () => {
     it('should throw if sponsor not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.sponsor.findFirst.mockResolvedValue(null);
 
       await expect(
@@ -223,7 +233,7 @@ describe('TournamentsService', () => {
         }],
         categories: [{ id: 'c1', type: TournamentType.MALE, format: TournamentFormat.PAIR, modality: TournamentModality.BEACH }],
       };
-      prisma.tournament.findUnique
+      prisma.tournament.findFirst
         .mockResolvedValueOnce(mockTournament)
         .mockResolvedValueOnce(ready);
       prisma.tournament.update.mockResolvedValue({
@@ -246,7 +256,7 @@ describe('TournamentsService', () => {
         stages: [],
         categories: [],
       };
-      prisma.tournament.findUnique
+      prisma.tournament.findFirst
         .mockResolvedValueOnce(mockTournament)
         .mockResolvedValueOnce(incomplete);
 
@@ -256,7 +266,7 @@ describe('TournamentsService', () => {
     });
 
     it('should reject publish when already published', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({
+      prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         status: TournamentStatus.PUBLISHED,
       });
@@ -294,7 +304,7 @@ describe('TournamentsService', () => {
 
       expect(prisma.tournament.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { ownerId: 'user-1' },
+          where: { ownerId: 'user-1', deletedAt: null },
         }),
       );
     });
@@ -302,7 +312,7 @@ describe('TournamentsService', () => {
 
   describe('findOne', () => {
     it('should return tournament details', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
 
       const result = await service.findOne('t1');
 
@@ -310,7 +320,7 @@ describe('TournamentsService', () => {
     });
 
     it('should throw if not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(null);
+      prisma.tournament.findFirst.mockResolvedValue(null);
 
       await expect(service.findOne('invalid')).rejects.toThrow(NotFoundException);
     });
@@ -318,7 +328,7 @@ describe('TournamentsService', () => {
 
   describe('cancel', () => {
     it('should cancel a DRAFT tournament', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournament.update.mockResolvedValue({
         ...mockTournament,
         status: TournamentStatus.CANCELLED,
@@ -329,21 +339,89 @@ describe('TournamentsService', () => {
       expect(result.status).toBe(TournamentStatus.CANCELLED);
     });
 
-    it('should reject cancel when IN_PROGRESS', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({
+    it('permite cancelar torneio em andamento (transicao prevista no state chart)', async () => {
+      prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         status: TournamentStatus.IN_PROGRESS,
       });
+      prisma.tournament.update.mockResolvedValue({
+        ...mockTournament,
+        status: TournamentStatus.CANCELLED,
+      });
 
-      await expect(
-        service.cancel('t1', 'user-1'),
-      ).rejects.toThrow();
+      await expect(service.cancel('t1', 'user-1')).resolves.toBeDefined();
+    });
+
+    it('rejeita cancelar torneio ja concluido', async () => {
+      prisma.tournament.findFirst.mockResolvedValue({
+        ...mockTournament,
+        status: TournamentStatus.FINISHED,
+      });
+
+      await expect(service.cancel('t1', 'user-1')).rejects.toThrow();
+    });
+  });
+
+  describe('remove', () => {
+    it('marca deletedAt em vez de apagar a linha (preserva historico)', async () => {
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
+      prisma.tournament.update.mockResolvedValue({ ...mockTournament, deletedAt: new Date() });
+
+      await service.remove('t1', 'user-1');
+
+      expect(prisma.tournament.update).toHaveBeenCalledWith({
+        where: { id: 't1' },
+        data: { deletedAt: expect.any(Date) },
+      });
+      expect(prisma.tournament.delete).not.toHaveBeenCalled();
+    });
+
+    it('recusa quem nao e o organizador', async () => {
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
+
+      await expect(service.remove('t1', 'outro-usuario')).rejects.toThrow(ForbiddenException);
+      expect(prisma.tournament.update).not.toHaveBeenCalled();
+    });
+
+    it('responde 404 para torneio inexistente', async () => {
+      prisma.tournament.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove('nao-existe', 'user-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it('torneio ja excluido responde 404 (nao encontra de novo)', async () => {
+      // verifyOwnership filtra deletedAt, entao o segundo delete nao acha nada.
+      prisma.tournament.findFirst.mockResolvedValue(null);
+
+      await expect(service.remove('t1', 'user-1')).rejects.toThrow(NotFoundException);
+    });
+
+    it.each([
+      ['IN_PROGRESS', TournamentStatus.IN_PROGRESS],
+      ['FINISHED', TournamentStatus.FINISHED],
+    ])('bloqueia exclusao de torneio %s — o historico pertence tambem aos inscritos', async (_nome, status) => {
+      prisma.tournament.findFirst.mockResolvedValue({ ...mockTournament, status });
+
+      await expect(service.remove('t1', 'user-1')).rejects.toThrow(BadRequestException);
+      expect(prisma.tournament.update).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['DRAFT', TournamentStatus.DRAFT],
+      ['PUBLISHED', TournamentStatus.PUBLISHED],
+      ['REGISTRATION_OPEN', TournamentStatus.REGISTRATION_OPEN],
+      ['CANCELLED', TournamentStatus.CANCELLED],
+    ])('permite excluir torneio %s', async (_nome, status) => {
+      prisma.tournament.findFirst.mockResolvedValue({ ...mockTournament, status });
+      prisma.tournament.update.mockResolvedValue({ ...mockTournament, status });
+
+      await expect(service.remove('t1', 'user-1')).resolves.toBeUndefined();
     });
   });
 
   describe('verifyOwnership', () => {
     it('should throw if tournament not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(null);
+      prisma.tournament.findFirst.mockResolvedValue(null);
 
       await expect(
         service.getSummary('invalid', 'user-1'),
@@ -351,7 +429,7 @@ describe('TournamentsService', () => {
     });
 
     it('should throw if not owner', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({
+      prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         ownerId: 'other-user',
       });
