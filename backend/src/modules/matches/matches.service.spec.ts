@@ -3,6 +3,9 @@ import { MatchesService } from './matches.service';
 import { PrismaService } from '../../common/prisma.service';
 import { MatchesGateway } from './matches.gateway';
 import { MatchStatus } from '@prisma/client';
+import { RankingService } from '../ranking/ranking.service';
+import { BracketsService } from '../brackets/brackets.service';
+import { NotificationService } from '../../common/services/notification.service';
 
 describe('MatchesService', () => {
   let service: MatchesService;
@@ -40,6 +43,14 @@ describe('MatchesService', () => {
 
   beforeEach(async () => {
     prisma = {
+      bracket: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      friendlyAthlete: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      matchEvent: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      matchLineupSlot: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      registration: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      team: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      teamMember: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      tournamentReferee: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       match: {
         findUnique: jest.fn(),
         update: jest.fn(),
@@ -51,7 +62,7 @@ describe('MatchesService', () => {
         update: jest.fn(),
       },
       pointEvent: { create: jest.fn() },
-      tournament: { findUnique: jest.fn() },
+      tournament: { findUnique: jest.fn(), findFirst: jest.fn() },
       $transaction: jest.fn((fn) => fn(prisma)),
     };
 
@@ -63,6 +74,9 @@ describe('MatchesService', () => {
       providers: [
         MatchesService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationService, useValue: { getRegisteredAthleteUserIds: jest.fn().mockResolvedValue([]), getTeamMemberUserIds: jest.fn().mockResolvedValue([]), sendToUsers: jest.fn() } },
+        { provide: BracketsService, useValue: { advanceDoubleElimination: jest.fn(), checkAndAdvanceGroupTeams: jest.fn(), checkAndAdvanceRoundRobinTeams: jest.fn() } },
+        { provide: RankingService, useValue: { updateStatsAfterMatch: jest.fn() } },
         { provide: MatchesGateway, useValue: gateway },
       ],
     }).compile();
@@ -72,7 +86,7 @@ describe('MatchesService', () => {
 
   const setupMatchOwnership = (matchOverrides: any = {}) => {
     prisma.match.findUnique.mockResolvedValue(createMockMatch(matchOverrides));
-    prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+    prisma.tournament.findFirst.mockResolvedValue(mockTournament);
   };
 
   describe('startMatch', () => {
@@ -206,7 +220,7 @@ describe('MatchesService', () => {
         teamAId: 'team-1',
         nextMatchId: 'next-match-1',
       }));
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
 
       prisma.match.update.mockResolvedValue({
         id: 'match-1',
@@ -276,7 +290,7 @@ describe('MatchesService', () => {
 
     it('should throw if user is not tournament owner', async () => {
       prisma.match.findUnique.mockResolvedValue(createMockMatch());
-      prisma.tournament.findUnique.mockResolvedValue({ id: 't1', ownerId: 'other-user' });
+      prisma.tournament.findFirst.mockResolvedValue({ id: 't1', ownerId: 'other-user' });
 
       await expect(
         service.startMatch('match-1', 'user-1'),

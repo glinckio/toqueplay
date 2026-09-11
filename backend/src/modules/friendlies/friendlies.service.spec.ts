@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FriendliesService } from './friendlies.service';
 import { PrismaService } from '../../common/prisma.service';
 import { FriendlyStatus } from '@prisma/client';
+import { NotificationService } from '../../common/services/notification.service';
 
 describe('FriendliesService', () => {
   let service: FriendliesService;
@@ -23,6 +24,7 @@ describe('FriendliesService', () => {
 
   beforeEach(async () => {
     prisma = {
+      teamMember: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       friendly: {
         create: jest.fn(),
         findUnique: jest.fn(),
@@ -64,6 +66,7 @@ describe('FriendliesService', () => {
       providers: [
         FriendliesService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationService, useValue: { createNotification: jest.fn(), getTeamMemberUserIds: jest.fn().mockResolvedValue([]), sendToUsers: jest.fn() } },
       ],
     }).compile();
 

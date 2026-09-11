@@ -8,6 +8,7 @@ import { TeamMembersService } from './team-members.service';
 import { TeamsService } from './teams.service';
 import { CpfService } from '../../common/services/cpf.service';
 import { PrismaService } from '../../common/prisma.service';
+import { NotificationService } from '../../common/services/notification.service';
 
 describe('TeamMembersService', () => {
   let service: TeamMembersService;
@@ -26,6 +27,8 @@ describe('TeamMembersService', () => {
 
   beforeEach(async () => {
     prisma = {
+      team: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      teamInvitation: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       user: { findUnique: jest.fn() },
       teamMember: {
         create: jest.fn(),
@@ -46,6 +49,7 @@ describe('TeamMembersService', () => {
       providers: [
         TeamMembersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationService, useValue: { sendToUsers: jest.fn() } },
         { provide: TeamsService, useValue: teamsService },
         { provide: CpfService, useValue: { validate: jest.fn(), isValid: jest.fn().mockReturnValue(true) } },
       ],

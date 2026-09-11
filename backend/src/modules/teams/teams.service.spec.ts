@@ -3,6 +3,8 @@ import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { TeamsService } from './teams.service';
 import { PrismaService } from '../../common/prisma.service';
 import { AppError } from '../../common/errors/app-error';
+import { StorageService } from '../storage/storage.service';
+import { BracketsService } from '../brackets/brackets.service';
 
 describe('TeamsService', () => {
   let service: TeamsService;
@@ -18,6 +20,7 @@ describe('TeamsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      registration: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       team: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -31,6 +34,8 @@ describe('TeamsService', () => {
       providers: [
         TeamsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: BracketsService, useValue: { getTournamentChampionTeamIds: jest.fn().mockResolvedValue([]) } },
+        { provide: StorageService, useValue: { uploadFile: jest.fn(), deleteFile: jest.fn(), extractKeyFromUrl: jest.fn() } },
       ],
     }).compile();
 

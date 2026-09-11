@@ -9,7 +9,7 @@ describe('RankingService', () => {
 
   beforeEach(async () => {
     prisma = {
-      tournament: { findUnique: jest.fn() },
+      tournament: { findUnique: jest.fn(), findFirst: jest.fn() },
       bracket: { findMany: jest.fn() },
     };
 
@@ -25,13 +25,13 @@ describe('RankingService', () => {
 
   describe('getRanking', () => {
     it('should throw if tournament not found', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(null);
+      prisma.tournament.findFirst.mockResolvedValue(null);
 
       await expect(service.getRanking('non-existent')).rejects.toThrow();
     });
 
     it('should return ranking sorted by points', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({ id: 't1', stages: [] });
+      prisma.tournament.findFirst.mockResolvedValue({ id: 't1', stages: [] });
 
       prisma.bracket.findMany.mockResolvedValue([
         {
@@ -78,7 +78,7 @@ describe('RankingService', () => {
     });
 
     it('should return empty ranking when no brackets', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({ id: 't1', stages: [] });
+      prisma.tournament.findFirst.mockResolvedValue({ id: 't1', stages: [] });
       prisma.bracket.findMany.mockResolvedValue([]);
 
       const result = await service.getRanking('t1');

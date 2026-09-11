@@ -3,6 +3,7 @@ import { BracketsService } from './brackets.service';
 import { PrismaService } from '../../common/prisma.service';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { TournamentStatus, BracketType, MatchStatus, RegistrationStatus } from '@prisma/client';
+import { NotificationService } from '../../common/services/notification.service';
 
 describe('BracketsService', () => {
   let service: BracketsService;
@@ -18,6 +19,7 @@ describe('BracketsService', () => {
 
   beforeEach(async () => {
     prisma = {
+      tournamentCategory: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       tournamentStage: { findMany: jest.fn() },
       bracket: { findUnique: jest.fn(), findMany: jest.fn(), create: jest.fn() },
       registration: { findMany: jest.fn() },
@@ -34,6 +36,7 @@ describe('BracketsService', () => {
       providers: [
         BracketsService,
         { provide: PrismaService, useValue: prisma },
+        { provide: NotificationService, useValue: { getRegisteredAthleteUserIds: jest.fn().mockResolvedValue([]), sendToUsers: jest.fn() } },
         { provide: TournamentsService, useValue: tournamentsService },
       ],
     }).compile();
