@@ -1,3 +1,9 @@
+// Mock oficial da lib: sem ele o modulo tenta falar com o codigo nativo e o import quebra
+// com "doesn't seem to be linked". O pacote so exporta o objeto — registrar e por nossa conta.
+jest.mock("react-native-keyboard-controller", () =>
+  require("react-native-keyboard-controller/jest"),
+);
+
 // Synchronous useApi mock — calls fetcher directly and returns result as data.
 // Service mocks use mockReturnValue (not mockResolvedValue) so the fetcher
 // returns the value synchronously, making data available on first render.
