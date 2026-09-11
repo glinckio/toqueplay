@@ -84,7 +84,7 @@ export function TournamentDetailScreen({ navigation, route }: any) {
   );
   useFocusEffect(useCallback(() => { refetchReferees({ keepData: false }); }, [refetchReferees]));
   const [actionLoading, setActionLoading] = React.useState(false);
-  const [confirmAction, setConfirmAction] = React.useState<"close" | "start" | null>(null);
+  const [confirmAction, setConfirmAction] = React.useState<"close" | "start" | "delete" | null>(null);
 
   if (loading && !tournament) {
     return (
@@ -176,6 +176,21 @@ export function TournamentDetailScreen({ navigation, route }: any) {
     Linking.openURL(url).catch(() => Alert.alert("Erro", "Não foi possível abrir o mapa."));
   };
 
+  // Nao usa handleAction porque aquele faz refetch ao final — aqui o torneio deixou de existir,
+  // entao o certo e voltar para a tela anterior.
+  const handleDelete = async () => {
+    if (!tournament) return;
+    setActionLoading(true);
+    try {
+      await tournamentsService.remove(tournament.id);
+      navigation?.goBack();
+    } catch (err: any) {
+      Alert.alert("Erro", getErrorMessage(err, "Não foi possível excluir o torneio."));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleAction = async (action: () => Promise<any>, errorMsg: string) => {
     setActionLoading(true);
     try {
@@ -210,6 +225,22 @@ export function TournamentDetailScreen({ navigation, route }: any) {
       <Text style={{ color: TC.tx, fontFamily: "Oswald_600SemiBold", fontSize: 13, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
     </Pressable>
   );
+
+  // Mesma forma do SecondaryButton, em vermelho: acao destrutiva nao deve ter o peso visual do
+  // botao primario, mas precisa se distinguir das acoes neutras.
+  const DangerButton = ({ label, onPress, accessLabel }: { label: string; onPress: () => void; accessLabel: string }) => (
+    <Pressable onPress={onPress} disabled={actionLoading} accessibilityRole="button" accessibilityLabel={accessLabel} style={{ width: "100%", paddingVertical: 15, borderRadius: 16, borderWidth: 1, borderColor: "rgba(255,77,94,0.45)", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#FF4D5E" strokeWidth={2.2}>
+        <Path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+      </Svg>
+      <Text style={{ color: "#FF4D5E", fontFamily: "Oswald_600SemiBold", fontSize: 13, letterSpacing: 1.2, textTransform: "uppercase" }}>{label}</Text>
+    </Pressable>
+  );
+
+  // O backend recusa excluir torneio em andamento ou concluido — o historico de partidas pertence
+  // tambem aos inscritos. A tela esconde o botao nesses estados em vez de deixar o usuario tentar
+  // e tomar erro.
+  const podeExcluir = status !== "IN_PROGRESS" && status !== "FINISHED";
 
   const renderCTA = () => {
     if (!tournament) return null;
@@ -579,6 +610,15 @@ export function TournamentDetailScreen({ navigation, route }: any) {
           {/* CTA — at the end of the content (not fixed) */}
           <View style={{ marginTop: 4 }}>
             {renderCTA()}
+            {isOwner && podeExcluir && (
+              <View style={{ marginTop: 10 }}>
+                <DangerButton
+                  label="Excluir torneio"
+                  accessLabel="Excluir torneio"
+                  onPress={() => setConfirmAction("delete")}
+                />
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -593,6 +633,21 @@ export function TournamentDetailScreen({ navigation, route }: any) {
         loading={actionLoading}
         onCancel={() => setConfirmAction(null)}
         onConfirm={() => { setConfirmAction(null); handleAction(() => tournamentsService.closeRegistration(tournament!.id), "Não foi possível fechar inscrições."); }}
+      />
+
+      <ConfirmDialog
+        visible={confirmAction === "delete"}
+        title="Excluir torneio"
+        message="O torneio sai da lista para todos, inclusive para quem se inscreveu. Esta ação não pode ser desfeita pelo app. Deseja continuar?"
+        cancelLabel="Cancelar"
+        actionLabel="Excluir"
+        danger
+        loading={actionLoading}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={() => {
+          setConfirmAction(null);
+          handleDelete();
+        }}
       />
 
       <ConfirmDialog
