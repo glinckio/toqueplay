@@ -11,6 +11,10 @@ export const ERROR_MESSAGES: Record<string, string> = {
   TOURNAMENT_NOT_DRAFT: "Esta ação só é permitida em torneios em rascunho.",
   TOURNAMENT_ALREADY_PUBLISHED: "O torneio já está publicado.",
   TOURNAMENT_CANNOT_CANCEL: "Não é possível cancelar um torneio que já começou.",
+  TOURNAMENT_CANNOT_DELETE:
+    "Não é possível excluir um torneio em andamento ou já concluído. O histórico de partidas pertence também a quem se inscreveu.",
+  ATHLETE_ALREADY_IN_TOURNAMENT:
+    "Este atleta já está inscrito por outro time neste torneio. O organizador pode liberar a participação em mais de um time nas configurações do torneio.",
   PUBLISH_MISSING_FIELDS: "Preencha todos os campos obrigatórios antes de publicar.",
   INVALID_COORDINATES: "Localização inválida. Verifique o endereço.",
   CANNOT_CHANGE_CORE_FIELDS: "Não é possível alterar o tipo ou formato depois de publicar.",
