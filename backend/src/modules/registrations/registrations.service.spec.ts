@@ -54,7 +54,7 @@ describe('RegistrationsService', () => {
 
   beforeEach(async () => {
     prisma = {
-      tournament: { findUnique: jest.fn() },
+      tournament: { findUnique: jest.fn(), findFirst: jest.fn() },
       tournamentCategory: { findUnique: jest.fn() },
       team: { findUnique: jest.fn() },
       registration: {
@@ -64,7 +64,8 @@ describe('RegistrationsService', () => {
         update: jest.fn(),
         count: jest.fn(),
       },
-      registrationMember: { findMany: jest.fn() },
+      registrationMember: { findMany: jest.fn(), findFirst: jest.fn() },
+      teamMember: { findMany: jest.fn() },
       $transaction: jest.fn(),
     };
 
@@ -86,10 +87,21 @@ describe('RegistrationsService', () => {
   });
 
   // Helper: faz o $transaction executar o callback com um `tx` mockado.
-  const txReturns = (registration: any, alreadyRegistered: any[] = []) => {
+  // `membrosComCpf` alimenta a checagem de atleta repetido; `conflitoDeCpf` simula um CPF ja
+  // inscrito por outro time no mesmo torneio.
+  const txReturns = (
+    registration: any,
+    alreadyRegistered: any[] = [],
+    membrosComCpf: any[] = [],
+    conflitoDeCpf: any = null,
+  ) => {
     prisma.$transaction.mockImplementation(async (cb: any) =>
       cb({
-        registrationMember: { findMany: jest.fn().mockResolvedValue(alreadyRegistered) },
+        registrationMember: {
+          findMany: jest.fn().mockResolvedValue(alreadyRegistered),
+          findFirst: jest.fn().mockResolvedValue(conflitoDeCpf),
+        },
+        teamMember: { findMany: jest.fn().mockResolvedValue(membrosComCpf) },
         registration: { create: jest.fn().mockResolvedValue(registration) },
       }),
     );
@@ -97,7 +109,7 @@ describe('RegistrationsService', () => {
 
   describe('registerTeam', () => {
     it('should register a team as PENDING_CONFIRMATION (free tournament)', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
       prisma.team.findUnique.mockResolvedValue(mockTeam);
       txReturns(mockRegistration);
@@ -113,7 +125,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should register a team as PENDING_CONFIRMATION even in a paid tournament', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue({ ...mockCategory, registrationPrice: 150.0 });
       prisma.team.findUnique.mockResolvedValue(mockTeam);
       txReturns({ ...mockRegistration, status: RegistrationStatus.PENDING_CONFIRMATION });
@@ -128,7 +140,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if tournament not open', async () => {
-      prisma.tournament.findUnique.mockResolvedValue({ ...mockTournament, status: TournamentStatus.DRAFT });
+      prisma.tournament.findFirst.mockResolvedValue({ ...mockTournament, status: TournamentStatus.DRAFT });
 
       await expect(
         service.registerTeam('t1', 'user-1', { teamId: 'team1', categoryId: 'cat1', memberIds: ['m1', 'm2'] }),
@@ -136,7 +148,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if category not in tournament', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -145,7 +157,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if deadline expired', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue({
         ...mockCategory,
         registrationDeadline: new Date('2020-01-01'),
@@ -157,7 +169,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if team already registered', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
       prisma.team.findUnique.mockResolvedValue(mockTeam);
       txReturns(mockRegistration, [{ teamMemberId: 'm1' }]);
@@ -168,7 +180,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if user is not team owner', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
       prisma.team.findUnique.mockResolvedValue({ ...mockTeam, ownerId: 'other-user' });
 
@@ -178,7 +190,7 @@ describe('RegistrationsService', () => {
     });
 
     it('should reject if team size mismatch', async () => {
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
       prisma.team.findUnique.mockResolvedValue({ ...mockTeam, members: [{ id: 'm1', isCaptain: true }] });
 
@@ -228,6 +240,63 @@ describe('RegistrationsService', () => {
       await expect(
         service.confirmRegistration('t1', 'reg1', 'owner-1'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('registerTeam — mesmo atleta por times diferentes', () => {
+    const prepara = (torneio: any, membrosComCpf: any[], conflito: any) => {
+      prisma.tournament.findFirst.mockResolvedValue(torneio);
+      prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
+      prisma.team.findUnique.mockResolvedValue(mockTeam);
+      txReturns(mockRegistration, [], membrosComCpf, conflito);
+    };
+
+    it('recusa quando o CPF ja esta inscrito por outro time', async () => {
+      prepara(
+        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
+        { id: 'rm-existente' },
+      );
+
+      await expect(
+        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('permite quando o organizador liberou a troca de time na liga', async () => {
+      prepara(
+        { ...mockTournament, allowSameAthleteMultipleTeams: true },
+        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
+        { id: 'rm-existente' },
+      );
+
+      await expect(
+        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
+      ).resolves.toBeDefined();
+    });
+
+    it('permite quando o CPF ainda nao esta em nenhum outro time', async () => {
+      prepara(
+        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
+        null,
+      );
+
+      await expect(
+        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
+      ).resolves.toBeDefined();
+    });
+
+    it('membro sem CPF cadastrado nao e bloqueado (nao ha como cruzar)', async () => {
+      prepara(
+        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        [{ cpf: null }, { cpf: null }],
+        { id: 'rm-existente' },
+      );
+
+      await expect(
+        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
+      ).resolves.toBeDefined();
     });
   });
 
@@ -300,7 +369,7 @@ describe('RegistrationsService', () => {
   describe('cancelRegistration', () => {
     it('should cancel a registration', async () => {
       prisma.registration.findUnique.mockResolvedValue(mockRegistration);
-      prisma.tournament.findUnique.mockResolvedValue(mockTournament);
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
       prisma.registration.update.mockResolvedValue({ ...mockRegistration, status: RegistrationStatus.CANCELLED });
 
       const result = await service.cancelRegistration('reg1', 'user-1');
@@ -310,7 +379,7 @@ describe('RegistrationsService', () => {
 
     it('should reject if tournament already started', async () => {
       prisma.registration.findUnique.mockResolvedValue(mockRegistration);
-      prisma.tournament.findUnique.mockResolvedValue({ ...mockTournament, status: TournamentStatus.IN_PROGRESS });
+      prisma.tournament.findFirst.mockResolvedValue({ ...mockTournament, status: TournamentStatus.IN_PROGRESS });
 
       await expect(
         service.cancelRegistration('reg1', 'user-1'),
