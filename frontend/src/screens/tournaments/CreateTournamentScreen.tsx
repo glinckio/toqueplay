@@ -21,6 +21,7 @@ import { Icon } from "@/components/ui/Icon";
 import { tournamentsService } from "@/services/tournamentsService";
 import { getErrorMessage } from "@/services/api";
 import { useTheme } from "@/hooks/useTheme";
+import { Toggle } from "@/components/ui/Toggle";
 
 const STEPS = ["Básico", "Estrutura", "Categorias", "Revisão"];
 const STEP_DESC = ["Nome, banner e tipo do evento", "Data, local e árbitros", "Formatos, valores e patrocínio", "Confira tudo e publique"];
@@ -104,6 +105,8 @@ export function CreateTournamentScreen({ navigation, route }: any) {
   const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(26,16,48,0.07)";
 
   const [selectedType, setSelectedType] = useState<"unique" | "circuit">("unique");
+  // Regra de atleta repetido: por padrao o mesmo CPF so joga por um time no torneio.
+  const [allowSameAthlete, setAllowSameAthlete] = useState(false);
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>(["Estacionamento", "Banheiros"]);
   const [selectedGender, setSelectedGender] = useState("Masculino");
   const [selectedModality, setSelectedModality] = useState("Areia");
@@ -181,6 +184,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
       setTournamentName(t.name || "");
       if (t.imageUrl) setBannerUri(t.imageUrl);
       setSelectedType(t.eventType === "CIRCUIT" ? "circuit" : "unique");
+      setAllowSameAthlete(Boolean((t as any).allowSameAthleteMultipleTeams));
 
       const stage = t.stages?.[0];
       if (stage) {
@@ -313,6 +317,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
 
     return {
       eventType: selectedType === "circuit" ? "CIRCUIT" : "SINGLE",
+      allowSameAthleteMultipleTeams: allowSameAthlete,
       stages: [{
         name: "Etapa 1",
         date: parseDateBR(tournamentDate) || new Date().toISOString(),
@@ -504,7 +509,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             </View>
 
             {step === 0 && <Step1Basic isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} selectedType={selectedType} setSelectedType={setSelectedType} inactivePill={inactivePill} inactivePillText={inactivePillText} bannerUri={bannerUri} onPickBanner={handlePickBanner} tournamentName={tournamentName} setTournamentName={setTournamentName} errors={errors} />}
-            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
+            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} allowSameAthlete={allowSameAthlete} setAllowSameAthlete={setAllowSameAthlete} selectedType={selectedType} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
             {step === 2 && <Step3Categories isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedGender={selectedGender} setSelectedGender={setSelectedGender} selectedModality={selectedModality} setSelectedModality={setSelectedModality} selectedFormat={selectedFormat} setSelectedFormat={setSelectedFormat} selectedSets={selectedSets} setSelectedSets={setSelectedSets} selectedSemiSets={selectedSemiSets} setSelectedSemiSets={setSelectedSemiSets} selectedFinalSets={selectedFinalSets} setSelectedFinalSets={setSelectedFinalSets} inactivePill={inactivePill} inactivePillText={inactivePillText} cardBg={cardBg} cardBorder={cardBorder} categoryPrice={categoryPrice} setCategoryPrice={setCategoryPrice} categoryDeadline={categoryDeadline} setCategoryDeadline={setCategoryDeadline} sponsors={sponsors} setSponsors={setSponsors} sponsorInput={sponsorInput} setSponsorInput={setSponsorInput} categories={categories} onAddCategory={handleAddCategory} onRemoveCategory={handleRemoveCategory} />}
             {step === 3 && <Step4Review isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} accentColor={accentColor} labelColor={labelColor} textPrimary={textPrimary} onEdit={() => goToStep(0)} tournamentName={tournamentName} tournamentDate={tournamentDate} tournamentAddress={tournamentAddress} maxTeams={tournamentMaxTeams} categoryPrice={categoryPrice} selectedGender={selectedGender} selectedModality={selectedModality} selectedFormat={selectedFormat} selectedSets={selectedSets} selectedType={selectedType} categories={categories} bannerUri={bannerUri} />}
           </Animated.View>
@@ -646,7 +651,7 @@ function Step1Basic({ isDark, inputBg, inputBorder, labelColor, textPrimary, req
   );
 }
 
-function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
+function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, allowSameAthlete, setAllowSameAthlete, selectedType, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
   const [loadingCep, setLoadingCep] = useState(false);
 
   const handleSearchCep = async () => {
@@ -743,6 +748,20 @@ function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary,
 
       <FieldLabel text="Máx. times" color={labelColor} required={required} />
       <TextInput value={maxTeams} onChangeText={setMaxTeams} style={{ ...inputStyle, ...textStyle, fontSize: 14, paddingHorizontal: 15, marginBottom: 14 }} placeholder="16" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} keyboardType="numeric" />
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: textPrimary, fontFamily: "Oswald_600SemiBold", fontSize: 13, letterSpacing: 0.6 }}>
+            Atleta em mais de um time
+          </Text>
+          <Text style={{ color: isDark ? "#A9A2BC" : "#6B6480", fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 16, marginTop: 2 }}>
+            {selectedType === "circuit"
+              ? "Permite que o mesmo atleta jogue por times diferentes entre as etapas."
+              : "Permite que o mesmo atleta se inscreva por mais de um time neste torneio."}
+          </Text>
+        </View>
+        <Toggle value={allowSameAthlete} onValueChange={setAllowSameAthlete} />
+      </View>
 
       <FieldLabel text="Instalações" color={labelColor} required={required} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
