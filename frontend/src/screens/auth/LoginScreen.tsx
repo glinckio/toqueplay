@@ -16,6 +16,7 @@ import Svg, { Path } from "react-native-svg";
 import { Icon } from "@/components/ui/Icon";
 import { Banner } from "@/components/ui/Banner";
 import { authService } from "@/services/authService";
+import { getErrorCode, getErrorMessage } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { AuthStackParamList } from "@/navigation/types";
 import { useAC, Field, NotchedButton } from "./_authKit";
@@ -62,8 +63,13 @@ export function LoginScreen({ navigation }: Props) {
         });
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setError(typeof msg === "string" ? msg : "Erro ao fazer login");
+      // Quem se cadastrou e fechou o app antes de confirmar cai aqui. Em vez de barrar com um
+      // erro sem saida, leva direto para a verificacao, que ja reenvia o codigo.
+      if (getErrorCode(err) === "EMAIL_NOT_VERIFIED") {
+        navigation.navigate("VerifyEmail", { email: email.trim(), autoResend: true });
+        return;
+      }
+      setError(getErrorMessage(err, "Erro ao fazer login"));
     } finally {
       setLoading(false);
     }

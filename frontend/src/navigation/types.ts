@@ -3,7 +3,9 @@ export type AuthStackParamList = {
   Register: undefined;
   ForgotPassword: undefined;
   ResetPassword: { email: string };
-  VerifyEmail: { email: string };
+  // autoResend: entrou aqui pelo login com email nao verificado, entao a tela dispara um codigo
+  // novo sozinha — o do cadastro ja expirou ou se perdeu.
+  VerifyEmail: { email: string; autoResend?: boolean };
   TwoFactor: { temporaryToken: string };
 };
 
