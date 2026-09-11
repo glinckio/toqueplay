@@ -29,7 +29,8 @@ export interface ConfirmDialogProps {
   title: string;
   message?: string;
   children?: React.ReactNode;
-  cancelLabel?: string;
+  /** `null` esconde o botao de cancelar — util para dialogo de aviso, com uma acao so. */
+  cancelLabel?: string | null;
   actionLabel: string;
   onCancel: () => void;
   onConfirm: () => void;
@@ -73,6 +74,7 @@ export function ConfirmDialog({
           ) : null}
 
           <View style={{ flexDirection: "row", gap: 10, marginTop: 22 }}>
+            {cancelLabel !== null && (
             <Pressable
               onPress={onCancel}
               disabled={loading}
@@ -82,6 +84,7 @@ export function ConfirmDialog({
             >
               <Text style={{ color: D.tx2, fontFamily: "Oswald_700Bold", fontSize: 12.5, letterSpacing: 1, textTransform: "uppercase" }}>{cancelLabel}</Text>
             </Pressable>
+            )}
             <Pressable
               onPress={onConfirm}
               disabled={loading}
