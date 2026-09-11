@@ -7,6 +7,7 @@ import { OTPInput } from "@/components/ui/OTPInput";
 import { BackButton } from "@/components/ui/BackButton";
 import { Banner } from "@/components/ui/Banner";
 import { authService } from "@/services/authService";
+import { getErrorCode, getErrorMessage } from "@/services/api";
 import { useAuthStore } from "@/stores/authStore";
 import { AuthStackParamList } from "@/navigation/types";
 import { useAC } from "./_authKit";
@@ -15,15 +16,17 @@ type Props = NativeStackScreenProps<AuthStackParamList, "VerifyEmail">;
 
 export function VerifyEmailScreen({ navigation, route }: Props) {
   const AC = useAC();
-  const { email } = route.params;
+  const { email, autoResend } = route.params;
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState(autoResend ? "Enviando um novo código para você..." : "");
   const [resendCooldown, setResendCooldown] = useState(48);
   const [expirySeconds, setExpirySeconds] = useState(600);
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined);
+  const autoResendDone = useRef(false);
 
   useEffect(() => {
     intervalRef.current = setInterval(() => {
@@ -48,24 +51,45 @@ export function VerifyEmailScreen({ navigation, route }: Props) {
           twoFactorEnabled: false,
         },
       });
-    } catch (err: any) {
-      const msg = err?.response?.data?.message;
-      setError(typeof msg === "string" ? msg : "Código inválido. Verifique e tente novamente.");
+    } catch (err: unknown) {
+      setNotice("");
+      setError(getErrorMessage(err, "Código inválido. Verifique e tente novamente."));
     } finally {
       setLoading(false);
     }
   }, [code, email, setAuth]);
 
-  const handleResend = useCallback(async () => {
-    if (resendCooldown > 0) return;
+  const sendNewCode = useCallback(async () => {
+    setError("");
     try {
       await authService.resendCode(email);
       setResendCooldown(60);
       setExpirySeconds(600);
-    } catch {
-      setError("Erro ao reenviar código");
+      setNotice(`Enviamos um novo código para ${email}.`);
+    } catch (err: unknown) {
+      // A API recusa dois envios em menos de 1 minuto. Nesse caso o código anterior continua
+      // valendo, então isso é aviso, não falha — dizer "erro" faria o usuário achar que travou.
+      if (getErrorCode(err) === "CODE_RESEND_COOLDOWN") {
+        setResendCooldown(60);
+        setNotice("O código que enviamos há pouco ainda é válido. Confira seu e-mail.");
+        return;
+      }
+      setNotice("");
+      setError(getErrorMessage(err, "Erro ao reenviar código"));
     }
-  }, [email, resendCooldown]);
+  }, [email]);
+
+  const handleResend = useCallback(() => {
+    if (resendCooldown > 0) return;
+    void sendNewCode();
+  }, [resendCooldown, sendNewCode]);
+
+  // Chegou pelo login com e-mail pendente: dispara um código novo sozinho, uma vez só.
+  useEffect(() => {
+    if (!autoResend || autoResendDone.current) return;
+    autoResendDone.current = true;
+    void sendNewCode();
+  }, [autoResend, sendNewCode]);
 
   useEffect(() => {
     if (code.length === 6) handleVerify();
@@ -106,8 +130,13 @@ export function VerifyEmailScreen({ navigation, route }: Props) {
             <Banner variant="error" message={error} style={{ marginTop: 24 }} />
           )}
 
+          {/* Aviso de reenvio (some assim que der erro de codigo) */}
+          {!hasError && !!notice && (
+            <Banner variant="info" message={notice} style={{ marginTop: 24 }} />
+          )}
+
           {/* OTP */}
-          <View style={{ marginTop: hasError ? 18 : 32 }}>
+          <View style={{ marginTop: hasError || notice ? 18 : 32 }}>
             <OTPInput value={code} onChange={setCode} error={error || undefined} />
           </View>
 
