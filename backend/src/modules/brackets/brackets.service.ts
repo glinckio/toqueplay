@@ -9,6 +9,7 @@ import {
   RegistrationStatus,
   BracketType,
   MatchStatus,
+  TournamentEventType,
 } from '@prisma/client';
 
 // Practical minimums so brackets don't produce degenerate/pointless structures.
@@ -65,18 +66,31 @@ export class BracketsService {
       throw AppError.tournamentNotReady();
     }
 
+    // Circuito gera uma chave por etapa, entao o cliente diz qual. Torneio unico e liga tem uma
+    // etapa so e o sistema resolve sozinho.
     const stages = await this.prisma.tournamentStage.findMany({
       where: { tournamentId },
       orderBy: { date: 'asc' },
     });
+    if (stages.length === 0) {
+      throw AppError.stageNotFound();
+    }
 
-    if (stages.length > 0) {
-      const nearestStage = stages[0];
-      const twoDaysBefore = new Date(nearestStage.date);
+    let stage = stages[0];
+    if (dto.stageId) {
+      const escolhida = stages.find((s) => s.id === dto.stageId);
+      if (!escolhida) throw AppError.stageNotFound();
+      stage = escolhida;
+    } else if (tournament.eventType === TournamentEventType.CIRCUIT) {
+      throw AppError.stageRequiredForCircuit();
+    }
+
+    {
+      const twoDaysBefore = new Date(stage.date);
       twoDaysBefore.setDate(twoDaysBefore.getDate() - 2);
       twoDaysBefore.setHours(0, 0, 0, 0);
 
-      this.logger.debug(`stage date=${nearestStage.date.toISOString()} twoDaysBefore=${twoDaysBefore.toISOString()}`);
+      this.logger.debug(`stage date=${stage.date.toISOString()} twoDaysBefore=${twoDaysBefore.toISOString()}`);
 
       if (new Date() < twoDaysBefore) {
         this.logger.warn(`generateBracket rejected: too early`);
@@ -85,15 +99,17 @@ export class BracketsService {
     }
 
     const existing = await this.prisma.bracket.findUnique({
-      where: { tournamentId_categoryId: { tournamentId, categoryId: dto.categoryId } },
+      where: { categoryId_stageId: { categoryId: dto.categoryId, stageId: stage.id } },
     });
     if (existing) {
       throw AppError.bracketAlreadyGenerated();
     }
 
+    // Somente quem se inscreveu NESTA etapa entra na chave — e o que permite o circuito ter
+    // times diferentes a cada etapa.
     const registrations = await this.prisma.registration.findMany({
       where: {
-        tournamentId,
+        stageId: stage.id,
         categoryId: dto.categoryId,
         status: RegistrationStatus.CONFIRMED,
       },
@@ -136,6 +152,7 @@ export class BracketsService {
       const bracket = await tx.bracket.create({
         data: {
           tournamentId,
+          stageId: stage.id,
           categoryId: dto.categoryId,
           type: dto.type,
         },

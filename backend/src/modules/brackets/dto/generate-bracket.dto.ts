@@ -17,6 +17,15 @@ export class GenerateBracketDto {
 
   @ApiPropertyOptional({
     description:
+      'ID da etapa. Obrigatorio em circuitos, onde cada etapa tem a propria chave. ' +
+      'Em torneio unico e liga pode ser omitido: o sistema usa a unica etapa.',
+  })
+  @IsOptional()
+  @IsString()
+  stageId?: string;
+
+  @ApiPropertyOptional({
+    description:
       'Numero de grupos, usado apenas quando type = GROUPS_THEN_ELIMINATION. ' +
       'Se omitido, o numero de grupos e calculado automaticamente.',
   })

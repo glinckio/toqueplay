@@ -55,6 +55,11 @@ describe('RegistrationsService', () => {
   beforeEach(async () => {
     prisma = {
       tournament: { findUnique: jest.fn(), findFirst: jest.fn() },
+      // Toda inscricao pertence a uma etapa; em torneio unico/liga o service resolve pela primeira.
+      tournamentStage: {
+        findFirst: jest.fn().mockResolvedValue({ id: 'stage-1', tournamentId: 't1' }),
+        findMany: jest.fn().mockResolvedValue([{ id: 'stage-1', tournamentId: 't1' }]),
+      },
       tournamentCategory: { findUnique: jest.fn() },
       team: { findUnique: jest.fn() },
       registration: {

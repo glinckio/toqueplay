@@ -9,6 +9,7 @@ import { QueryRegistrationsDto } from './dto/query-registrations.dto';
 import {
   TournamentStatus,
   RegistrationStatus,
+  TournamentEventType,
 } from '@prisma/client';
 import { AuditService } from '../audit/audit.service';
 
@@ -38,6 +39,37 @@ export class RegistrationsService {
     private redisService: RedisService,
   ) {}
 
+  /**
+   * Descobre em qual etapa a inscricao entra.
+   *
+   * Circuito e por etapa, entao o cliente precisa dizer qual. Torneio unico e liga tem uma etapa
+   * so — exigir o id ali seria burocracia, entao o sistema resolve sozinho.
+   */
+  private async resolveStage(
+    tournament: { id: string; eventType: TournamentEventType },
+    stageId?: string,
+  ) {
+    if (stageId) {
+      const stage = await this.prisma.tournamentStage.findFirst({
+        where: { id: stageId, tournamentId: tournament.id },
+      });
+      if (!stage) throw AppError.stageNotFound();
+      return stage;
+    }
+
+    if (tournament.eventType === TournamentEventType.CIRCUIT) {
+      throw AppError.stageRequiredForCircuit();
+    }
+
+    const stages = await this.prisma.tournamentStage.findMany({
+      where: { tournamentId: tournament.id },
+      orderBy: { date: 'asc' },
+      take: 1,
+    });
+    if (stages.length === 0) throw AppError.stageNotFound();
+    return stages[0];
+  }
+
   async registerTeam(tournamentId: string, userId: string, dto: RegisterTeamDto) {
     const tournament = await this.prisma.tournament.findFirst({
       where: { id: tournamentId, deletedAt: null },
@@ -50,6 +82,8 @@ export class RegistrationsService {
     ) {
       throw AppError.tournamentNotOpen();
     }
+
+    const stage = await this.resolveStage(tournament, dto.stageId);
 
     const category = await this.prisma.tournamentCategory.findUnique({
       where: { id: dto.categoryId },
@@ -91,11 +125,21 @@ export class RegistrationsService {
     // Pagamento é manual: toda inscrição nasce como PENDING_CONFIRMATION e o
     // organizador marca quem pagou (CONFIRMED + paidAt) depois.
     const registration = await this.prisma.$transaction(async (tx) => {
+      // Ate onde vale o bloqueio de atleta repetido:
+      // - CIRCUIT: cada etapa e uma competicao propria, entao o atleta pode trocar de time entre
+      //   etapas — mas nao jogar por dois times na MESMA etapa.
+      // - LEAGUE: chave unica, atleta preso ao time pela competicao inteira.
+      // - SINGLE: so existe uma etapa, entao os dois escopos coincidem.
+      const escopo =
+        tournament.eventType === TournamentEventType.CIRCUIT
+          ? { stageId: stage.id }
+          : { tournamentId };
+
       const alreadyRegistered = await tx.registrationMember.findMany({
         where: {
           teamMemberId: { in: dto.memberIds },
           registration: {
-            tournamentId,
+            ...escopo,
             status: { notIn: [RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED] },
           },
         },
@@ -124,7 +168,7 @@ export class RegistrationsService {
             where: {
               teamMember: { cpf: { in: cpfs } },
               registration: {
-                tournamentId,
+                ...escopo,
                 teamId: { not: dto.teamId },
                 status: {
                   notIn: [RegistrationStatus.CANCELLED, RegistrationStatus.REJECTED],
@@ -142,6 +186,7 @@ export class RegistrationsService {
       return tx.registration.create({
         data: {
           tournamentId,
+          stageId: stage.id,
           categoryId: dto.categoryId,
           teamId: dto.teamId,
           userId,

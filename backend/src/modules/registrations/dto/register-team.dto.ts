@@ -16,6 +16,16 @@ export class RegisterTeamDto {
   @ArrayUnique()
   memberIds: string[];
 
+  @ApiProperty({
+    description:
+      'ID da etapa. Obrigatorio em circuitos, onde a inscricao e por etapa. ' +
+      'Em torneio unico e liga pode ser omitido: o sistema usa a unica etapa do torneio.',
+    required: false,
+  })
+  @IsOptional()
+  @IsUUID()
+  stageId?: string;
+
   @ApiProperty({ description: 'ID do membro que será capitão nesta inscrição', required: false })
   @IsOptional()
   @IsUUID()
