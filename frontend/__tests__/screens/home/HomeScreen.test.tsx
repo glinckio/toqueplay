@@ -81,6 +81,18 @@ jest.mock("@/hooks/useApi", () => ({
   }),
 }));
 
+// Teste de tela nao deve depender do service real: mocka o que a Home consome.
+jest.mock("@/services/matchesService", () => ({
+  matchesService: { findRefereeMine: jest.fn().mockResolvedValue([]) },
+}));
+
+jest.mock("@/services/tournamentsService", () => ({
+  tournamentsService: {
+    findRefereeMine: jest.fn().mockResolvedValue([]),
+    getBanners: jest.fn().mockResolvedValue([]),
+  },
+}));
+
 jest.mock("@/services/homeService", () => ({
   homeService: { getDashboard: jest.fn() },
 }));
