@@ -4,6 +4,7 @@ import { AppError } from '../../common/errors/app-error';
 import { NotificationService } from '../../common/services/notification.service';
 import { TournamentsService } from '../tournaments/tournaments.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
+import { ScheduleMatchesDto } from './dto/schedule-matches.dto';
 import {
   TournamentStatus,
   RegistrationStatus,
@@ -16,6 +17,23 @@ import {
 // Elimination formats work mathematically from 2 teams (byes handle the rest),
 // but a 2-team single/double elimination bracket is just one match dressed up —
 // these thresholds match common tournament-software convention.
+/**
+ * Formatos permitidos por tipo de competicao.
+ *
+ * A liga nao aceita eliminacao dupla: o "bracket reset" (quem vem da chave de perdedores vence a
+ * final e obriga uma segunda final) faz o total de partidas so ser conhecido no fim. Isso quebra
+ * o planejamento de datas, que precisa do numero de jogos antes de comecar.
+ */
+const ALLOWED_BRACKET_TYPES: Record<TournamentEventType, BracketType[]> = {
+  [TournamentEventType.SINGLE]: Object.values(BracketType),
+  [TournamentEventType.CIRCUIT]: Object.values(BracketType),
+  [TournamentEventType.LEAGUE]: [
+    BracketType.ROUND_ROBIN,
+    BracketType.GROUPS_THEN_ELIMINATION,
+    BracketType.SINGLE_ELIMINATION,
+  ],
+};
+
 const MIN_TEAMS_BY_BRACKET_TYPE: Record<BracketType, number> = {
   [BracketType.SINGLE_ELIMINATION]: 3,
   [BracketType.DOUBLE_ELIMINATION]: 4,
@@ -121,6 +139,11 @@ export class BracketsService {
     if (registrations.length < 2) {
       this.logger.warn(`generateBracket rejected: not enough confirmed teams`);
       throw AppError.noConfirmedTeams();
+    }
+
+    if (!ALLOWED_BRACKET_TYPES[tournament.eventType].includes(dto.type)) {
+      this.logger.warn(`generateBracket rejected: ${dto.type} nao permitido em ${tournament.eventType}`);
+      throw AppError.bracketTypeNotAllowed();
     }
 
     const minTeams = MIN_TEAMS_BY_BRACKET_TYPE[dto.type];
@@ -1202,5 +1225,67 @@ export class BracketsService {
       return (y[1].pf - y[1].pa) - (x[1].pf - x[1].pa);
     });
     return sorted[0]?.[0] ?? null;
+  }
+
+  /**
+   * Quantas datas o organizador ainda precisa informar.
+   *
+   * So faz sentido com o numero de partidas ja conhecido — por isso a liga nao aceita eliminacao
+   * dupla, onde o total depende do resultado.
+   */
+  async previewSchedule(tournamentId: string, categoryId?: string) {
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
+    });
+    if (!tournament) throw AppError.tournamentNotFound();
+    if (!tournament.matchesPerDay) throw AppError.matchesPerDayRequired();
+
+    const totalMatches = await this.prisma.match.count({
+      where: { bracket: { tournamentId, ...(categoryId ? { categoryId } : {}) } },
+    });
+
+    return {
+      totalMatches,
+      matchesPerDay: tournament.matchesPerDay,
+      datesNeeded: Math.ceil(totalMatches / tournament.matchesPerDay),
+    };
+  }
+
+  /**
+   * Distribui as partidas nas datas informadas.
+   *
+   * A ordem e a do chaveamento (rodada, grupo, posicao): a fase de grupos cai nos primeiros dias e
+   * o mata-mata no fim, que e a unica ordem em que uma fase nao depende de outra ainda nao jogada.
+   * O organizador escolhe as datas, nunca os confrontos.
+   */
+  async scheduleMatches(tournamentId: string, userId: string, dto: ScheduleMatchesDto) {
+    const tournament = await this.tournamentsService.verifyOwnership(tournamentId, userId);
+    if (!tournament.matchesPerDay) throw AppError.matchesPerDayRequired();
+
+    const matches = await this.prisma.match.findMany({
+      where: { bracket: { tournamentId, ...(dto.categoryId ? { categoryId: dto.categoryId } : {}) } },
+      orderBy: [{ round: 'asc' }, { group: 'asc' }, { position: 'asc' }],
+      select: { id: true },
+    });
+
+    const datesNeeded = Math.ceil(matches.length / tournament.matchesPerDay);
+    if (dto.dates.length < datesNeeded) {
+      this.logger.warn(
+        `scheduleMatches rejected: ${dto.dates.length} datas para ${matches.length} partidas ` +
+          `(precisa de ${datesNeeded})`,
+      );
+      throw AppError.notEnoughDates();
+    }
+
+    await this.prisma.$transaction(
+      matches.map((match, i) =>
+        this.prisma.match.update({
+          where: { id: match.id },
+          data: { scheduledAt: new Date(dto.dates[Math.floor(i / tournament.matchesPerDay!)]) },
+        }),
+      ),
+    );
+
+    return { scheduled: matches.length, datesUsed: datesNeeded };
   }
 }

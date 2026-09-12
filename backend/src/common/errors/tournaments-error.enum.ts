@@ -13,6 +13,9 @@ export enum TournamentsErrorCode {
   STAGE_DATE_TOO_SOON = 'STAGE_DATE_TOO_SOON',
   STAGE_NOT_FOUND = 'STAGE_NOT_FOUND',
   STAGE_REQUIRED_FOR_CIRCUIT = 'STAGE_REQUIRED_FOR_CIRCUIT',
+  BRACKET_TYPE_NOT_ALLOWED = 'BRACKET_TYPE_NOT_ALLOWED',
+  MATCHES_PER_DAY_REQUIRED = 'MATCHES_PER_DAY_REQUIRED',
+  NOT_ENOUGH_DATES = 'NOT_ENOUGH_DATES',
   TOURNAMENT_TOO_CLOSE_TO_EDIT = 'TOURNAMENT_TOO_CLOSE_TO_EDIT',
   TOURNAMENT_NOT_IN_PROGRESS = 'TOURNAMENT_NOT_IN_PROGRESS',
   TOURNAMENT_HAS_PENDING_MATCHES = 'TOURNAMENT_HAS_PENDING_MATCHES',
@@ -35,6 +38,12 @@ export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
   [TournamentsErrorCode.SPONSOR_NOT_FOUND]: 'Sponsor not found in this tournament',
   [TournamentsErrorCode.CIRCUIT_REQUIRES_STAGES]: 'Circuit tournaments require at least one stage',
   [TournamentsErrorCode.STAGE_DATE_TOO_SOON]: 'Stage dates must be at least 1 week in the future',
+  [TournamentsErrorCode.BRACKET_TYPE_NOT_ALLOWED]:
+    'This bracket type is not allowed for this tournament format',
+  [TournamentsErrorCode.MATCHES_PER_DAY_REQUIRED]:
+    'Set how many matches fit in a day before scheduling',
+  [TournamentsErrorCode.NOT_ENOUGH_DATES]:
+    'Not enough dates provided for the number of matches',
   [TournamentsErrorCode.STAGE_REQUIRED_FOR_CIRCUIT]:
     'Circuit registrations must specify which stage the team is entering',
   [TournamentsErrorCode.STAGE_NOT_FOUND]: 'Stage not found in this tournament',

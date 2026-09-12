@@ -189,6 +189,12 @@ export const AppError = {
   stageDateTooSoon: () =>
     withCode(BadRequestException, TournamentsErrorCode.STAGE_DATE_TOO_SOON),
 
+  bracketTypeNotAllowed: () =>
+    withCode(BadRequestException, TournamentsErrorCode.BRACKET_TYPE_NOT_ALLOWED),
+  matchesPerDayRequired: () =>
+    withCode(BadRequestException, TournamentsErrorCode.MATCHES_PER_DAY_REQUIRED),
+  notEnoughDates: () =>
+    withCode(BadRequestException, TournamentsErrorCode.NOT_ENOUGH_DATES),
   stageRequiredForCircuit: () =>
     withCode(BadRequestException, TournamentsErrorCode.STAGE_REQUIRED_FOR_CIRCUIT),
   stageNotFound: () =>

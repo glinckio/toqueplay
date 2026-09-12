@@ -21,6 +21,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { BracketsService } from './brackets.service';
 import { GenerateBracketDto } from './dto/generate-bracket.dto';
+import { ScheduleMatchesDto } from './dto/schedule-matches.dto';
 
 @ApiTags('Brackets')
 @ApiBearerAuth()
@@ -51,5 +52,26 @@ export class BracketsController {
     @Query('categoryId') categoryId?: string,
   ) {
     return this.bracketsService.getBracket(tournamentId, categoryId);
+  }
+
+  @Get(':id/schedule/preview')
+  @ApiOperation({ summary: 'Quantas datas o organizador precisa informar' })
+  @ApiQuery({ name: 'categoryId', required: false })
+  async previewSchedule(
+    @Param('id') tournamentId: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.bracketsService.previewSchedule(tournamentId, categoryId);
+  }
+
+  @Post(':id/schedule')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Distribuir as partidas nas datas informadas' })
+  async scheduleMatches(
+    @Param('id') tournamentId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: ScheduleMatchesDto,
+  ) {
+    return this.bracketsService.scheduleMatches(tournamentId, userId, dto);
   }
 }
