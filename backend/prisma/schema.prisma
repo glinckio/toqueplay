@@ -288,9 +288,6 @@ model Tournament {
   // Quantos times da tabela acumulada disputam a etapa final do circuito.
   finalStageTeamCount Int?
 
-  // Semifinal e final podem ter mais sets que o resto da competicao.
-  finalsBestOfSets Int?
-
   pointsRules TournamentPointsRule[]
   placements  StagePlacement[]
 

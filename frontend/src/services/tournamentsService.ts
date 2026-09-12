@@ -12,6 +12,10 @@ export interface TournamentDTO {
   type: TournamentType;
   modality: TournamentModality;
   eventType: TournamentEventType;
+  /** Liga: quantas partidas cabem por dia, base do calculo de datas do calendario. */
+  matchesPerDay?: number | null;
+  /** Circuito: quantos times da tabela acumulada disputam a etapa final. */
+  finalStageTeamCount?: number | null;
   date: string | null;
   endDate: string | null;
   registrationDeadline: string | null;

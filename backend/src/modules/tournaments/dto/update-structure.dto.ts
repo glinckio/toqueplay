@@ -242,6 +242,23 @@ export class UpdateStructureDto {
   @IsEnum(TournamentEventType)
   eventType: TournamentEventType;
 
+  @ApiPropertyOptional({
+    description:
+      'Quantas partidas cabem por dia. Usado para calcular quantas datas a liga precisa.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  matchesPerDay?: number;
+
+  @ApiPropertyOptional({
+    description: 'Quantos times da tabela acumulada disputam a etapa final do circuito.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  finalStageTeamCount?: number;
+
   @ApiPropertyOptional({ description: 'Etapas (obrigatorio se CIRCUIT)', type: [StageDto] })
   @IsArray()
   @IsOptional()

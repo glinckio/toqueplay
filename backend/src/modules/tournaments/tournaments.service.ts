@@ -96,6 +96,11 @@ export class TournamentsService {
         where: { id: tournamentId },
         data: {
           eventType: dto.eventType,
+          // Omitidos no payload mantem o valor atual, em vez de voltar a nulo.
+          ...(dto.matchesPerDay !== undefined && { matchesPerDay: dto.matchesPerDay }),
+          ...(dto.finalStageTeamCount !== undefined && {
+            finalStageTeamCount: dto.finalStageTeamCount,
+          }),
           stages: dto.stages
             ? {
                 create: geocodedStages.map((s) => ({

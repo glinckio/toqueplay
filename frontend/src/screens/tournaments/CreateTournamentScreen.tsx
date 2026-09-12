@@ -128,6 +128,10 @@ export function CreateTournamentScreen({ navigation, route }: any) {
   // Etapas extras do circuito. A etapa 1 continua sendo editada pelos campos de cima; estas sao
   // da 2a em diante, que antes nao tinham como ser cadastradas.
   const [extraStages, setExtraStages] = useState<ExtraStage[]>([]);
+  // Liga: quantas partidas cabem num dia, usado para calcular quantas datas o calendario precisa.
+  const [matchesPerDay, setMatchesPerDay] = useState("");
+  // Circuito: quantos times da tabela acumulada disputam a etapa final.
+  const [finalStageTeamCount, setFinalStageTeamCount] = useState("");
   // Regra de atleta repetido: por padrao o mesmo CPF so joga por um time no torneio.
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>(["Estacionamento", "Banheiros"]);
   const [selectedGender, setSelectedGender] = useState("Masculino");
@@ -209,6 +213,8 @@ export function CreateTournamentScreen({ navigation, route }: any) {
         t.eventType === "CIRCUIT" ? "circuit" : t.eventType === "LEAGUE" ? "league" : "unique",
       );
 
+      setMatchesPerDay(t.matchesPerDay ? String(t.matchesPerDay) : "");
+      setFinalStageTeamCount(t.finalStageTeamCount ? String(t.finalStageTeamCount) : "");
       setExtraStages(
         (t.stages ?? []).slice(1).map((st: any) => ({
           name: st.name ?? "",
@@ -352,6 +358,12 @@ export function CreateTournamentScreen({ navigation, route }: any) {
     return {
       eventType:
         selectedType === "circuit" ? "CIRCUIT" : selectedType === "league" ? "LEAGUE" : "SINGLE",
+      matchesPerDay:
+        selectedType === "league" && matchesPerDay ? parseInt(matchesPerDay, 10) || undefined : undefined,
+      finalStageTeamCount:
+        selectedType === "circuit" && finalStageTeamCount
+          ? parseInt(finalStageTeamCount, 10) || undefined
+          : undefined,
       stages: [{
         name: "Etapa 1",
         date: parseDateBR(tournamentDate) || new Date().toISOString(),
@@ -555,7 +567,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             </View>
 
             {step === 0 && <Step1Basic isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} selectedType={selectedType} setSelectedType={setSelectedType} inactivePill={inactivePill} inactivePillText={inactivePillText} bannerUri={bannerUri} onPickBanner={handlePickBanner} tournamentName={tournamentName} setTournamentName={setTournamentName} errors={errors} />}
-            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} extraStages={extraStages} setExtraStages={setExtraStages} selectedType={selectedType} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
+            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} extraStages={extraStages} setExtraStages={setExtraStages} matchesPerDay={matchesPerDay} setMatchesPerDay={setMatchesPerDay} finalStageTeamCount={finalStageTeamCount} setFinalStageTeamCount={setFinalStageTeamCount} selectedType={selectedType} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
             {step === 2 && <Step3Categories isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedGender={selectedGender} setSelectedGender={setSelectedGender} selectedModality={selectedModality} setSelectedModality={setSelectedModality} selectedFormat={selectedFormat} setSelectedFormat={setSelectedFormat} selectedSets={selectedSets} setSelectedSets={setSelectedSets} selectedSemiSets={selectedSemiSets} setSelectedSemiSets={setSelectedSemiSets} selectedFinalSets={selectedFinalSets} setSelectedFinalSets={setSelectedFinalSets} inactivePill={inactivePill} inactivePillText={inactivePillText} cardBg={cardBg} cardBorder={cardBorder} categoryPrice={categoryPrice} setCategoryPrice={setCategoryPrice} categoryDeadline={categoryDeadline} setCategoryDeadline={setCategoryDeadline} sponsors={sponsors} setSponsors={setSponsors} sponsorInput={sponsorInput} setSponsorInput={setSponsorInput} categories={categories} onAddCategory={handleAddCategory} onRemoveCategory={handleRemoveCategory} />}
             {step === 3 && <Step4Review isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} accentColor={accentColor} labelColor={labelColor} textPrimary={textPrimary} onEdit={() => goToStep(0)} tournamentName={tournamentName} tournamentDate={tournamentDate} tournamentAddress={tournamentAddress} maxTeams={tournamentMaxTeams} categoryPrice={categoryPrice} selectedGender={selectedGender} selectedModality={selectedModality} selectedFormat={selectedFormat} selectedSets={selectedSets} selectedType={selectedType} categories={categories} bannerUri={bannerUri} />}
           </Animated.View>
@@ -702,7 +714,7 @@ function Step1Basic({ isDark, inputBg, inputBorder, labelColor, textPrimary, req
   );
 }
 
-function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, extraStages, setExtraStages, selectedType, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
+function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, extraStages, setExtraStages, matchesPerDay, setMatchesPerDay, finalStageTeamCount, setFinalStageTeamCount, selectedType, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
   const [loadingCep, setLoadingCep] = useState(false);
 
   const handleSearchCep = async () => {
@@ -797,6 +809,46 @@ function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary,
 
       <FieldLabel text="Máx. times" color={labelColor} required={required} />
       <TextInput value={maxTeams} onChangeText={setMaxTeams} style={{ ...inputStyle, ...textStyle, fontSize: 14, paddingHorizontal: 15, marginBottom: 14 }} placeholder="16" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} keyboardType="numeric" />
+
+      {selectedType === "league" && (
+        <>
+          <FieldLabel text="Jogos por dia" color={labelColor} required={required} />
+          <TextInput
+            value={matchesPerDay}
+            onChangeText={(v: string) => setMatchesPerDay(v.replace(/\D/g, ""))}
+            keyboardType="numeric"
+            maxLength={2}
+            placeholder="Ex.: 4"
+            placeholderTextColor={isDark ? "#6E6684" : "#8A829E"}
+            accessibilityLabel="Jogos por dia"
+            style={{ ...inputStyle, ...textStyle }}
+          />
+          <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 16, marginTop: 6, marginBottom: 14 }}>
+            Define quantas datas a liga precisa. Com 30 partidas e 4 jogos por dia, são 8 dias —
+            você informa as datas depois de gerar o chaveamento.
+          </Text>
+        </>
+      )}
+
+      {selectedType === "circuit" && (
+        <>
+          <FieldLabel text="Times na etapa final" color={labelColor} required={required} />
+          <TextInput
+            value={finalStageTeamCount}
+            onChangeText={(v: string) => setFinalStageTeamCount(v.replace(/\D/g, ""))}
+            keyboardType="numeric"
+            maxLength={2}
+            placeholder="Ex.: 8"
+            placeholderTextColor={isDark ? "#6E6684" : "#8A829E"}
+            accessibilityLabel="Times na etapa final"
+            style={{ ...inputStyle, ...textStyle }}
+          />
+          <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 16, marginTop: 6, marginBottom: 14 }}>
+            Quantos melhores da tabela acumulada disputam a final do circuito, depois da última
+            etapa.
+          </Text>
+        </>
+      )}
 
       {selectedType === "circuit" && (
         <ExtraStagesSection
