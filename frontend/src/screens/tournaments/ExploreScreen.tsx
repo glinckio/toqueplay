@@ -239,6 +239,9 @@ export function ExploreScreen() {
         )}
         contentContainerStyle={{ paddingBottom: 140 }}
         showsVerticalScrollIndicator={false}
+        // Sem isto, com o teclado da busca aberto, o primeiro toque num card so fecha o teclado.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={refetch} tintColor={TC.lime} />}
         ListHeaderComponent={
           <>
