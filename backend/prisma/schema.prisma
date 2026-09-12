@@ -25,7 +25,13 @@ enum TournamentModality {
 }
 
 enum TournamentEventType {
+  // Um dia so: uma etapa, uma chave por categoria.
   SINGLE
+  // Chave unica para a competicao inteira, times fixos e atleta preso ao time.
+  // As varias datas sao o calendario das partidas dessa mesma chave.
+  LEAGUE
+  // N etapas independentes: cada uma gera a propria chave, com quem se inscreveu nela.
+  // O que liga as etapas e a tabela de pontos acumulada.
   CIRCUIT
 }
 
@@ -212,6 +218,7 @@ model Team {
   athleteStats    AthleteStats[]
 
   @@index([ownerId])
+  placements    StagePlacement[]
 }
 
 model TeamMember {
@@ -277,7 +284,20 @@ model Tournament {
 
   // Liga/circuito com varias etapas: por padrao um atleta so joga por um time no mesmo torneio.
   // O organizador pode liberar a troca de time entre etapas ligando esta opcao.
+  // LEAGUE trava por definicao; CIRCUIT costuma liberar.
   allowSameAthleteMultipleTeams Boolean @default(false)
+
+  // Quantas partidas cabem por dia. Usado para calcular quantas datas a liga precisa.
+  matchesPerDay Int?
+
+  // Quantos times da tabela acumulada disputam a etapa final do circuito.
+  finalStageTeamCount Int?
+
+  // Semifinal e final podem ter mais sets que o resto da competicao.
+  finalsBestOfSets Int?
+
+  pointsRules TournamentPointsRule[]
+  placements  StagePlacement[]
 
   deletedAt DateTime?
 
@@ -328,6 +348,7 @@ model TournamentCategory {
   brackets             Bracket[]
 
   @@index([tournamentId])
+  placements   StagePlacement[]
 }
 
 model TournamentStage {
@@ -350,6 +371,9 @@ model TournamentStage {
   longitude    Float?
   regionRadius Int?
   facilities   StageFacility[]
+  brackets     Bracket[]
+  registrations Registration[]
+  placements   StagePlacement[]
 
   @@index([tournamentId])
 }
@@ -375,6 +399,42 @@ model Sponsor {
   @@index([tournamentId])
 }
 
+/// Quantos pontos cada colocacao vale neste torneio. Editavel pelo organizador; o servico
+/// semeia uma sugestao na criacao. Vale para os tres tipos — no SINGLE simplesmente nao acumula.
+model TournamentPointsRule {
+  id           String     @id @default(uuid()) @db.Uuid
+  tournamentId String     @db.Uuid
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  /// 1 = campeao, 2 = vice, e assim por diante.
+  placement    Int
+  points       Int
+
+  @@unique([tournamentId, placement])
+  @@index([tournamentId])
+}
+
+/// Colocacao de um time numa etapa, derivada automaticamente da chave quando ela encerra.
+/// E a linha que alimenta a tabela acumulada — quem nao jogou a etapa simplesmente nao tem linha.
+model StagePlacement {
+  id           String             @id @default(uuid()) @db.Uuid
+  tournamentId String             @db.Uuid
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  stageId      String             @db.Uuid
+  stage        TournamentStage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  categoryId   String             @db.Uuid
+  category     TournamentCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  teamId       String             @db.Uuid
+  team         Team               @relation(fields: [teamId], references: [id])
+  position     Int
+  points       Int                @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([stageId, categoryId, teamId])
+  @@index([tournamentId])
+  @@index([categoryId])
+}
+
 model Registration {
   id           String             @id @default(uuid()) @db.Uuid
   tournamentId String             @db.Uuid
@@ -383,6 +443,10 @@ model Registration {
   category     TournamentCategory @relation(fields: [categoryId], references: [id])
   teamId       String             @db.Uuid
   team         Team               @relation(fields: [teamId], references: [id])
+  // No circuito a inscricao e por etapa: um time pode entrar so na etapa 5.
+  // Em SINGLE/LEAGUE aponta para a unica etapa do torneio.
+  stageId      String             @db.Uuid
+  stage        TournamentStage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
   userId       String             @db.Uuid
   user         User               @relation(fields: [userId], references: [id])
   status       RegistrationStatus @default(PENDING_CONFIRMATION)
@@ -417,11 +481,16 @@ model Bracket {
   tournament   Tournament         @relation(fields: [tournamentId], references: [id])
   categoryId   String             @db.Uuid
   category     TournamentCategory @relation(fields: [categoryId], references: [id])
+  // Toda chave pertence a uma etapa. SINGLE/LEAGUE tem exatamente uma; CIRCUIT tem uma por etapa.
+  // O unique inclui a etapa para o circuito poder gerar a chave da etapa 2 em diante.
+  stageId      String             @db.Uuid
+  stage        TournamentStage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
   type         BracketType
   matches      Match[]
 
-  @@unique([tournamentId, categoryId])
+  @@unique([categoryId, stageId])
   @@index([tournamentId])
+  @@index([stageId])
 }
 
 model Match {
