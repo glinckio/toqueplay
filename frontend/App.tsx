@@ -200,7 +200,7 @@ export default function App() {
     return (
       <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
         <SafeAreaProvider>
-          <KeyboardProvider>
+          <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
             <DesignLabScreen />
             <StatusBar style="light" />
           </KeyboardProvider>
@@ -213,8 +213,11 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         {/* KeyboardProvider alimenta os insets do teclado usados pelas telas. Precisa ficar
-            acima da navegacao para valer em qualquer rota. */}
-        <KeyboardProvider>
+            acima da navegacao para valer em qualquer rota.
+            As duas flags de translucent sao obrigatorias aqui: sem elas o modulo reserva as
+            barras de status/navegacao em vez de desenhar sob elas, e o app (que e edge-to-edge)
+            ganha faixas solidas em cima e embaixo. */}
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
           <NavigationContainer linking={linking} theme={navTheme}>
             {FORCE_AUTH ? (
               <AuthNavigator />
