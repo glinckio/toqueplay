@@ -12,6 +12,7 @@ export enum TournamentsErrorCode {
   CIRCUIT_REQUIRES_STAGES = 'CIRCUIT_REQUIRES_STAGES',
   STAGE_DATE_TOO_SOON = 'STAGE_DATE_TOO_SOON',
   STAGE_NOT_FOUND = 'STAGE_NOT_FOUND',
+  STAGE_REQUIRED_FOR_CIRCUIT = 'STAGE_REQUIRED_FOR_CIRCUIT',
   TOURNAMENT_TOO_CLOSE_TO_EDIT = 'TOURNAMENT_TOO_CLOSE_TO_EDIT',
   TOURNAMENT_NOT_IN_PROGRESS = 'TOURNAMENT_NOT_IN_PROGRESS',
   TOURNAMENT_HAS_PENDING_MATCHES = 'TOURNAMENT_HAS_PENDING_MATCHES',
@@ -34,6 +35,8 @@ export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
   [TournamentsErrorCode.SPONSOR_NOT_FOUND]: 'Sponsor not found in this tournament',
   [TournamentsErrorCode.CIRCUIT_REQUIRES_STAGES]: 'Circuit tournaments require at least one stage',
   [TournamentsErrorCode.STAGE_DATE_TOO_SOON]: 'Stage dates must be at least 1 week in the future',
+  [TournamentsErrorCode.STAGE_REQUIRED_FOR_CIRCUIT]:
+    'Circuit registrations must specify which stage the team is entering',
   [TournamentsErrorCode.STAGE_NOT_FOUND]: 'Stage not found in this tournament',
   [TournamentsErrorCode.TOURNAMENT_TOO_CLOSE_TO_EDIT]: 'Cannot edit: tournament date is less than 3 days away',
   [TournamentsErrorCode.TOURNAMENT_NOT_IN_PROGRESS]: 'This action is only allowed for tournaments in progress',

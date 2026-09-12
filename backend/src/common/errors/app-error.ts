@@ -189,6 +189,8 @@ export const AppError = {
   stageDateTooSoon: () =>
     withCode(BadRequestException, TournamentsErrorCode.STAGE_DATE_TOO_SOON),
 
+  stageRequiredForCircuit: () =>
+    withCode(BadRequestException, TournamentsErrorCode.STAGE_REQUIRED_FOR_CIRCUIT),
   stageNotFound: () =>
     withCode(NotFoundException, TournamentsErrorCode.STAGE_NOT_FOUND),
 
