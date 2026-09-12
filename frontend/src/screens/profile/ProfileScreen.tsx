@@ -232,7 +232,7 @@ export function ProfileScreen({ navigation }: any) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
         <StatusBar barStyle={C.isDark ? "light-content" : "dark-content"} />
-        <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 14, paddingHorizontal: 20 }}>
               {/* Header */}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, marginBottom: 24 }}>

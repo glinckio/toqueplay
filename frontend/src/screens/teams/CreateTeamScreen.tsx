@@ -130,7 +130,7 @@ export function CreateTeamScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
       <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 }}>

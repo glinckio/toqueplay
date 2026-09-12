@@ -479,7 +479,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
           <Animated.View key={step} style={{ opacity: stepOpacity, transform: [{ translateX: stepTranslateX }] }}>
             {/* Step hero */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 22 }}>

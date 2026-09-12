@@ -350,7 +350,7 @@ export function CreateFriendlyScreen({ navigation }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }}>
