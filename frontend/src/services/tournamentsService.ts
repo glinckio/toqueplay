@@ -224,4 +224,23 @@ export const tournamentsService = {
     const { data } = await api.get<string[]>("/tournaments/banners");
     return data;
   },
+
+  async previewSchedule(
+    id: string,
+    categoryId?: string,
+  ): Promise<{ totalMatches: number; matchesPerDay: number; datesNeeded: number }> {
+    const { data } = await api.get(`/tournaments/${id}/schedule/preview`, {
+      params: categoryId ? { categoryId } : undefined,
+    });
+    return data;
+  },
+
+  async scheduleMatches(
+    id: string,
+    dates: string[],
+    categoryId?: string,
+  ): Promise<{ scheduled: number; datesUsed: number }> {
+    const { data } = await api.post(`/tournaments/${id}/schedule`, { dates, categoryId });
+    return data;
+  },
 };

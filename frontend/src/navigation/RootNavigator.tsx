@@ -4,6 +4,7 @@ import { MainNavigator } from "./MainNavigator";
 import { RootStackParamList } from "./types";
 import { StandingsScreen } from "@/screens/tournaments/StandingsScreen";
 import { PointsRulesScreen } from "@/screens/tournaments/PointsRulesScreen";
+import { ScheduleScreen } from "@/screens/tournaments/ScheduleScreen";
 import { TournamentDetailScreen } from "@/screens/tournaments/TournamentDetailScreen";
 import { CreateTournamentScreen } from "@/screens/tournaments/CreateTournamentScreen";
 import { MyTournamentsScreen } from "@/screens/tournaments/MyTournamentsScreen";
@@ -39,6 +40,7 @@ export function RootNavigator() {
       <Stack.Screen name="TournamentDetail" component={TournamentDetailScreen} />
       <Stack.Screen name="Standings" component={StandingsScreen} />
       <Stack.Screen name="PointsRules" component={PointsRulesScreen} />
+      <Stack.Screen name="Schedule" component={ScheduleScreen} />
       <Stack.Screen name="Registration" component={TournamentRegistrationScreen} />
       <Stack.Screen name="MyRegistrations" component={MyRegistrationsScreen} />
       <Stack.Screen name="ManageTeams" component={ManageTeamsScreen} />

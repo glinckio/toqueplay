@@ -647,6 +647,18 @@ export function TournamentDetailScreen({ navigation, route }: any) {
               </View>
             )}
 
+            {/* So faz sentido depois da chave existir: e ela que diz quantas partidas ha. */}
+            {isOwner && tournament?.eventType === "LEAGUE" &&
+              ["BRACKET_GENERATED", "IN_PROGRESS"].includes(status ?? "") && (
+              <View style={{ marginTop: 10 }}>
+                <SecondaryButton
+                  label="Dias de jogo"
+                  accessLabel="Definir os dias de jogo da liga"
+                  onPress={() => tournament && navigation?.navigate("Schedule", { id: tournament.id })}
+                />
+              </View>
+            )}
+
             {isOwner && tournament?.eventType !== "SINGLE" && (
               <View style={{ marginTop: 10 }}>
                 <SecondaryButton

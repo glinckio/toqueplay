@@ -17,6 +17,8 @@ export enum TournamentModality {
 
 export enum TournamentEventType {
   SINGLE = "SINGLE",
+  /** Chave unica para a competicao inteira; as varias datas sao o calendario dessa chave. */
+  LEAGUE = "LEAGUE",
   CIRCUIT = "CIRCUIT",
 }
 
