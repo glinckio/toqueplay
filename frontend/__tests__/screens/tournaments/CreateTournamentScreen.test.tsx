@@ -96,7 +96,9 @@ describe("CreateTournamentScreen", () => {
     const utils = render(<CreateTournamentScreen navigation={mockNavigation} />);
     const { getByText } = utils;
     expect(getByText("Banner do torneio")).toBeTruthy();
-    expect(getByText("Evento único")).toBeTruthy();
+    // Tres formatos: unico, liga e circuito. Os rotulos sao curtos para caber lado a lado.
+    expect(getByText("Único")).toBeTruthy();
+    expect(getByText("Liga")).toBeTruthy();
     expect(getByText("Circuito")).toBeTruthy();
   });
 

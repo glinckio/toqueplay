@@ -25,6 +25,20 @@ const STEPS = ["Básico", "Estrutura", "Categorias", "Revisão"];
 const STEP_DESC = ["Nome, banner e tipo do evento", "Data, local e árbitros", "Formatos, valores e patrocínio", "Confira tudo e publique"];
 const BANNER_IMAGE = "https://images.unsplash.com/photo-1748645288738-aadf398bcd3e?fm=jpg&w=680&q=68&auto=format&fit=crop";
 
+/** Etapa da 2a em diante de um circuito. A 1a continua nos campos principais do formulario. */
+interface ExtraStage {
+  name: string;
+  date: string;
+  time: string;
+  cep: string;
+  number: string;
+  address: string;
+}
+
+const pad2 = (n: number) => n.toString().padStart(2, "0");
+const formatDateBR = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`;
+const formatTimeBR = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
 const FACILITIES = ["Estacionamento", "Banheiros", "Cantina", "Vestiário"];
 
 function maskCep(value: string): string {
@@ -89,7 +103,10 @@ export function CreateTournamentScreen({ navigation, route }: any) {
   const cardBg = isDark ? "#16181C" : "#FFFFFF";
   const cardBorder = isDark ? "rgba(255,255,255,0.07)" : "rgba(26,16,48,0.07)";
 
-  const [selectedType, setSelectedType] = useState<"unique" | "circuit">("unique");
+  const [selectedType, setSelectedType] = useState<"unique" | "league" | "circuit">("unique");
+  // Etapas extras do circuito. A etapa 1 continua sendo editada pelos campos de cima; estas sao
+  // da 2a em diante, que antes nao tinham como ser cadastradas.
+  const [extraStages, setExtraStages] = useState<ExtraStage[]>([]);
   // Regra de atleta repetido: por padrao o mesmo CPF so joga por um time no torneio.
   const [selectedFacilities, setSelectedFacilities] = useState<string[]>(["Estacionamento", "Banheiros"]);
   const [selectedGender, setSelectedGender] = useState("Masculino");
@@ -167,7 +184,20 @@ export function CreateTournamentScreen({ navigation, route }: any) {
     tournamentsService.findOne(editingId).then((t: any) => {
       setTournamentName(t.name || "");
       if (t.imageUrl) setBannerUri(t.imageUrl);
-      setSelectedType(t.eventType === "CIRCUIT" ? "circuit" : "unique");
+      setSelectedType(
+        t.eventType === "CIRCUIT" ? "circuit" : t.eventType === "LEAGUE" ? "league" : "unique",
+      );
+
+      setExtraStages(
+        (t.stages ?? []).slice(1).map((st: any) => ({
+          name: st.name ?? "",
+          date: st.date ? formatDateBR(new Date(st.date)) : "",
+          time: st.startTime ? formatTimeBR(new Date(st.startTime)) : "",
+          cep: st.cep ?? "",
+          number: st.number ?? "",
+          address: st.address ?? "",
+        })),
+      );
 
       const stage = t.stages?.[0];
       if (stage) {
@@ -299,7 +329,8 @@ export function CreateTournamentScreen({ navigation, route }: any) {
     const [city, state] = cidadeUf.includes(" - ") ? cidadeUf.split(" - ") : [cidadeUf, undefined];
 
     return {
-      eventType: selectedType === "circuit" ? "CIRCUIT" : "SINGLE",
+      eventType:
+        selectedType === "circuit" ? "CIRCUIT" : selectedType === "league" ? "LEAGUE" : "SINGLE",
       stages: [{
         name: "Etapa 1",
         date: parseDateBR(tournamentDate) || new Date().toISOString(),
@@ -314,7 +345,20 @@ export function CreateTournamentScreen({ navigation, route }: any) {
         city: city?.trim() || undefined,
         state: state?.trim() || undefined,
         facilities: selectedFacilities.map(f => ({ name: f, available: true })),
-      }],
+      },
+      // Circuito e o unico formato com mais de uma etapa: liga tem chave unica e torneio unico,
+      // por definicao, um dia so.
+      ...(selectedType === "circuit"
+        ? extraStages.map((st, i) => ({
+            name: st.name || `Etapa ${i + 2}`,
+            date: parseDateBR(st.date) || new Date().toISOString(),
+            startTime: st.time ? parseDateBR(st.date)?.replace("00:00:00", `${st.time}:00`) : undefined,
+            address: st.address || undefined,
+            cep: st.cep.replace(/\D/g, "") || undefined,
+            number: st.number || undefined,
+          }))
+        : []),
+      ],
       categories: categories.map(() => ({
         type: genderMap[selectedGender] || "MALE",
         modality: modalityMap[selectedModality] || "BEACH",
@@ -490,7 +534,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             </View>
 
             {step === 0 && <Step1Basic isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} selectedType={selectedType} setSelectedType={setSelectedType} inactivePill={inactivePill} inactivePillText={inactivePillText} bannerUri={bannerUri} onPickBanner={handlePickBanner} tournamentName={tournamentName} setTournamentName={setTournamentName} errors={errors} />}
-            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} selectedType={selectedType} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
+            {step === 1 && <Step2Structure isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedFacilities={selectedFacilities} setSelectedFacilities={setSelectedFacilities} date={tournamentDate} setDate={setTournamentDate} time={tournamentTime} setTime={setTournamentTime} cep={tournamentCep} setCep={setTournamentCep} number={tournamentNumber} setNumber={setTournamentNumber} complement={tournamentComplement} setComplement={setTournamentComplement} address={tournamentAddress} setAddress={setTournamentAddress} maxTeams={tournamentMaxTeams} setMaxTeams={setTournamentMaxTeams} extraStages={extraStages} setExtraStages={setExtraStages} selectedType={selectedType} referees={referees} refereeEmail={refereeEmail} setRefereeEmail={setRefereeEmail} addingReferee={addingReferee} onAddReferee={handleAddReferee} onRemoveReferee={handleRemoveReferee} isEditing={isEditing} cardBg={cardBg} cardBorder={cardBorder} pendingReferees={pendingReferees} setPendingReferees={setPendingReferees} errors={errors} />}
             {step === 2 && <Step3Categories isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedGender={selectedGender} setSelectedGender={setSelectedGender} selectedModality={selectedModality} setSelectedModality={setSelectedModality} selectedFormat={selectedFormat} setSelectedFormat={setSelectedFormat} selectedSets={selectedSets} setSelectedSets={setSelectedSets} selectedSemiSets={selectedSemiSets} setSelectedSemiSets={setSelectedSemiSets} selectedFinalSets={selectedFinalSets} setSelectedFinalSets={setSelectedFinalSets} inactivePill={inactivePill} inactivePillText={inactivePillText} cardBg={cardBg} cardBorder={cardBorder} categoryPrice={categoryPrice} setCategoryPrice={setCategoryPrice} categoryDeadline={categoryDeadline} setCategoryDeadline={setCategoryDeadline} sponsors={sponsors} setSponsors={setSponsors} sponsorInput={sponsorInput} setSponsorInput={setSponsorInput} categories={categories} onAddCategory={handleAddCategory} onRemoveCategory={handleRemoveCategory} />}
             {step === 3 && <Step4Review isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} accentColor={accentColor} labelColor={labelColor} textPrimary={textPrimary} onEdit={() => goToStep(0)} tournamentName={tournamentName} tournamentDate={tournamentDate} tournamentAddress={tournamentAddress} maxTeams={tournamentMaxTeams} categoryPrice={categoryPrice} selectedGender={selectedGender} selectedModality={selectedModality} selectedFormat={selectedFormat} selectedSets={selectedSets} selectedType={selectedType} categories={categories} bannerUri={bannerUri} />}
           </Animated.View>
@@ -613,7 +657,11 @@ function Step1Basic({ isDark, inputBg, inputBorder, labelColor, textPrimary, req
 
       <FieldLabel text="Tipo de evento" color={labelColor} required={required} />
       <View style={{ flexDirection: "row", gap: 10 }}>
-        {([["unique", "Evento único", "1 data"], ["circuit", "Circuito", "Várias etapas"]] as const).map(([key, label, sub]) => {
+        {([
+          ["unique", "Único", "1 data"],
+          ["league", "Liga", "Chave única"],
+          ["circuit", "Circuito", "Várias etapas"],
+        ] as const).map(([key, label, sub]) => {
           const isActive = selectedType === key;
           return (
             <Pressable key={key} onPress={() => setSelectedType(key)} style={{
@@ -623,7 +671,7 @@ function Step1Basic({ isDark, inputBg, inputBorder, labelColor, textPrimary, req
                 ? (isDark ? {} : { shadowColor: "rgba(198,248,42,0.5)", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 1, shadowRadius: 20, elevation: 8 })
                 : { borderWidth: 1, borderColor: inputBorder, ...(isDark ? {} : {}) }),
             }}>
-              <Text style={{ color: isActive ? "#12100A" : textPrimary, fontFamily: "Oswald_700Bold", fontSize: 13, fontWeight: "700" }}>{label}</Text>
+              <Text style={{ color: isActive ? "#12100A" : textPrimary, fontFamily: "Oswald_700Bold", fontSize: 12, fontWeight: "700" }}>{label}</Text>
               <Text style={{ color: isActive ? "rgba(18,16,10,0.65)" : (isDark ? "#A9A2BC" : "#6B6480"), fontFamily: "Manrope_500Medium", fontSize: 10, fontWeight: "500", marginTop: 2 }}>{sub}</Text>
             </Pressable>
           );
@@ -633,7 +681,7 @@ function Step1Basic({ isDark, inputBg, inputBorder, labelColor, textPrimary, req
   );
 }
 
-function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, selectedType, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
+function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary, required, accentColor, selectedFacilities, setSelectedFacilities, date, setDate, time, setTime, cep, setCep, number, setNumber, complement, setComplement, address, setAddress, maxTeams, setMaxTeams, extraStages, setExtraStages, selectedType, referees, refereeEmail, setRefereeEmail, addingReferee, onAddReferee, onRemoveReferee, isEditing, cardBg, cardBorder, pendingReferees, setPendingReferees, errors }: any) {
   const [loadingCep, setLoadingCep] = useState(false);
 
   const handleSearchCep = async () => {
@@ -738,6 +786,19 @@ function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary,
 
       <FieldLabel text="Máx. times" color={labelColor} required={required} />
       <TextInput value={maxTeams} onChangeText={setMaxTeams} style={{ ...inputStyle, ...textStyle, fontSize: 14, paddingHorizontal: 15, marginBottom: 14 }} placeholder="16" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} keyboardType="numeric" />
+
+      {selectedType === "circuit" && (
+        <ExtraStagesSection
+          isDark={isDark}
+          stages={extraStages}
+          setStages={setExtraStages}
+          labelColor={labelColor}
+          textPrimary={textPrimary}
+          accentColor={accentColor}
+          inputBg={inputBg}
+          inputBorder={inputBorder}
+        />
+      )}
 
       <FieldLabel text="Instalações" color={labelColor} required={required} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
@@ -1086,6 +1147,146 @@ function PillGroup({ options, selected, onSelect, isDark, inactivePill, inactive
           </Pressable>
         );
       })}
+    </View>
+  );
+}
+
+/**
+ * Etapas da 2a em diante de um circuito.
+ *
+ * Cada etapa tem data, horario e local proprios — e o que diferencia circuito de liga: ali as
+ * etapas acontecem em lugares e datas diferentes, e cada uma gera a propria chave.
+ */
+function ExtraStagesSection({
+  isDark, stages, setStages, labelColor, textPrimary, accentColor, inputBg, inputBorder,
+}: any) {
+  const atualizar = (i: number, campo: keyof ExtraStage, valor: string) => {
+    setStages((prev: ExtraStage[]) =>
+      prev.map((st, idx) => (idx === i ? { ...st, [campo]: valor } : st)),
+    );
+  };
+
+  const remover = (i: number) =>
+    setStages((prev: ExtraStage[]) => prev.filter((_, idx) => idx !== i));
+
+  const adicionar = () =>
+    setStages((prev: ExtraStage[]) => [
+      ...prev,
+      { name: "", date: "", time: "", cep: "", number: "", address: "" },
+    ]);
+
+  const inputStyle = {
+    backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder,
+    borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14,
+    color: textPrimary, fontFamily: "Manrope_500Medium", fontSize: 13,
+  } as const;
+
+  const placeholderColor = isDark ? "#6E6684" : "#8A829E";
+
+  return (
+    <View style={{ marginBottom: 18 }}>
+      <Text style={{ color: textPrimary, fontFamily: "Oswald_700Bold", fontSize: 13, letterSpacing: 0.5, marginBottom: 4 }}>
+        ETAPAS DO CIRCUITO
+      </Text>
+      <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 11, lineHeight: 16, marginBottom: 12 }}>
+        A primeira etapa é a que você preencheu acima. Adicione as demais — cada uma gera o próprio
+        chaveamento, com quem se inscrever nela.
+      </Text>
+
+      {stages.map((st: ExtraStage, i: number) => (
+        <View
+          key={i}
+          style={{
+            borderWidth: 1, borderColor: inputBorder, borderRadius: 14,
+            padding: 12, marginBottom: 10,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <Text style={{ color: accentColor, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1, textTransform: "uppercase" }}>
+              Etapa {i + 2}
+            </Text>
+            <Pressable
+              onPress={() => remover(i)}
+              accessibilityRole="button"
+              accessibilityLabel={`Remover etapa ${i + 2}`}
+              hitSlop={10}
+            >
+              <Text style={{ color: "#FF4D5E", fontFamily: "Manrope_700Bold", fontSize: 11 }}>Remover</Text>
+            </Pressable>
+          </View>
+
+          <TextInput
+            value={st.name}
+            onChangeText={(v) => atualizar(i, "name", v)}
+            placeholder={`Nome (opcional) — ex.: Guarujá`}
+            placeholderTextColor={placeholderColor}
+            style={{ ...inputStyle, marginBottom: 8 }}
+          />
+
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
+            <View style={{ flex: 1 }}>
+              <DateTimeField
+                pattern="dd/MM/yy"
+                value={st.date}
+                onChange={(v) => atualizar(i, "date", v)}
+                placeholder="dd/mm/aa"
+                accessibilityLabel={`Data da etapa ${i + 2}`}
+              >
+                {({ text, isEmpty }) => (
+                  <Text style={{ ...inputStyle, color: isEmpty ? placeholderColor : textPrimary }}>{text}</Text>
+                )}
+              </DateTimeField>
+            </View>
+            <View style={{ flex: 1 }}>
+              <DateTimeField
+                pattern="HH:mm"
+                value={st.time}
+                onChange={(v) => atualizar(i, "time", v)}
+                placeholder="hh:mm"
+                accessibilityLabel={`Horário da etapa ${i + 2}`}
+              >
+                {({ text, isEmpty }) => (
+                  <Text style={{ ...inputStyle, color: isEmpty ? placeholderColor : textPrimary }}>{text}</Text>
+                )}
+              </DateTimeField>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <TextInput
+              value={st.cep}
+              onChangeText={(v) => atualizar(i, "cep", maskCep(v))}
+              placeholder="00000-000"
+              placeholderTextColor={placeholderColor}
+              keyboardType="numeric"
+              maxLength={9}
+              style={{ ...inputStyle, flex: 1 }}
+            />
+            <TextInput
+              value={st.number}
+              onChangeText={(v) => atualizar(i, "number", v)}
+              placeholder="Nº"
+              placeholderTextColor={placeholderColor}
+              keyboardType="numeric"
+              style={{ ...inputStyle, width: 90 }}
+            />
+          </View>
+        </View>
+      ))}
+
+      <Pressable
+        onPress={adicionar}
+        accessibilityRole="button"
+        accessibilityLabel="Adicionar etapa"
+        style={{
+          borderWidth: 1.5, borderStyle: "dashed", borderColor: inputBorder,
+          borderRadius: 14, paddingVertical: 13, alignItems: "center",
+        }}
+      >
+        <Text style={{ color: accentColor, fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 1, textTransform: "uppercase" }}>
+          + Adicionar etapa
+        </Text>
+      </Pressable>
     </View>
   );
 }
