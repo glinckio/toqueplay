@@ -26,6 +26,7 @@ export type VisitorTabParamList = {
 export type RootStackParamList = {
   MainTabs: undefined;
   TournamentDetail: { id: string };
+  Standings: { id: string };
   CreateTournament: { tournamentId?: string } | undefined;
   ManageTeams: undefined;
   TeamDetail: { id: string };

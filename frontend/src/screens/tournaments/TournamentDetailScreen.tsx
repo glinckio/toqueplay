@@ -610,6 +610,18 @@ export function TournamentDetailScreen({ navigation, route }: any) {
           {/* CTA — at the end of the content (not fixed) */}
           <View style={{ marginTop: 4 }}>
             {renderCTA()}
+
+            {/* Liga e circuito acumulam pontos entre etapas; torneio unico nao tem o que somar. */}
+            {tournament?.eventType !== "SINGLE" && (
+              <View style={{ marginTop: 10 }}>
+                <SecondaryButton
+                  label="Ver classificação"
+                  accessLabel="Ver classificação do torneio"
+                  onPress={() => tournament && navigation?.navigate("Standings", { id: tournament.id })}
+                />
+              </View>
+            )}
+
             {isOwner && podeExcluir && (
               <View style={{ marginTop: 10 }}>
                 <DangerButton
