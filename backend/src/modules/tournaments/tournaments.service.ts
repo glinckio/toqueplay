@@ -3,6 +3,7 @@ import { PrismaService } from '../../common/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { NotificationService } from '../../common/services/notification.service';
 import { AppError } from '../../common/errors/app-error';
+import { DEFAULT_POINTS_RULES } from '../standings/standings.logic';
 import { assertImageFile } from '../../common/utils/file-validation';
 import { parseDate } from '../../common/utils/date';
 import { canTransition } from './tournament-state-chart';
@@ -39,6 +40,9 @@ export class TournamentsService {
         name: dto.name,
         description: dto.description,
         ownerId: userId,
+        // Sugestao de pontuacao ja na criacao, para o torneio nunca existir sem tabela.
+        // O organizador edita em PUT /tournaments/:id/points-rules.
+        pointsRules: { createMany: { data: DEFAULT_POINTS_RULES } },
       },
       include: FULL_INCLUDE,
     });
