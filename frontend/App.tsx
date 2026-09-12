@@ -40,7 +40,7 @@ import { VisitorNavigator } from "@/navigation/VisitorNavigator";
 import { SplashScreen as AppSplash } from "@/screens/splash/SplashScreen";
 import { ConsentGateScreen } from "@/screens/consent/ConsentGateScreen";
 import { privacyService } from "@/services/privacyService";
-import { usersService } from "@/services/usersService";
+// import { usersService } from "@/services/usersService"; // volta com o seletor de aparencia
 import { registerForPushNotifications } from "@/hooks/usePushNotifications";
 
 SplashScreen.preventAutoHideAsync();
@@ -107,23 +107,29 @@ export default function App() {
   const [appReady, setAppReady] = useState(false);
   const [consentChecked, setConsentChecked] = useState(false);
 
-  // Pull the saved theme preference from the account on login — this is
-  // what makes it follow the user to a new device, not just live in
-  // AsyncStorage on the one they set it on.
+  // Enquanto o seletor de aparencia esta desativado (ver SettingsScreen), o app roda fixo no
+  // escuro. Isto nao e so cosmetico: o tema persiste em AsyncStorage e tambem vem da conta, entao
+  // quem ja escolheu "claro" alguma vez ficaria preso nele, sem botao na tela para voltar.
   useEffect(() => {
-    if (!isAuthenticated) return;
-    let cancelled = false;
-    usersService.getProfile()
-      .then((profile) => {
-        if (!cancelled && (profile.themeMode === "dark" || profile.themeMode === "light")) {
-          useThemeStore.getState().setMode(profile.themeMode);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [isAuthenticated]);
+    useThemeStore.getState().setMode("dark");
+  }, []);
+
+  // Volta junto com o seletor de aparencia: puxa a preferencia salva na conta, que e o que faz
+  // o tema seguir a pessoa para outro aparelho em vez de morrer no AsyncStorage local.
+  // useEffect(() => {
+  //   if (!isAuthenticated) return;
+  //   let cancelled = false;
+  //   usersService.getProfile()
+  //     .then((profile) => {
+  //       if (!cancelled && (profile.themeMode === "dark" || profile.themeMode === "light")) {
+  //         useThemeStore.getState().setMode(profile.themeMode);
+  //       }
+  //     })
+  //     .catch(() => {});
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, [isAuthenticated]);
 
   // The Terms/Privacy modal must reflect the account's real consent record
   // (server), not just a local flag — otherwise every logout+login wipes it
