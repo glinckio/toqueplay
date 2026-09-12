@@ -1,26 +1,17 @@
 import React from "react";
-import { render, fireEvent, waitFor, act } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { CreateTournamentScreen } from "@/screens/tournaments/CreateTournamentScreen";
-
-// O picker nativo nao roda em jsdom. O mock nao renderiza nada — so guarda as props, para o
-// teste disparar o onChange como se o usuario tivesse escolhido a data.
-// (Nao da para montar um <View> aqui: o factory do jest.mock nao pode tocar no react-native,
-//  porque o nativewind injeta uma referencia externa na transformacao.)
-jest.mock("@react-native-community/datetimepicker", () => ({
-  __esModule: true,
-  default: (props: any) => {
-    (globalThis as any).__pickerProps = props;
-    return null;
-  },
-}));
 
 jest.mock("@/hooks/useTheme", () => ({
   useTheme: () => ({
     isDark: true,
     colors: {
       text: { primary: "#F5F3FA", secondary: "#CFC8E0", tertiary: "#A9A2BC", muted: "#948CA8", disabled: "#6E6684" },
+      // Usados pelo DateTimeSheet (seletor de data), que abre a partir desta tela.
+      bg: { base: "#0C0A12", card: "#141019", elevated: "#171320", interactive: "#1C1630", frame: "#050409", sheet: "#161222" },
+      border: { card: "rgba(255,255,255,0.06)", input: "rgba(255,255,255,0.08)", ghost: "rgba(255,255,255,0.1)", focused: "rgba(139,92,246,0.25)", activeLime: "#C6F82A", error: "#EF4444" },
     },
-    brand: { primary: "#7C3AED", accentLime: "#C6F82A" },
+    brand: { primary: "#7C3AED", accentLime: "#C6F82A", limeText: "#12100A", primaryLight: "#8B5CF6", purpleDeep: "#2D1B69" },
     shadows: { none: {}, sm: {}, md: {}, deeper: {}, lg: {}, purpleGlow: {}, purpleGlowSm: {} },
     semantic: {},
     toggle: jest.fn(),
@@ -53,12 +44,25 @@ function futureDate(daysAhead: number): Date {
   return d;
 }
 
-/** Abre o picker do campo e escolhe a data, no lugar de digitar. */
+/**
+ * Abre o seletor do campo e escolhe a data na grade, no lugar de digitar.
+ * O seletor e do proprio app, entao o teste navega nele como o usuario faria.
+ */
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
 function pickDate(utils: any, label: string, date: Date) {
   fireEvent.press(utils.getByLabelText(label));
-  const props = (globalThis as any).__pickerProps;
-  if (!props) throw new Error(`Picker nao abriu para "${label}"`);
-  act(() => props.onChange({ type: "set" }, date));
+  // A grade abre no mes do valor atual; anda ate o mes alvo se precisar.
+  const hoje = new Date();
+  const meses = (date.getFullYear() - hoje.getFullYear()) * 12 + (date.getMonth() - hoje.getMonth());
+  for (let i = 0; i < Math.abs(meses); i++) {
+    fireEvent.press(utils.getByLabelText(meses > 0 ? "Próximo mês" : "Mês anterior"));
+  }
+  fireEvent.press(utils.getByLabelText(`${date.getDate()} de ${MESES[date.getMonth()]}`));
+  fireEvent.press(utils.getByText("Confirmar"));
 }
 
 function fillStep1(getByPlaceholderText: any) {
