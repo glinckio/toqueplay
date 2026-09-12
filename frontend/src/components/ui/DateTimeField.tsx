@@ -1,9 +1,9 @@
 import React, { useCallback, useState } from "react";
-import { Platform, Pressable } from "react-native";
-import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { Pressable } from "react-native";
+import { DateTimeSheet } from "./DateTimeSheet";
 
 /**
- * Abre o picker nativo de data/hora e devolve o valor já na string que o formulário usa.
+ * Abre o seletor de data/hora do app e devolve o valor já na string que o formulário usa.
  *
  * O visual fica com quem chama: o `children` recebe o texto a exibir e continua sendo a mesma
  * caixa estilizada de antes — só que com `Text` no lugar do `TextInput`. Isso mantém cada tela
@@ -83,13 +83,10 @@ export function DateTimeField({
   const [open, setOpen] = useState(false);
   const mode = pattern === "HH:mm" ? "time" : "date";
 
-  const handleChange = useCallback(
-    (event: DateTimePickerEvent, selected?: Date) => {
-      // No Android o diálogo é uma janela própria: fecha sozinho e avisa via `dismissed`.
-      if (Platform.OS === "android") setOpen(false);
-      if (event.type === "dismissed" || !selected) return;
+  const handleConfirm = useCallback(
+    (selected: Date) => {
+      setOpen(false);
       onChange(formatByPattern(selected, pattern));
-      if (Platform.OS !== "android") setOpen(false);
     },
     [onChange, pattern],
   );
@@ -108,17 +105,15 @@ export function DateTimeField({
         {children({ text: value || placeholder, isEmpty })}
       </Pressable>
 
-      {open && (
-        <DateTimePicker
-          value={parseByPattern(value, pattern) ?? new Date()}
-          mode={mode}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          is24Hour
-          minimumDate={minimumDate}
-          maximumDate={maximumDate}
-          onChange={handleChange}
-        />
-      )}
+      <DateTimeSheet
+        visible={open}
+        mode={mode}
+        initial={parseByPattern(value, pattern) ?? new Date()}
+        minimumDate={minimumDate}
+        maximumDate={maximumDate}
+        onConfirm={handleConfirm}
+        onCancel={() => setOpen(false)}
+      />
     </>
   );
 }
