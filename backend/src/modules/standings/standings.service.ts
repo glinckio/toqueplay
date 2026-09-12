@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BracketType, TournamentEventType } from '@prisma/client';
+import { BracketType, TournamentEventType, TournamentStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import {
@@ -9,6 +9,13 @@ import {
   DEFAULT_POINTS_RULES,
   MatchForStandings,
 } from './standings.logic';
+
+/** A partir daqui a competicao ja esta rolando e a pontuacao vira historico. */
+const POINTS_RULES_LOCKED_FROM: TournamentStatus[] = [
+  TournamentStatus.BRACKET_GENERATED,
+  TournamentStatus.IN_PROGRESS,
+  TournamentStatus.FINISHED,
+];
 
 const MATCH_SELECT = {
   teamAId: true,
@@ -45,8 +52,23 @@ export class StandingsService {
     });
   }
 
-  /** Substitui a tabela inteira: e mais previsivel que casar linha a linha com o que veio. */
+  /**
+   * Substitui a tabela inteira: e mais previsivel que casar linha a linha com o que veio.
+   *
+   * So ate a chave ser gerada. Depois disso a colocacao ja e recalculada a cada partida, e mudar
+   * a tabela no meio reescreveria retroativamente os pontos de etapas ja disputadas — o time que
+   * foi campeao da etapa 1 acordaria com outra pontuacao.
+   */
   async replacePointsRules(tournamentId: string, rules: { placement: number; points: number }[]) {
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
+      select: { status: true },
+    });
+    if (!tournament) throw AppError.tournamentNotFound();
+    if (POINTS_RULES_LOCKED_FROM.includes(tournament.status)) {
+      throw AppError.pointsRulesLocked();
+    }
+
     return this.prisma.$transaction(async (tx) => {
       await tx.tournamentPointsRule.deleteMany({ where: { tournamentId } });
       if (rules.length > 0) {

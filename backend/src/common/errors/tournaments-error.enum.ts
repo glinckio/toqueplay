@@ -14,6 +14,7 @@ export enum TournamentsErrorCode {
   STAGE_NOT_FOUND = 'STAGE_NOT_FOUND',
   STAGE_REQUIRED_FOR_CIRCUIT = 'STAGE_REQUIRED_FOR_CIRCUIT',
   BRACKET_TYPE_NOT_ALLOWED = 'BRACKET_TYPE_NOT_ALLOWED',
+  POINTS_RULES_LOCKED = 'POINTS_RULES_LOCKED',
   MATCHES_PER_DAY_REQUIRED = 'MATCHES_PER_DAY_REQUIRED',
   NOT_ENOUGH_DATES = 'NOT_ENOUGH_DATES',
   TOURNAMENT_TOO_CLOSE_TO_EDIT = 'TOURNAMENT_TOO_CLOSE_TO_EDIT',
@@ -38,6 +39,8 @@ export const TournamentsErrorMessages: Record<TournamentsErrorCode, string> = {
   [TournamentsErrorCode.SPONSOR_NOT_FOUND]: 'Sponsor not found in this tournament',
   [TournamentsErrorCode.CIRCUIT_REQUIRES_STAGES]: 'Circuit tournaments require at least one stage',
   [TournamentsErrorCode.STAGE_DATE_TOO_SOON]: 'Stage dates must be at least 1 week in the future',
+  [TournamentsErrorCode.POINTS_RULES_LOCKED]:
+    'The points table cannot change after the bracket is generated',
   [TournamentsErrorCode.BRACKET_TYPE_NOT_ALLOWED]:
     'This bracket type is not allowed for this tournament format',
   [TournamentsErrorCode.MATCHES_PER_DAY_REQUIRED]:

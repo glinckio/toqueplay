@@ -20,6 +20,7 @@ import { useApi } from "@/hooks/useApi";
 import { tournamentsService } from "@/services/tournamentsService";
 import { useAuthStore } from "@/stores/authStore";
 import { getErrorMessage } from "@/services/api";
+import { nextPendingStage, stageIndex } from "@/shared/stages";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useTC, StatusPill } from "./_tournamentKit";
 import { formatDate } from "@/utils/dateFormat";
@@ -124,7 +125,11 @@ export function TournamentDetailScreen({ navigation, route }: any) {
   const organizerId = owner?.id;
   const description = tournament?.description;
 
-  const stage = tournament?.stages?.[0];
+  // Num circuito o que interessa e a proxima etapa pendente, nao a primeira: com 2 de 6 ja
+  // realizadas, mostrar a etapa 1 faria o torneio parecer parado no passado.
+  const stage = nextPendingStage(tournament?.stages as any) ?? tournament?.stages?.[0];
+  const stageNumber = stage ? stageIndex(tournament?.stages as any, stage.id) : 0;
+  const totalStages = tournament?.stages?.length ?? 0;
   const stageDate = stage?.date ?? tournament?.date;
   const dateStr = stageDate ? formatDate(stageDate, { day: "numeric", month: "short", year: "numeric" }) : null;
   const stageCity = stage?.city ?? tournament?.city;
@@ -359,10 +364,30 @@ export function TournamentDetailScreen({ navigation, route }: any) {
             ))}
           </View>
 
+          {/* Num torneio de varias etapas, a data e o local acima sao da proxima etapa pendente —
+              dizer qual evita o usuario achar que e a etapa 1. */}
+          {totalStages > 1 && stage && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <View style={{ backgroundColor: TC.limeTintBg, borderWidth: 1, borderColor: TC.limeTintBorder, paddingVertical: 5, paddingHorizontal: 10, borderRadius: 10 }}>
+                <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Oswald_700Bold", fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }}>
+                  Próxima · Etapa {stageNumber} de {totalStages}
+                </Text>
+              </View>
+              {!!stage.name && (
+                <Text numberOfLines={1} style={{ flex: 1, color: TC.tx2, fontFamily: "Manrope_600SemiBold", fontSize: 12 }}>
+                  {stage.name}
+                </Text>
+              )}
+            </View>
+          )}
+
           {/* Quick info chips */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 18 }}>
             {[
               dateStr ? { icon: "calendar" as const, text: dateStr } : null,
+              stage?.startTime
+                ? { icon: "clock" as const, text: formatDate(stage.startTime, { hour: "2-digit", minute: "2-digit" }) }
+                : null,
               locationStr ? { icon: "location" as const, text: locationStr } : null,
             ].filter(Boolean).map((item) => (
               <View key={item!.text} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: TC.card, borderWidth: 1, borderColor: TC.cardBorder, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 12 }}>

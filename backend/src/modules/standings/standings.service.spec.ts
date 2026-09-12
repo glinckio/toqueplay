@@ -237,4 +237,31 @@ describe('StandingsService', () => {
       await expect(service.getFinalStageQualifiers('t1')).rejects.toThrow();
     });
   });
+  describe('replacePointsRules', () => {
+    const comStatus = (status: string) =>
+      prisma.tournament.findFirst.mockResolvedValue({ id: 't1', status });
+
+    it('permite editar enquanto as inscricoes estao abertas', async () => {
+      comStatus('REGISTRATION_OPEN');
+      await service.replacePointsRules('t1', [{ placement: 1, points: 50 }]);
+      expect(prisma.tournamentPointsRule.createMany).toHaveBeenCalled();
+    });
+
+    // Depois da chave gerada a colocacao ja e recalculada a cada partida: mudar a tabela
+    // reescreveria retroativamente os pontos de quem ja disputou.
+    it('trava depois que a chave e gerada', async () => {
+      comStatus('BRACKET_GENERATED');
+      await expect(
+        service.replacePointsRules('t1', [{ placement: 1, points: 50 }]),
+      ).rejects.toThrow();
+      expect(prisma.tournamentPointsRule.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('trava com o torneio em andamento', async () => {
+      comStatus('IN_PROGRESS');
+      await expect(
+        service.replacePointsRules('t1', [{ placement: 1, points: 50 }]),
+      ).rejects.toThrow();
+    });
+  });
 });

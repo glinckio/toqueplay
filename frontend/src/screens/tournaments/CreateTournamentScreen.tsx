@@ -35,6 +35,27 @@ interface ExtraStage {
   address: string;
 }
 
+/**
+ * Consulta o ViaCEP e devolve o endereco formatado, ou null se nao achar.
+ *
+ * Extraido para as etapas extras do circuito usarem a mesma busca da etapa principal: sem isso
+ * elas ficariam sem cidade/estado e nao apareceriam na busca por torneios proximos.
+ */
+async function buscarEnderecoPorCep(cep: string): Promise<string | null> {
+  const limpo = cep.replace(/\D/g, "");
+  if (limpo.length !== 8) return null;
+  try {
+    const res = await fetch(`https://viacep.com.br/ws/${limpo}/json/`);
+    const data = await res.json();
+    if (data.erro) return null;
+    return [data.logradouro, data.bairro, `${data.localidade} - ${data.uf}`]
+      .filter(Boolean)
+      .join(", ");
+  } catch {
+    return null;
+  }
+}
+
 const pad2 = (n: number) => n.toString().padStart(2, "0");
 const formatDateBR = (d: Date) => `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${String(d.getFullYear()).slice(2)}`;
 const formatTimeBR = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -691,20 +712,10 @@ function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary,
       return;
     }
     setLoadingCep(true);
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
-      const data = await response.json();
-      if (data.erro) {
-        Alert.alert("CEP não encontrado", "Verifique o CEP digitado.");
-      } else {
-        const parts = [data.logradouro, data.bairro, `${data.localidade} - ${data.uf}`].filter(Boolean);
-        setAddress(parts.join(", "));
-      }
-    } catch {
-      Alert.alert("Erro", "Não foi possível buscar o CEP.");
-    } finally {
-      setLoadingCep(false);
-    }
+    const endereco = await buscarEnderecoPorCep(cleanCep);
+    if (endereco) setAddress(endereco);
+    else Alert.alert("CEP não encontrado", "Verifique o CEP digitado.");
+    setLoadingCep(false);
   };
 
   const toggleFacility = (f: string) => {
@@ -1169,6 +1180,16 @@ function ExtraStagesSection({
   const remover = (i: number) =>
     setStages((prev: ExtraStage[]) => prev.filter((_, idx) => idx !== i));
 
+  const [buscandoCep, setBuscandoCep] = useState<number | null>(null);
+
+  const buscarCepDaEtapa = async (i: number, cep: string) => {
+    setBuscandoCep(i);
+    const endereco = await buscarEnderecoPorCep(cep);
+    if (endereco) atualizar(i, "address", endereco);
+    else Alert.alert("CEP não encontrado", "Verifique o CEP digitado.");
+    setBuscandoCep(null);
+  };
+
   const adicionar = () =>
     setStages((prev: ExtraStage[]) => [
       ...prev,
@@ -1252,7 +1273,7 @@ function ExtraStagesSection({
             </View>
           </View>
 
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <TextInput
               value={st.cep}
               onChangeText={(v) => atualizar(i, "cep", maskCep(v))}
@@ -1262,15 +1283,34 @@ function ExtraStagesSection({
               maxLength={9}
               style={{ ...inputStyle, flex: 1 }}
             />
+            <Pressable
+              onPress={() => void buscarCepDaEtapa(i, st.cep)}
+              disabled={buscandoCep === i}
+              accessibilityRole="button"
+              accessibilityLabel={`Buscar CEP da etapa ${i + 2}`}
+              style={{ paddingHorizontal: 10, paddingVertical: 11 }}
+            >
+              {buscandoCep === i ? (
+                <ActivityIndicator size="small" color={accentColor} />
+              ) : (
+                <Text style={{ color: accentColor, fontFamily: "Manrope_700Bold", fontSize: 11 }}>Buscar</Text>
+              )}
+            </Pressable>
             <TextInput
               value={st.number}
               onChangeText={(v) => atualizar(i, "number", v)}
               placeholder="Nº"
               placeholderTextColor={placeholderColor}
               keyboardType="numeric"
-              style={{ ...inputStyle, width: 90 }}
+              style={{ ...inputStyle, width: 70 }}
             />
           </View>
+
+          {!!st.address && (
+            <Text style={{ color: labelColor, fontFamily: "Manrope_500Medium", fontSize: 11, marginTop: 8 }}>
+              {st.address}
+            </Text>
+          )}
         </View>
       ))}
 
