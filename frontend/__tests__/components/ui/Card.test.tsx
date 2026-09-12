@@ -3,13 +3,6 @@ import { Text } from "react-native";
 import { render, fireEvent } from "@testing-library/react-native";
 import { Card } from "@/components/ui/Card";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    shadows: { none: {}, sm: {}, md: {}, deeper: {}, lg: {}, purpleGlow: {}, purpleGlowSm: {} },
-  }),
-}));
-
 describe("Card", () => {
   it("renders children", () => {
     const { getByText } = render(

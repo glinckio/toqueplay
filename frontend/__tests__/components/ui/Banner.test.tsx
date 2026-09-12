@@ -2,10 +2,6 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 import { Banner } from "@/components/ui/Banner";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({ isDark: true }),
-}));
-
 describe("Banner", () => {
   it("renders warning variant", () => {
     const { getByText } = render(<Banner variant="warning" message="Atenção!" />);

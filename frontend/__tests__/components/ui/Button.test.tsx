@@ -2,22 +2,6 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { Button, IconButton } from "@/components/ui/Button";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    brand: { primary: "#7C3AED", accentLime: "#C6F82A" },
-    colors: {
-      text: { primary: "#F5F3FA", secondary: "#CFC8E0", muted: "#948CA8", disabled: "#6E6684" },
-      bg: { card: "#141019" },
-      border: { card: "rgba(255,255,255,0.06)" },
-      accent: { active: "#C6F82A" },
-    },
-    shadows: { none: {}, sm: {}, md: {}, deeper: {}, lg: {}, purpleGlow: {}, purpleGlowSm: {} },
-    semantic: {},
-    toggle: jest.fn(),
-  }),
-}));
-
 jest.mock("react-native-reanimated", () => {
   const View = require("react-native").View;
   return {

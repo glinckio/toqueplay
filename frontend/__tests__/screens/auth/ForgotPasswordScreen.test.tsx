@@ -2,19 +2,6 @@ import React from "react";
 import { render, fireEvent, within } from "@testing-library/react-native";
 import { ForgotPasswordScreen } from "@/screens/auth/ForgotPasswordScreen";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    colors: {
-      text: { primary: "#F5F3FA", secondary: "#CFC8E0", tertiary: "#A9A2BC", muted: "#948CA8", disabled: "#6E6684" },
-    },
-    brand: { primary: "#7C3AED", accentLime: "#C6F82A" },
-    shadows: { none: {}, sm: {}, md: {}, deeper: {}, lg: {}, purpleGlow: {}, purpleGlowSm: {} },
-    semantic: {},
-    toggle: jest.fn(),
-  }),
-}));
-
 jest.mock("expo-linear-gradient", () => ({
   LinearGradient: "LinearGradient",
 }));

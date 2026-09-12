@@ -2,15 +2,6 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { Input } from "@/components/ui/Input";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    colors: {
-      text: { primary: "#F5F3FA", tertiary: "#A9A2BC", muted: "#948CA8", disabled: "#6E6684" },
-    },
-  }),
-}));
-
 describe("Input", () => {
   it("renders label", () => {
     const { getByText } = render(<Input label="Email" />);

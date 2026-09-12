@@ -2,10 +2,6 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { Toggle } from "@/components/ui/Toggle";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({ isDark: true }),
-}));
-
 jest.mock("react-native-reanimated", () => {
   const View = require("react-native").View;
   return {

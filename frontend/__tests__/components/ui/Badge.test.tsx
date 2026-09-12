@@ -2,10 +2,6 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 import { Badge } from "@/components/ui/Badge";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({ isDark: true }),
-}));
-
 describe("Badge", () => {
   const statuses = [
     "paid", "accepted", "open", "pending", "rejected",

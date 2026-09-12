@@ -2,19 +2,6 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { VerifyEmailScreen } from "@/screens/auth/VerifyEmailScreen";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    colors: {
-      text: { primary: "#F5F3FA", secondary: "#CFC8E0", tertiary: "#A9A2BC", muted: "#948CA8", disabled: "#6E6684" },
-    },
-    brand: { primary: "#7C3AED", accentLime: "#C6F82A" },
-    shadows: { none: {}, sm: {}, md: {}, deeper: {}, lg: {}, purpleGlow: {}, purpleGlowSm: {} },
-    semantic: {},
-    toggle: jest.fn(),
-  }),
-}));
-
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),

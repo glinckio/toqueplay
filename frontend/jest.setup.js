@@ -1,3 +1,53 @@
+// Navegacao: parte do modulo real, sobrescrevendo so o que o teste precisa controlar.
+//
+// Antes cada arquivo montava o proprio objeto e varios esqueciam `useFocusEffect`, que e o que
+// as telas usam para recarregar ao voltar — dai "useFocusEffect is not a function". Partir do
+// modulo real garante que nada fique faltando.
+jest.mock("@react-navigation/native", () => {
+  const actual = jest.requireActual("@react-navigation/native");
+  return {
+    ...actual,
+    useNavigation: () => ({
+      navigate: jest.fn(),
+      goBack: jest.fn(),
+      setOptions: jest.fn(),
+      addListener: jest.fn(() => jest.fn()),
+    }),
+    useIsFocused: () => true,
+    // Roda como efeito, nao durante o render: chamar direto dispara setState na fase de render.
+    useFocusEffect: (cb) => {
+      const React = require("react");
+      React.useEffect(() => {
+        const cleanup = cb();
+        return typeof cleanup === "function" ? cleanup : undefined;
+      }, []);
+    },
+  };
+});
+
+// Tema real como mock padrao de useTheme.
+//
+// Antes cada arquivo de teste montava o objeto de tema na mao, e quase todos so declaravam
+// `colors.text` — qualquer componente que lesse `colors.bg` ou `colors.border` quebrava com
+// "Cannot read properties of undefined". Usar o tema de verdade elimina a classe inteira de erro
+// e nao deixa o mock envelhecer quando um token novo aparece.
+// Um teste que precise de outro tema ainda pode sobrescrever com seu proprio jest.mock.
+jest.mock("@/hooks/useTheme", () => ({
+  useTheme: () => {
+    const { getThemeColors, brand, semantic } = require("@/theme/colors");
+    const { shadowsDark } = require("@/theme/shadows");
+    return {
+      mode: "dark",
+      isDark: true,
+      colors: getThemeColors("dark"),
+      brand,
+      semantic,
+      shadows: shadowsDark,
+      toggle: jest.fn(),
+    };
+  },
+}));
+
 // Mock oficial da lib: sem ele o modulo tenta falar com o codigo nativo e o import quebra
 // com "doesn't seem to be linked". O pacote so exporta o objeto — registrar e por nossa conta.
 jest.mock("react-native-keyboard-controller", () =>

@@ -2,10 +2,6 @@ import React from "react";
 import { render } from "@testing-library/react-native";
 import { Avatar } from "@/components/ui/Avatar";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({ isDark: true }),
-}));
-
 jest.mock("expo-linear-gradient", () => ({
   LinearGradient: ({ children, ...props }: any) => {
     const { View } = require("react-native");

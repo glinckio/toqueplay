@@ -2,15 +2,6 @@ import React from "react";
 import { render, fireEvent } from "@testing-library/react-native";
 import { SearchInput } from "@/components/ui/SearchInput";
 
-jest.mock("@/hooks/useTheme", () => ({
-  useTheme: () => ({
-    isDark: true,
-    colors: {
-      text: { primary: "#F5F3FA", muted: "#948CA8", disabled: "#6E6684" },
-    },
-  }),
-}));
-
 describe("SearchInput", () => {
   it("renders placeholder", () => {
     const { getByPlaceholderText } = render(
