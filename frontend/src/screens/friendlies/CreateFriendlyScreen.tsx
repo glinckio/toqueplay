@@ -11,7 +11,7 @@ import {
   Modal,
   FlatList,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -349,8 +349,7 @@ export function CreateFriendlyScreen({ navigation }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: screenBg }} edges={["top"]}>
       <StatusBar barStyle={isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-        <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 24 }}>
@@ -635,8 +634,7 @@ export function CreateFriendlyScreen({ navigation }: any) {
               <View style={{ position: "absolute", right: -9, top: "50%", marginTop: -9, width: 18, height: 18, borderRadius: 9, backgroundColor: screenBg }} />
             </Pressable>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
 
       {/* My Team Selection Modal */}
       <Modal

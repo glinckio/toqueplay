@@ -2,12 +2,11 @@ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   StatusBar,
   Dimensions,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -81,8 +80,7 @@ export function LoginScreen({ navigation }: Props) {
   return (
     <View style={{ flex: 1, backgroundColor: AC.bg }}>
       <StatusBar barStyle={AC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 28 }} keyboardShouldPersistTaps="handled" bounces={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingBottom: 28 }} keyboardShouldPersistTaps="handled" bounces={false}>
 
           {/* ===== FULL-BLEED HERO ===== */}
           <View style={{ height: HERO_H, position: "relative" }}>
@@ -189,8 +187,7 @@ export function LoginScreen({ navigation }: Props) {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
     </View>
   );
 }

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   TextInput,
   Alert,
@@ -11,7 +10,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -453,7 +452,6 @@ export function CreateTournamentScreen({ navigation, route }: any) {
 
   return (
     <SafeAreaView edges={["top"]} style={{ flex: 1, backgroundColor: bgBase }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
         {/* Header */}
         <View style={{ paddingHorizontal: 22, paddingTop: 14 }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 16 }}>
@@ -493,7 +491,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={120} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
           <Animated.View key={step} style={{ opacity: stepOpacity, transform: [{ translateX: stepTranslateX }] }}>
             {/* Step hero */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 22 }}>
@@ -512,13 +510,14 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             {step === 2 && <Step3Categories isDark={isDark} inputBg={inputBg} inputBorder={inputBorder} labelColor={labelColor} textPrimary={textPrimary} required={required} accentColor={accentColor} selectedGender={selectedGender} setSelectedGender={setSelectedGender} selectedModality={selectedModality} setSelectedModality={setSelectedModality} selectedFormat={selectedFormat} setSelectedFormat={setSelectedFormat} selectedSets={selectedSets} setSelectedSets={setSelectedSets} selectedSemiSets={selectedSemiSets} setSelectedSemiSets={setSelectedSemiSets} selectedFinalSets={selectedFinalSets} setSelectedFinalSets={setSelectedFinalSets} inactivePill={inactivePill} inactivePillText={inactivePillText} cardBg={cardBg} cardBorder={cardBorder} categoryPrice={categoryPrice} setCategoryPrice={setCategoryPrice} categoryDeadline={categoryDeadline} setCategoryDeadline={setCategoryDeadline} sponsors={sponsors} setSponsors={setSponsors} sponsorInput={sponsorInput} setSponsorInput={setSponsorInput} categories={categories} onAddCategory={handleAddCategory} onRemoveCategory={handleRemoveCategory} />}
             {step === 3 && <Step4Review isDark={isDark} cardBg={cardBg} cardBorder={cardBorder} accentColor={accentColor} labelColor={labelColor} textPrimary={textPrimary} onEdit={() => goToStep(0)} tournamentName={tournamentName} tournamentDate={tournamentDate} tournamentAddress={tournamentAddress} maxTeams={tournamentMaxTeams} categoryPrice={categoryPrice} selectedGender={selectedGender} selectedModality={selectedModality} selectedFormat={selectedFormat} selectedSets={selectedSets} selectedType={selectedType} categories={categories} bannerUri={bannerUri} />}
           </Animated.View>
-        </ScrollView>
+        </KeyboardAwareScrollView>
 
-        {/* Footer */}
+        {/* Footer — KeyboardStickyView faz ele acompanhar o teclado em vez de ficar coberto */}
+        <KeyboardStickyView style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
         <LinearGradient
           colors={isDark ? ["rgba(14,11,20,0)", bgBase] : ["rgba(246,244,252,0)", bgBase]}
           locations={[0, 0.3]}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26, flexDirection: step < 3 ? "row" : "column", gap: step < 3 ? 12 : 10 }}
+          style={{ paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26, flexDirection: step < 3 ? "row" : "column", gap: step < 3 ? 12 : 10 }}
         >
           {step < 3 ? (
             <>
@@ -557,7 +556,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             </>
           )}
         </LinearGradient>
-      </KeyboardAvoidingView>
+        </KeyboardStickyView>
     </SafeAreaView>
   );
 }

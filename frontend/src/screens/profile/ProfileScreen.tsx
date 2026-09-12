@@ -11,7 +11,7 @@ import {
   Share,
   ActivityIndicator,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -232,8 +232,7 @@ export function ProfileScreen({ navigation }: any) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={["top"]}>
         <StatusBar barStyle={C.isDark ? "light-content" : "dark-content"} />
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-          <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 14, paddingHorizontal: 20 }}>
               {/* Header */}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, marginBottom: 24 }}>
@@ -279,8 +278,7 @@ export function ProfileScreen({ navigation }: any) {
                 {renderBioField()}
               </View>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAwareScrollView>
       </SafeAreaView>
     );
   }

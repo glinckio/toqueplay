@@ -2,12 +2,11 @@ import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   StatusBar,
   Dimensions,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Icon } from "@/components/ui/Icon";
 import { Banner } from "@/components/ui/Banner";
@@ -79,8 +78,7 @@ export function RegisterScreen({ navigation }: Props) {
   return (
     <View style={{ flex: 1, backgroundColor: AC.bg }}>
       <StatusBar barStyle={AC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" bounces={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingBottom: 30 }} keyboardShouldPersistTaps="handled" bounces={false}>
           <AuthHero
             image={HERO_IMAGE}
             height={HERO_H}
@@ -147,8 +145,7 @@ export function RegisterScreen({ navigation }: Props) {
               </Text>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
     </View>
   );
 }

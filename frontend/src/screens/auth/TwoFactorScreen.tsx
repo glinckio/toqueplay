@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { View, Text, Pressable } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import Svg, { Path, Circle } from "react-native-svg";
@@ -57,8 +57,7 @@ export function TwoFactorScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: AC.bg }} edges={["top"]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 22, paddingTop: 20 }} keyboardShouldPersistTaps="handled" bounces={false} showsVerticalScrollIndicator={false}>
           <BackButton title="Voltar" onPress={() => navigation.goBack()} />
 
           {/* Shield icon */}
@@ -122,8 +121,7 @@ export function TwoFactorScreen({ navigation, route }: Props) {
               Use o código temporário do Google Authenticator ou app similar.
             </Text>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

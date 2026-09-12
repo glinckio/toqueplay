@@ -2,14 +2,13 @@ import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
-  ScrollView,
   Pressable,
   StatusBar,
   TextInput,
   Alert,
   ActivityIndicator,
 } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
@@ -131,8 +130,7 @@ export function CreateTeamScreen({ navigation, route }: any) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: TC.bg }} edges={["top"]}>
       <StatusBar barStyle={TC.isDark ? "light-content" : "dark-content"} />
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" automaticOffset>
-        <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
           <View style={{ paddingHorizontal: 22, paddingTop: 16 }}>
             {/* Header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 28 }}>
@@ -285,8 +283,7 @@ export function CreateTeamScreen({ navigation, route }: any) {
               </Pressable>
             </View>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
