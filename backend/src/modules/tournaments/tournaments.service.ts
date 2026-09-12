@@ -92,10 +92,6 @@ export class TournamentsService {
         where: { id: tournamentId },
         data: {
           eventType: dto.eventType,
-          // Omitido no payload = mantem o valor atual, em vez de voltar ao padrao.
-          ...(dto.allowSameAthleteMultipleTeams !== undefined && {
-            allowSameAthleteMultipleTeams: dto.allowSameAthleteMultipleTeams,
-          }),
           stages: dto.stages
             ? {
                 create: geocodedStages.map((s) => ({

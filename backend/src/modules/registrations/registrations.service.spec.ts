@@ -258,7 +258,7 @@ describe('RegistrationsService', () => {
 
     it('recusa quando o CPF ja esta inscrito por outro time', async () => {
       prepara(
-        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        { ...mockTournament },
         [{ cpf: '12345678901' }, { cpf: '98765432100' }],
         { id: 'rm-existente' },
       );
@@ -268,21 +268,9 @@ describe('RegistrationsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('permite quando o organizador liberou a troca de time na liga', async () => {
-      prepara(
-        { ...mockTournament, allowSameAthleteMultipleTeams: true },
-        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
-        { id: 'rm-existente' },
-      );
-
-      await expect(
-        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
-      ).resolves.toBeDefined();
-    });
-
     it('permite quando o CPF ainda nao esta em nenhum outro time', async () => {
       prepara(
-        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        { ...mockTournament },
         [{ cpf: '12345678901' }, { cpf: '98765432100' }],
         null,
       );
@@ -294,7 +282,7 @@ describe('RegistrationsService', () => {
 
     it('membro sem CPF cadastrado nao e bloqueado (nao ha como cruzar)', async () => {
       prepara(
-        { ...mockTournament, allowSameAthleteMultipleTeams: false },
+        { ...mockTournament },
         [{ cpf: null }, { cpf: null }],
         { id: 'rm-existente' },
       );
@@ -462,7 +450,6 @@ describe('RegistrationsService', () => {
       prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         eventType: TournamentEventType.CIRCUIT,
-        allowSameAthleteMultipleTeams: false,
       });
       prisma.tournamentStage.findFirst.mockResolvedValue({ id: 'stage-2', tournamentId: 't1' });
       const { findFirst } = espiaTx(mockRegistration);
@@ -482,7 +469,6 @@ describe('RegistrationsService', () => {
       prisma.tournament.findFirst.mockResolvedValue({
         ...mockTournament,
         eventType: TournamentEventType.LEAGUE,
-        allowSameAthleteMultipleTeams: false,
       });
       const { findFirst } = espiaTx(mockRegistration);
 

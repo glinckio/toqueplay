@@ -150,10 +150,9 @@ export class RegistrationsService {
       }
 
       // A checagem acima e por teamMemberId — a mesma pessoa cadastrada em dois times tem ids
-      // diferentes e passaria batido. Numa liga de varias etapas isso deixaria o atleta jogar por
-      // times distintos. A comparacao por CPF fecha essa brecha; o organizador pode liberar
-      // ligando allowSameAthleteMultipleTeams no torneio.
-      if (!tournament.allowSameAthleteMultipleTeams) {
+      // diferentes e passaria batido. A comparacao por CPF fecha essa brecha.
+      // Nao ha opcao de desligar: o escopo acima ja diz o que vale em cada formato.
+      {
         const membros = await tx.teamMember.findMany({
           where: { id: { in: dto.memberIds } },
           select: { cpf: true },

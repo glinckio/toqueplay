@@ -14,7 +14,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   TOURNAMENT_CANNOT_DELETE:
     "Não é possível excluir um torneio em andamento ou já concluído. O histórico de partidas pertence também a quem se inscreveu.",
   ATHLETE_ALREADY_IN_TOURNAMENT:
-    "Este atleta já está inscrito por outro time neste torneio. O organizador pode liberar a participação em mais de um time nas configurações do torneio.",
+    "Este atleta já está inscrito por outro time. Numa liga o atleta fica preso ao time pela competição inteira; num circuito, pode trocar de time entre etapas, mas não jogar por dois times na mesma etapa.",
+  STAGE_REQUIRED_FOR_CIRCUIT: "Escolha a etapa do circuito para se inscrever.",
   PUBLISH_MISSING_FIELDS: "Preencha todos os campos obrigatórios antes de publicar.",
   INVALID_COORDINATES: "Localização inválida. Verifique o endereço.",
   CANNOT_CHANGE_CORE_FIELDS: "Não é possível alterar o tipo ou formato depois de publicar.",
