@@ -27,6 +27,7 @@ export type RootStackParamList = {
   MainTabs: undefined;
   TournamentDetail: { id: string };
   Standings: { id: string };
+  PointsRules: { id: string };
   CreateTournament: { tournamentId?: string } | undefined;
   ManageTeams: undefined;
   TeamDetail: { id: string };

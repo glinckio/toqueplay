@@ -622,6 +622,16 @@ export function TournamentDetailScreen({ navigation, route }: any) {
               </View>
             )}
 
+            {isOwner && tournament?.eventType !== "SINGLE" && (
+              <View style={{ marginTop: 10 }}>
+                <SecondaryButton
+                  label="Tabela de pontos"
+                  accessLabel="Editar tabela de pontos"
+                  onPress={() => tournament && navigation?.navigate("PointsRules", { id: tournament.id })}
+                />
+              </View>
+            )}
+
             {isOwner && podeExcluir && (
               <View style={{ marginTop: 10 }}>
                 <DangerButton
