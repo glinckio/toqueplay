@@ -12,6 +12,7 @@ import {
   FlatList,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -419,25 +420,30 @@ export function CreateFriendlyScreen({ navigation }: any) {
                 <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 12, marginBottom: 7 }}>
                   Data<Text style={{ color: accentColor }}> *</Text>
                 </Text>
-                <View style={{
-                  flexDirection: "row", alignItems: "center", gap: 8,
-                  backgroundColor: inputBg, borderWidth: 1, borderColor: errors.date ? "#FF4D5E" : inputBorder,
-                  borderRadius: 14, padding: 12, paddingHorizontal: 15,
-                  ...lightShadow,
-                }}>
-                  <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2}>
-                    <Rect x={3} y={4} width={18} height={18} rx={3} />
-                    <Path d="M16 2v4M8 2v4M3 10h18" />
-                  </Svg>
-                  <TextInput
-                    value={date}
-                    onChangeText={(v) => { setDate(v); if (errors.date) setErrors((p) => ({ ...p, date: undefined })); }}
-                    placeholder="DD/MM/AAAA"
-                    placeholderTextColor={placeholderColor}
-                    style={{ flex: 1, color: inputText, fontFamily: "Manrope_500Medium", fontSize: 13, padding: 0 }}
-                    accessibilityLabel="Data do amistoso"
-                  />
-                </View>
+                <DateTimeField
+                  pattern="dd/MM/yyyy"
+                  value={date}
+                  onChange={(v) => { setDate(v); if (errors.date) setErrors((p) => ({ ...p, date: undefined })); }}
+                  placeholder="DD/MM/AAAA"
+                  accessibilityLabel="Data do amistoso"
+                >
+                  {({ text, isEmpty }) => (
+                    <View style={{
+                      flexDirection: "row", alignItems: "center", gap: 8,
+                      backgroundColor: inputBg, borderWidth: 1, borderColor: errors.date ? "#FF4D5E" : inputBorder,
+                      borderRadius: 14, padding: 12, paddingHorizontal: 15,
+                      ...lightShadow,
+                    }}>
+                      <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2}>
+                        <Rect x={3} y={4} width={18} height={18} rx={3} />
+                        <Path d="M16 2v4M8 2v4M3 10h18" />
+                      </Svg>
+                      <Text style={{ flex: 1, color: isEmpty ? placeholderColor : inputText, fontFamily: "Manrope_500Medium", fontSize: 13 }}>
+                        {text}
+                      </Text>
+                    </View>
+                  )}
+                </DateTimeField>
                 {errors.date ? (
                   <Text style={{ color: "#FF4D5E", fontFamily: "Manrope_600SemiBold", fontSize: 11, marginTop: 6 }}>{errors.date}</Text>
                 ) : null}
@@ -446,25 +452,30 @@ export function CreateFriendlyScreen({ navigation }: any) {
                 <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 12, marginBottom: 7 }}>
                   Horário
                 </Text>
-                <View style={{
-                  flexDirection: "row", alignItems: "center", gap: 8,
-                  backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder,
-                  borderRadius: 14, padding: 12, paddingHorizontal: 15,
-                  ...lightShadow,
-                }}>
-                  <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2}>
-                    <Circle cx={12} cy={12} r={9} />
-                    <Path d="M12 7v5l3 3" />
-                  </Svg>
-                  <TextInput
-                    value={time}
-                    onChangeText={setTime}
-                    placeholder="HH:MM"
-                    placeholderTextColor={placeholderColor}
-                    style={{ flex: 1, color: inputText, fontFamily: "Manrope_500Medium", fontSize: 13, padding: 0 }}
-                    accessibilityLabel="Horário do amistoso"
-                  />
-                </View>
+                <DateTimeField
+                  pattern="HH:mm"
+                  value={time}
+                  onChange={setTime}
+                  placeholder="HH:MM"
+                  accessibilityLabel="Horário do amistoso"
+                >
+                  {({ text, isEmpty }) => (
+                    <View style={{
+                      flexDirection: "row", alignItems: "center", gap: 8,
+                      backgroundColor: inputBg, borderWidth: 1, borderColor: inputBorder,
+                      borderRadius: 14, padding: 12, paddingHorizontal: 15,
+                      ...lightShadow,
+                    }}>
+                      <Svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth={2}>
+                        <Circle cx={12} cy={12} r={9} />
+                        <Path d="M12 7v5l3 3" />
+                      </Svg>
+                      <Text style={{ flex: 1, color: isEmpty ? placeholderColor : inputText, fontFamily: "Manrope_500Medium", fontSize: 13 }}>
+                        {text}
+                      </Text>
+                    </View>
+                  )}
+                </DateTimeField>
               </View>
             </View>
 

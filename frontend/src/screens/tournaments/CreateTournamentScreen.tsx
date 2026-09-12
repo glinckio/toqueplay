@@ -11,6 +11,7 @@ import {
   Easing,
 } from "react-native";
 import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
+import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -26,19 +27,6 @@ const STEP_DESC = ["Nome, banner e tipo do evento", "Data, local e árbitros", "
 const BANNER_IMAGE = "https://images.unsplash.com/photo-1748645288738-aadf398bcd3e?fm=jpg&w=680&q=68&auto=format&fit=crop";
 
 const FACILITIES = ["Estacionamento", "Banheiros", "Cantina", "Vestiário"];
-
-function maskDate(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 6);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
-}
-
-function maskTime(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 4);
-  if (digits.length <= 2) return digits;
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
-}
 
 function maskCep(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 8);
@@ -693,18 +681,26 @@ function Step2Structure({ isDark, inputBg, inputBorder, labelColor, textPrimary,
       <View style={{ flexDirection: "row", gap: 12, marginBottom: 14 }}>
         <View style={{ flex: 1 }}>
           <FieldLabel text="Data" isRequired color={labelColor} required={required} />
-          <View style={{ ...inputStyle, borderColor: errors?.date ? "#FF4D5E" : inputBorder, flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Icon name="calendar" size={15} color={isDark ? "#8B5CF6" : "#7C3AED"} />
-            <TextInput value={date} onChangeText={(v) => setDate(maskDate(v))} keyboardType="numeric" maxLength={8} style={{ ...textStyle, flex: 1 }} placeholder="dd/mm/aa" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} />
-          </View>
+          <DateTimeField pattern="dd/MM/yy" value={date} onChange={setDate} placeholder="dd/mm/aa" accessibilityLabel="Data do torneio">
+            {({ text, isEmpty }) => (
+              <View style={{ ...inputStyle, borderColor: errors?.date ? "#FF4D5E" : inputBorder, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Icon name="calendar" size={15} color={isDark ? "#8B5CF6" : "#7C3AED"} />
+                <Text style={{ ...textStyle, flex: 1, color: isEmpty ? (isDark ? "#6E6684" : "#8A829E") : textStyle.color }}>{text}</Text>
+              </View>
+            )}
+          </DateTimeField>
           <FieldError text={errors?.date} />
         </View>
         <View style={{ flex: 1 }}>
           <FieldLabel text="Horário" color={labelColor} required={required} />
-          <View style={{ ...inputStyle, flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <Icon name="clock" size={15} color={isDark ? "#8B5CF6" : "#7C3AED"} />
-            <TextInput value={time} onChangeText={(v) => setTime(maskTime(v))} keyboardType="numeric" maxLength={5} style={{ ...textStyle, flex: 1 }} placeholder="hh:mm" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} />
-          </View>
+          <DateTimeField pattern="HH:mm" value={time} onChange={setTime} placeholder="hh:mm" accessibilityLabel="Horário do torneio">
+            {({ text, isEmpty }) => (
+              <View style={{ ...inputStyle, flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <Icon name="clock" size={15} color={isDark ? "#8B5CF6" : "#7C3AED"} />
+                <Text style={{ ...textStyle, flex: 1, color: isEmpty ? (isDark ? "#6E6684" : "#8A829E") : textStyle.color }}>{text}</Text>
+              </View>
+            )}
+          </DateTimeField>
         </View>
       </View>
 
@@ -943,7 +939,11 @@ function Step3Categories({ isDark, labelColor, textPrimary, required, accentColo
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: labelColor, fontFamily: "Manrope_600SemiBold", fontSize: 11, fontWeight: "600", marginBottom: 7 }}>Prazo insc.</Text>
-              <TextInput value={categoryDeadline} onChangeText={(v) => setCategoryDeadline(maskDate(v))} keyboardType="numeric" maxLength={8} style={{ ...fieldInputStyle, ...fieldTextStyle }} placeholder="dd/mm/aa" placeholderTextColor={isDark ? "#6E6684" : "#8A829E"} />
+              <DateTimeField pattern="dd/MM/yy" value={categoryDeadline} onChange={setCategoryDeadline} placeholder="dd/mm/aa" accessibilityLabel="Prazo de inscrição">
+                {({ text, isEmpty }) => (
+                  <Text style={{ ...fieldInputStyle, ...fieldTextStyle, color: isEmpty ? (isDark ? "#6E6684" : "#8A829E") : fieldTextStyle.color }}>{text}</Text>
+                )}
+              </DateTimeField>
             </View>
           </View>
 
