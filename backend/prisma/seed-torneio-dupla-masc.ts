@@ -13,6 +13,16 @@ import * as bcrypt from 'bcrypt';
 const prisma = new PrismaClient();
 const PASSWORD = '123456';
 
+/** Toda chave e inscricao pertence a uma etapa; nos seeds sempre a primeira do torneio. */
+async function firstStageId(tournamentId: string): Promise<string> {
+  const stage = await prisma.tournamentStage.findFirst({
+    where: { tournamentId },
+    orderBy: { date: 'asc' },
+  });
+  if (!stage) throw new Error(`Torneio ${tournamentId} nao tem etapa cadastrada`);
+  return stage.id;
+}
+
 async function main() {
   console.log('Seeding torneio dupla masculino (12 times)...\n');
 
@@ -147,6 +157,7 @@ async function main() {
     const reg = await prisma.registration.create({
       data: {
         tournamentId: tournament.id,
+        stageId: await firstStageId(tournament.id),
         categoryId: category.id,
         teamId: team.id,
         userId: team.ownerId,

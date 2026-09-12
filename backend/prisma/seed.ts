@@ -22,6 +22,16 @@ const BASE_LNG = -51.1358;
 const KM_PER_DEG_LAT = 111;
 const KM_PER_DEG_LNG = 111 * Math.cos((BASE_LAT * Math.PI) / 180);
 
+/** Toda chave e inscricao pertence a uma etapa; nos seeds sempre a primeira do torneio. */
+async function firstStageId(tournamentId: string): Promise<string> {
+  const stage = await prisma.tournamentStage.findFirst({
+    where: { tournamentId },
+    orderBy: { date: 'asc' },
+  });
+  if (!stage) throw new Error(`Torneio ${tournamentId} nao tem etapa cadastrada`);
+  return stage.id;
+}
+
 function pointAtDistanceKm(km: number) {
   return { latitude: BASE_LAT + km / KM_PER_DEG_LAT, longitude: BASE_LNG };
 }
@@ -89,6 +99,7 @@ async function seedRegistrationOpenTeams(
     await prisma.registration.create({
       data: {
         tournamentId,
+        stageId: await firstStageId(tournamentId),
         categoryId,
         teamId: team.id,
         userId: captain.id,
@@ -148,6 +159,7 @@ async function seedInProgressTournament(tournamentId: string, categoryId: string
     await prisma.registration.create({
       data: {
         tournamentId,
+        stageId: await firstStageId(tournamentId),
         categoryId,
         teamId: team.id,
         userId: captain.id,
@@ -160,12 +172,12 @@ async function seedInProgressTournament(tournamentId: string, categoryId: string
     });
   }
 
-  const existingBracket = await prisma.bracket.findUnique({ where: { tournamentId_categoryId: { tournamentId, categoryId } } });
+  const existingBracket = await prisma.bracket.findUnique({ where: { categoryId_stageId: { categoryId, stageId: await firstStageId(tournamentId) } } });
   if (existingBracket) return;
 
   // Fixed at 4 confirmed teams (power of 2) so the bracket needs no byes:
   // two scheduled semifinals feeding a still-empty final.
-  const bracket = await prisma.bracket.create({ data: { tournamentId, categoryId, type: BracketType.SINGLE_ELIMINATION } });
+  const bracket = await prisma.bracket.create({ data: { tournamentId, stageId: await firstStageId(tournamentId), categoryId, type: BracketType.SINGLE_ELIMINATION } });
 
   const final = await prisma.match.create({
     data: { bracketId: bracket.id, round: 2, position: 0, status: MatchStatus.SCHEDULED, bestOfSets: 3 },
