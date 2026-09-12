@@ -6,6 +6,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { MatchStatus } from '@prisma/client';
 import { RankingService } from '../ranking/ranking.service';
 import { BracketsService } from '../brackets/brackets.service';
+import { StandingsService } from '../standings/standings.service';
 import { NotificationService } from '../../common/services/notification.service';
 
 describe('MatchesService', () => {
@@ -85,6 +86,7 @@ describe('MatchesService', () => {
         // Resolvido, não undefined: o service encadeia `.catch()` nessas chamadas.
         { provide: BracketsService, useValue: { advanceDoubleElimination: jest.fn().mockResolvedValue(undefined), checkAndAdvanceGroupTeams: jest.fn().mockResolvedValue(undefined), checkAndAdvanceRoundRobinTeams: jest.fn().mockResolvedValue(undefined) } },
         { provide: RankingService, useValue: { updateStatsAfterMatch: jest.fn() } },
+        { provide: StandingsService, useValue: { computeStagePlacements: jest.fn().mockResolvedValue([]) } },
         { provide: MatchesGateway, useValue: gateway },
       ],
     }).compile();

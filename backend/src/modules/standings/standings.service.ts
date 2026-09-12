@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BracketType, MatchStatus, TournamentEventType } from '@prisma/client';
+import { BracketType, TournamentEventType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import {
@@ -94,7 +94,11 @@ export class StandingsService {
   }
 
   /**
-   * Calcula e grava a colocacao de cada time numa etapa, a partir da chave encerrada.
+   * Calcula e grava a colocacao de cada time numa etapa, a partir das partidas ja decididas.
+   *
+   * Roda a cada partida encerrada, nao so no fim: num mata-mata quem perde ja tem colocacao
+   * definitiva na hora (quem cai nas quartas e 5o e isso nao muda mais). Time ainda vivo fica
+   * sem linha ate ser eliminado ou campeao — e o unico jeito honesto de mostrar parcial.
    *
    * Round robin da ordem completa (1..N). Chaveamento eliminatorio nao: quem cai na mesma fase
    * divide a colocacao, e por isso nao existe 4o nem 6o num mata-mata de 8.
@@ -109,11 +113,6 @@ export class StandingsService {
       },
     });
     if (!bracket) throw AppError.bracketNotFound();
-
-    const pendentes = bracket.matches.some(
-      (m) => m.status !== MatchStatus.FINISHED && m.status !== MatchStatus.WALKOVER,
-    );
-    if (pendentes) throw AppError.tournamentHasPendingMatches();
 
     const bestOfSets = bracket.category?.bestOfSets ?? 3;
     const tournamentId = bracket.stage.tournamentId;

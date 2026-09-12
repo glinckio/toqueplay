@@ -45,18 +45,30 @@ describe('StandingsService', () => {
   });
 
   describe('computeStagePlacements', () => {
-    it('recusa enquanto houver partida pendente', async () => {
+    // A tabela anda junto com a etapa: quem ja perdeu tem colocacao, quem ainda joga nao tem.
+    it('coloca so quem ja esta eliminado, com a etapa em andamento', async () => {
       prisma.bracket.findUnique.mockResolvedValue({
         type: BracketType.SINGLE_ELIMINATION,
         category: { bestOfSets: 3 },
         stage: { tournamentId: 't1' },
-        matches: [partida({ status: MatchStatus.SCHEDULED })],
+        matches: [
+          // Semi decidida: quem perdeu ja e 3o e isso nao muda mais.
+          partida({ teamAId: 'a', teamBId: 'c', winnerId: 'a', round: 1 }),
+          // Semi ainda em andamento.
+          partida({ teamAId: 'b', teamBId: 'd', winnerId: null, status: MatchStatus.IN_PROGRESS, round: 1 }),
+          // Final nem comecou.
+          partida({ teamAId: null, teamBId: null, winnerId: null, status: MatchStatus.SCHEDULED, round: 2 }),
+        ],
       });
 
-      await expect(service.computeStagePlacements('stage-1', 'cat-1')).rejects.toThrow(
-        BadRequestException,
-      );
-      expect(prisma.stagePlacement.createMany).not.toHaveBeenCalled();
+      const linhas = await service.computeStagePlacements('stage-1', 'cat-1');
+      const times = linhas.map((l) => l.teamId);
+
+      expect(times).toContain('c');
+      expect(times).not.toContain('b');
+      expect(times).not.toContain('d');
+      // Ninguem e campeao ate a final sair.
+      expect(linhas.some((l) => l.position === 1)).toBe(false);
     });
 
     // Mata-mata de 4: campeao, vice e dois empatados em 3o — nao existe 4o lugar.

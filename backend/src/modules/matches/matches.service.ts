@@ -4,6 +4,7 @@ import { AppError } from '../../common/errors/app-error';
 import { MatchesGateway } from './matches.gateway';
 import { RankingService } from '../ranking/ranking.service';
 import { BracketsService } from '../brackets/brackets.service';
+import { StandingsService } from '../standings/standings.service';
 import { NotificationService } from '../../common/services/notification.service';
 import { PointDto } from './dto/point.dto';
 import { SetFinishDto } from './dto/set-finish.dto';
@@ -24,6 +25,7 @@ export class MatchesService {
     private notificationService: NotificationService,
     @Inject(forwardRef(() => BracketsService))
     private bracketsService: BracketsService,
+    private standingsService: StandingsService,
   ) {}
 
   private async checkAndCompleteTournament(bracketId: string) {
@@ -583,6 +585,11 @@ export class MatchesService {
 
     await this.rankingService.updateStatsAfterMatch(matchId);
 
+    // Recalcula a colocacao da etapa a cada partida encerrada: quem perdeu num mata-mata ja tem
+    // posicao definitiva, entao a tabela do circuito anda junto com a etapa em vez de so no fim.
+    // Best-effort: falha aqui nao pode impedir o encerramento da partida.
+    await this.recomputeStagePlacements(matchId).catch(() => {});
+
     // Auto-advance group teams if applicable
     await this.bracketsService.checkAndAdvanceGroupTeams(matchId).catch(() => {});
 
@@ -674,6 +681,11 @@ export class MatchesService {
     });
 
     await this.rankingService.updateStatsAfterMatch(matchId);
+
+    // Recalcula a colocacao da etapa a cada partida encerrada: quem perdeu num mata-mata ja tem
+    // posicao definitiva, entao a tabela do circuito anda junto com a etapa em vez de so no fim.
+    // Best-effort: falha aqui nao pode impedir o encerramento da partida.
+    await this.recomputeStagePlacements(matchId).catch(() => {});
 
     // Auto-advance group teams if applicable
     await this.bracketsService.checkAndAdvanceGroupTeams(matchId).catch(() => {});
@@ -1417,5 +1429,18 @@ export class MatchesService {
     });
 
     return updated;
+  }
+
+  /** Descobre etapa e categoria da partida e manda recalcular a colocacao daquela chave. */
+  private async recomputeStagePlacements(matchId: string) {
+    const match = await this.prisma.match.findUnique({
+      where: { id: matchId },
+      select: { bracket: { select: { stageId: true, categoryId: true } } },
+    });
+    if (!match?.bracket) return; // amistoso nao tem etapa
+    await this.standingsService.computeStagePlacements(
+      match.bracket.stageId,
+      match.bracket.categoryId,
+    );
   }
 }
