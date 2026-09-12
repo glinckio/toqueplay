@@ -44,8 +44,7 @@
           "cameraPermission": "Permitir que o ToquePlay use a câmera para tirar fotos."
         }
       ],
-      "expo-image",
-      "@react-native-community/datetimepicker"
+      "expo-image"
     ],
     "extra": {
       "eas": {
