@@ -10,7 +10,7 @@ import {
   Animated,
   Easing,
 } from "react-native";
-import { KeyboardAwareScrollView, KeyboardStickyView } from "react-native-keyboard-controller";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { DateTimeField } from "@/components/ui/DateTimeField";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -479,7 +479,7 @@ export function CreateTournamentScreen({ navigation, route }: any) {
           </View>
         </View>
 
-        <KeyboardAwareScrollView bottomOffset={120} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAwareScrollView bottomOffset={24} contentContainerStyle={{ paddingHorizontal: 22, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
           <Animated.View key={step} style={{ opacity: stepOpacity, transform: [{ translateX: stepTranslateX }] }}>
             {/* Step hero */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 22 }}>
@@ -500,12 +500,13 @@ export function CreateTournamentScreen({ navigation, route }: any) {
           </Animated.View>
         </KeyboardAwareScrollView>
 
-        {/* Footer — KeyboardStickyView faz ele acompanhar o teclado em vez de ficar coberto */}
-        <KeyboardStickyView style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
+        {/* Footer — fica ancorado no rodape da tela. Com o teclado aberto ele fica por baixo,
+            de proposito: o formulario continua rolando normalmente (quem cuida disso e o
+            KeyboardAwareScrollView), e o teclado nao rouba area util da tela. */}
         <LinearGradient
           colors={isDark ? ["rgba(14,11,20,0)", bgBase] : ["rgba(246,244,252,0)", bgBase]}
           locations={[0, 0.3]}
-          style={{ paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26, flexDirection: step < 3 ? "row" : "column", gap: step < 3 ? 12 : 10 }}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 22, paddingTop: 14, paddingBottom: 26, flexDirection: step < 3 ? "row" : "column", gap: step < 3 ? 12 : 10 }}
         >
           {step < 3 ? (
             <>
@@ -544,7 +545,6 @@ export function CreateTournamentScreen({ navigation, route }: any) {
             </>
           )}
         </LinearGradient>
-        </KeyboardStickyView>
     </SafeAreaView>
   );
 }
