@@ -120,8 +120,8 @@ export class StandingsService {
 
     const posicoes =
       bracket.type === BracketType.ROUND_ROBIN
-        ? this.placementsFromRoundRobin(bracket.matches as MatchForStandings[], bestOfSets)
-        : this.placementsFromElimination(bracket.matches as (MatchForStandings & { round: number })[]);
+        ? this.placementsFromRoundRobin(bracket.matches, bestOfSets)
+        : this.placementsFromElimination(bracket.matches);
 
     const linhas = [...posicoes.entries()].map(([teamId, position]) => ({
       tournamentId,

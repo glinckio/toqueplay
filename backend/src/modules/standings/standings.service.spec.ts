@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { BracketType, MatchStatus, TournamentEventType } from '@prisma/client';
 import { StandingsService } from './standings.service';
 import { PrismaService } from '../../common/prisma.service';
