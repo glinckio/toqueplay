@@ -229,28 +229,66 @@ function TimeColumns({
   accent: string;
   onAccent: string;
 }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 14 }}>
+      <TimeColumn
+        label="HORA"
+        values={HOURS}
+        selected={draft.getHours()}
+        accent={accent}
+        onAccent={onAccent}
+        onPick={(h) => {
+          const d = new Date(draft);
+          d.setHours(h);
+          setDraft(d);
+        }}
+      />
+      <TimeColumn
+        label="MINUTO"
+        values={MINUTES}
+        selected={draft.getMinutes()}
+        accent={accent}
+        onAccent={onAccent}
+        onPick={(m) => {
+          const d = new Date(draft);
+          d.setMinutes(m);
+          setDraft(d);
+        }}
+      />
+    </View>
+  );
+}
+
+function TimeColumn({
+  label,
+  values,
+  selected,
+  accent,
+  onAccent,
+  onPick,
+}: {
+  label: string;
+  values: number[];
+  selected: number;
+  accent: string;
+  onAccent: string;
+  onPick: (v: number) => void;
+}) {
   const { colors } = useTheme();
-  const hourRef = useRef<ScrollView>(null);
-  const minuteRef = useRef<ScrollView>(null);
+  const ref = useRef<ScrollView>(null);
+  const alignedRef = useRef(false);
+  // Guarda o valor da abertura: rolar a cada toque brigaria com o dedo do usuario.
+  const initialRef = useRef(selected);
 
-  // Abre já mostrando o valor atual, em vez de forçar rolar desde a meia-noite.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      hourRef.current?.scrollTo({ y: Math.max(0, (draft.getHours() - 2) * ROW_H), animated: false });
-      minuteRef.current?.scrollTo({ y: Math.max(0, (draft.getMinutes() - 2) * ROW_H), animated: false });
-    }, 0);
-    return () => clearTimeout(t);
-    // Só no mount da coluna: rolar a cada toque brigaria com o dedo do usuário.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Alinhar no onContentSizeChange, nao num setTimeout: o scrollTo so tem efeito depois que a
+  // lista foi medida. Com 60 minutos o conteudo mede depois do timeout e o scroll se perdia.
+  const alignOnce = () => {
+    if (alignedRef.current) return;
+    alignedRef.current = true;
+    ref.current?.scrollTo({ y: Math.max(0, (initialRef.current - 2) * ROW_H), animated: false });
+  };
 
-  const column = (
-    label: string,
-    values: number[],
-    selected: number,
-    onPick: (v: number) => void,
-    ref: React.RefObject<ScrollView | null>,
-  ) => (
+  return (
     <View style={{ flex: 1 }}>
       <Text style={{ textAlign: "center", color: colors.text.disabled, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1, marginBottom: 6 }}>
         {label}
@@ -260,6 +298,7 @@ function TimeColumns({
         style={{ height: ROW_H * 5 }}
         showsVerticalScrollIndicator={false}
         nestedScrollEnabled
+        onContentSizeChange={alignOnce}
       >
         {values.map((v) => {
           const isSel = v === selected;
@@ -268,6 +307,7 @@ function TimeColumns({
               key={v}
               onPress={() => onPick(v)}
               accessibilityRole="button"
+              accessibilityLabel={`${label === "HORA" ? "Hora" : "Minuto"} ${v.toString().padStart(2, "0")}`}
               accessibilityState={{ selected: isSel }}
               style={{
                 height: ROW_H, alignItems: "center", justifyContent: "center",
@@ -285,21 +325,6 @@ function TimeColumns({
           );
         })}
       </ScrollView>
-    </View>
-  );
-
-  return (
-    <View style={{ flexDirection: "row", gap: 14 }}>
-      {column("HORA", HOURS, draft.getHours(), (h) => {
-        const d = new Date(draft);
-        d.setHours(h);
-        setDraft(d);
-      }, hourRef)}
-      {column("MINUTO", MINUTES, draft.getMinutes(), (m) => {
-        const d = new Date(draft);
-        d.setMinutes(m);
-        setDraft(d);
-      }, minuteRef)}
     </View>
   );
 }
