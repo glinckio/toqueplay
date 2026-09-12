@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { BracketType, MatchStatus } from '@prisma/client';
+import { BracketType, MatchStatus, TournamentEventType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import {
@@ -218,5 +218,38 @@ export class StandingsService {
     }
 
     return posicoes;
+  }
+
+  /**
+   * Times que disputam a etapa final do circuito: os `finalStageTeamCount` melhores da tabela
+   * acumulada, por categoria.
+   *
+   * Devolve em vez de inscrever: quem monta a chave e o BracketsService, e manter a decisao de
+   * "quem entra" separada de "como joga" evita que uma mudanca na tabela reescreva chave pronta.
+   */
+  async getFinalStageQualifiers(tournamentId: string) {
+    const tournament = await this.prisma.tournament.findFirst({
+      where: { id: tournamentId, deletedAt: null },
+      select: { id: true, eventType: true, finalStageTeamCount: true },
+    });
+    if (!tournament) throw AppError.tournamentNotFound();
+    if (tournament.eventType !== TournamentEventType.CIRCUIT) {
+      throw AppError.bracketTypeNotAllowed();
+    }
+    if (!tournament.finalStageTeamCount || tournament.finalStageTeamCount < 2) {
+      throw AppError.invalidTeamCount();
+    }
+
+    const standings = await this.getTournamentStandings(tournamentId);
+
+    return standings.categories.map(({ category, rows }) => ({
+      category,
+      qualifiers: rows.slice(0, tournament.finalStageTeamCount!).map((row, i) => ({
+        seed: i + 1,
+        teamId: row.team.id,
+        teamName: row.team.name,
+        points: row.total,
+      })),
+    }));
   }
 }

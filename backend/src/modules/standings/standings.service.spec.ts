@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { BracketType, MatchStatus } from '@prisma/client';
+import { BracketType, MatchStatus, TournamentEventType } from '@prisma/client';
 import { StandingsService } from './standings.service';
 import { PrismaService } from '../../common/prisma.service';
 
@@ -184,6 +184,45 @@ describe('StandingsService', () => {
       prisma.tournamentPointsRule.count.mockResolvedValue(8);
       await service.seedDefaultPointsRules('t1');
       expect(prisma.tournamentPointsRule.createMany).not.toHaveBeenCalled();
+    });
+  });
+  describe('getFinalStageQualifiers', () => {
+    const comTabela = (
+      finalStageTeamCount: number | null,
+      eventType: TournamentEventType = TournamentEventType.CIRCUIT,
+    ) => {
+      prisma.tournament.findFirst.mockResolvedValue({
+        id: 't1', eventType, finalStageTeamCount,
+        categories: [{ id: 'cat-1', type: 'MALE', format: 'PAIR', modality: 'BEACH' }],
+        stages: [{ id: 's1', name: 'Etapa 1', date: new Date() }],
+      });
+      prisma.stagePlacement.findMany.mockResolvedValue(
+        ['a', 'b', 'c', 'd'].map((id, i) => ({
+          teamId: id, categoryId: 'cat-1', stageId: 's1',
+          position: i + 1, points: 100 - i * 10,
+          team: { id, name: id.toUpperCase(), avatarUrl: null },
+        })),
+      );
+    };
+
+    it('leva os melhores da tabela, na ordem, com o cabeca de chave', async () => {
+      comTabela(2);
+      const [{ qualifiers }] = await service.getFinalStageQualifiers('t1');
+
+      expect(qualifiers).toHaveLength(2);
+      expect(qualifiers[0]).toMatchObject({ seed: 1, teamId: 'a', points: 100 });
+      expect(qualifiers[1]).toMatchObject({ seed: 2, teamId: 'b', points: 90 });
+    });
+
+    it('recusa quando o organizador nao definiu quantos classificam', async () => {
+      comTabela(null);
+      await expect(service.getFinalStageQualifiers('t1')).rejects.toThrow();
+    });
+
+    // Etapa final e conceito de circuito: liga e torneio unico nao acumulam etapas.
+    it('recusa fora de circuito', async () => {
+      comTabela(4, TournamentEventType.LEAGUE);
+      await expect(service.getFinalStageQualifiers('t1')).rejects.toThrow();
     });
   });
 });

@@ -74,4 +74,11 @@ export class StandingsController {
     await this.tournamentsService.verifyOwnership(tournamentId, userId);
     return this.standingsService.computeStagePlacements(stageId, categoryId);
   }
+
+  @Public()
+  @Get(':id/final-stage-qualifiers')
+  @ApiOperation({ summary: 'Times classificados para a etapa final do circuito' })
+  async getFinalStageQualifiers(@Param('id') tournamentId: string) {
+    return this.standingsService.getFinalStageQualifiers(tournamentId);
+  }
 }
