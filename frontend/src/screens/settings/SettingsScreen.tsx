@@ -7,7 +7,7 @@ import { Icon } from "@/components/ui/Icon";
 import { useApi } from "@/hooks/useApi";
 import { privacyService } from "@/services/privacyService";
 import { usersService } from "@/services/usersService";
-import { useThemeStore } from "@/stores/themeStore";
+// import { useThemeStore } from "@/stores/themeStore"; // volta junto com o bloco APARENCIA
 import { useTheme } from "@/hooks/useTheme";
 import { registerForPushNotifications, unregisterCurrentDevice } from "@/hooks/usePushNotifications";
 
@@ -136,8 +136,9 @@ function SectionLabel({ label }: { label: string }) {
 
 export function SettingsScreen({ navigation }: any) {
   const C = useScreenColors();
-  const themeMode = useThemeStore((s) => s.mode);
-  const setModeAndSync = useThemeStore((s) => s.setModeAndSync);
+  // Seletor de tema desativado — ver bloco APARENCIA comentado mais abaixo.
+  // const themeMode = useThemeStore((s) => s.mode);
+  // const setModeAndSync = useThemeStore((s) => s.setModeAndSync);
   const { data: consents, refetch: refetchConsents } = useApi(() => privacyService.getConsents(), []);
   const { data: profile, refetch: refetchProfile } = useApi(() => usersService.getProfile(), []);
   useFocusEffect(useCallback(() => { refetchConsents({ keepData: false }); refetchProfile({ keepData: false }); }, [refetchConsents, refetchProfile]));
@@ -274,7 +275,10 @@ export function SettingsScreen({ navigation }: any) {
           </View>
         </View>
 
-        {/* APARÊNCIA */}
+        {/* APARENCIA — desativado por ora: o app roda so no tema escuro.
+            Para reativar: descomente este bloco, os dois seletores do themeStore e o
+            import dele. SunIcon/MoonIcon continuam definidos no topo, so sem uso.
+
         <SectionLabel label="Aparência" />
         <View style={{ backgroundColor: C.card, borderWidth: 1, borderColor: C.cardBorder, borderRadius: 18, padding: 16, marginBottom: 20 }}>
           <Text style={{ color: C.tx2, fontFamily: "Manrope_400Regular", fontSize: 11, marginBottom: 12 }}>
@@ -311,6 +315,7 @@ export function SettingsScreen({ navigation }: any) {
             </Pressable>
           </View>
         </View>
+        */}
 
         {/* PRIVACIDADE */}
         <SectionLabel label="Privacidade" />
