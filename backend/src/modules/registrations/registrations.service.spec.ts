@@ -6,7 +6,7 @@ import { TournamentsService } from '../tournaments/tournaments.service';
 import { NotificationService } from '../../common/services/notification.service';
 import { AuditService } from '../audit/audit.service';
 import { RedisService } from '../../common/redis/redis.service';
-import { TournamentStatus, TournamentFormat, RegistrationStatus } from '@prisma/client';
+import { TournamentStatus, TournamentFormat, RegistrationStatus, TournamentEventType } from '@prisma/client';
 
 describe('RegistrationsService', () => {
   let service: RegistrationsService;
@@ -419,6 +419,105 @@ describe('RegistrationsService', () => {
       await expect(
         service.cancelRegistration('reg1', 'user-1'),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+  describe('registerTeam — escopo por etapa', () => {
+    /** Captura o `where` das checagens feitas dentro da transacao, para inspecionar o escopo. */
+    const espiaTx = (registration: any) => {
+      const findMany = jest.fn().mockResolvedValue([]);
+      const findFirst = jest.fn().mockResolvedValue(null);
+      prisma.$transaction.mockImplementation(async (cb: any) =>
+        cb({
+          registrationMember: { findMany, findFirst },
+          teamMember: { findMany: jest.fn().mockResolvedValue([{ cpf: '12345678901' }]) },
+          registration: { create: jest.fn().mockResolvedValue(registration) },
+        }),
+      );
+      return { findMany, findFirst };
+    };
+
+    const preparaBase = () => {
+      prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
+      prisma.team.findUnique.mockResolvedValue(mockTeam);
+    };
+
+    it('exige a etapa em circuito', async () => {
+      preparaBase();
+      prisma.tournament.findFirst.mockResolvedValue({
+        ...mockTournament,
+        eventType: TournamentEventType.CIRCUIT,
+      });
+
+      await expect(
+        service.registerTeam('t1', 'user-1', {
+          categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'],
+        } as any),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    // No circuito o atleta pode trocar de time entre etapas, entao a busca por CPF repetido
+    // tem que olhar so a etapa. Se olhasse o torneio inteiro, bloquearia a troca legitima.
+    it('limita a checagem de CPF a etapa quando e circuito', async () => {
+      preparaBase();
+      prisma.tournament.findFirst.mockResolvedValue({
+        ...mockTournament,
+        eventType: TournamentEventType.CIRCUIT,
+        allowSameAthleteMultipleTeams: false,
+      });
+      prisma.tournamentStage.findFirst.mockResolvedValue({ id: 'stage-2', tournamentId: 't1' });
+      const { findFirst } = espiaTx(mockRegistration);
+
+      await service.registerTeam('t1', 'user-1', {
+        categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'], stageId: 'stage-2',
+      } as any);
+
+      const where = findFirst.mock.calls[0][0].where.registration;
+      expect(where.stageId).toBe('stage-2');
+      expect(where.tournamentId).toBeUndefined();
+    });
+
+    // Na liga a chave e unica: o atleta fica preso ao time pela competicao inteira.
+    it('estende a checagem ao torneio inteiro quando e liga', async () => {
+      preparaBase();
+      prisma.tournament.findFirst.mockResolvedValue({
+        ...mockTournament,
+        eventType: TournamentEventType.LEAGUE,
+        allowSameAthleteMultipleTeams: false,
+      });
+      const { findFirst } = espiaTx(mockRegistration);
+
+      await service.registerTeam('t1', 'user-1', {
+        categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'],
+      } as any);
+
+      const where = findFirst.mock.calls[0][0].where.registration;
+      expect(where.tournamentId).toBe('t1');
+      expect(where.stageId).toBeUndefined();
+    });
+
+    it('grava a inscricao na etapa resolvida', async () => {
+      preparaBase();
+      prisma.tournament.findFirst.mockResolvedValue(mockTournament);
+      prisma.tournamentStage.findMany.mockResolvedValue([{ id: 'stage-1', tournamentId: 't1' }]);
+      const criar = jest.fn().mockResolvedValue(mockRegistration);
+      prisma.$transaction.mockImplementation(async (cb: any) =>
+        cb({
+          registrationMember: {
+            findMany: jest.fn().mockResolvedValue([]),
+            findFirst: jest.fn().mockResolvedValue(null),
+          },
+          teamMember: { findMany: jest.fn().mockResolvedValue([]) },
+          registration: { create: criar },
+        }),
+      );
+
+      await service.registerTeam('t1', 'user-1', {
+        categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'],
+      } as any);
+
+      expect(criar).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ stageId: 'stage-1' }) }),
+      );
     });
   });
 });
