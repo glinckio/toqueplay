@@ -75,7 +75,11 @@ export function DateTimeSheet({
     const cells: (Date | null)[] = Array(firstWeekday).fill(null);
     for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(year, month, d));
     while (cells.length % 7 !== 0) cells.push(null);
-    return cells;
+    // Semanas explicitas em vez de flexWrap: com largura percentual (100/7 = 14,2857%) a soma
+    // de sete celulas estoura 100% por arredondamento e a setima quebra para a linha seguinte.
+    const weeks: (Date | null)[][] = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
   }, [cursor]);
 
   const isDisabled = (d: Date) => {
@@ -141,14 +145,16 @@ export function DateTimeSheet({
               </View>
 
               {/* Grade */}
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                {grid.map((day, i) => {
-                  if (!day) return <View key={`empty-${i}`} style={{ width: `${100 / 7}%`, height: ROW_H }} />;
-                  const selected = sameDay(day, draft);
-                  const disabled = isDisabled(day);
-                  const isToday = sameDay(day, today);
-                  return (
-                    <View key={day.toISOString()} style={{ width: `${100 / 7}%`, height: ROW_H, alignItems: "center", justifyContent: "center" }}>
+              <View>
+                {grid.map((week, wi) => (
+                  <View key={`week-${wi}`} style={{ flexDirection: "row" }}>
+                    {week.map((day, i) => {
+                      if (!day) return <View key={`empty-${wi}-${i}`} style={{ flex: 1, height: ROW_H }} />;
+                      const selected = sameDay(day, draft);
+                      const disabled = isDisabled(day);
+                      const isToday = sameDay(day, today);
+                      return (
+                        <View key={day.toISOString()} style={{ flex: 1, height: ROW_H, alignItems: "center", justifyContent: "center" }}>
                       <Pressable
                         onPress={() => !disabled && setDraft(new Date(day.getFullYear(), day.getMonth(), day.getDate(), draft.getHours(), draft.getMinutes()))}
                         disabled={disabled}
@@ -169,11 +175,13 @@ export function DateTimeSheet({
                           fontSize: 14,
                         }}>
                           {day.getDate()}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  );
-                })}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ))}
               </View>
             </>
           ) : (
