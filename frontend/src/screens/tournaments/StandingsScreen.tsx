@@ -1,11 +1,24 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, ScrollView, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "@/hooks/useTheme";
 import { BackButton } from "@/components/ui/BackButton";
 import { Banner } from "@/components/ui/Banner";
-import { standingsService, TournamentStandings } from "@/services/standingsService";
+import {
+  standingsService,
+  TournamentStandings,
+  GroupStandingRow,
+} from "@/services/standingsService";
+import { tournamentsService } from "@/services/tournamentsService";
 import { getErrorMessage } from "@/services/api";
+
+type Aba = "geral" | "etapa";
+
+interface GrupoDaEtapa {
+  bracketId: string;
+  group: number;
+  rows: GroupStandingRow[];
+}
 
 /**
  * Tabela acumulada do torneio, por categoria.
@@ -18,6 +31,8 @@ export function StandingsScreen({ navigation, route }: any) {
   const tournamentId: string = route?.params?.id;
 
   const [data, setData] = useState<TournamentStandings | null>(null);
+  const [grupos, setGrupos] = useState<GrupoDaEtapa[]>([]);
+  const [aba, setAba] = useState<Aba>("geral");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -27,7 +42,22 @@ export function StandingsScreen({ navigation, route }: any) {
   const carregar = useCallback(async () => {
     setError("");
     try {
-      setData(await standingsService.getStandings(tournamentId));
+      const [acumulada, brackets] = await Promise.all([
+        standingsService.getStandings(tournamentId),
+        // Best-effort: torneio sem chave gerada ainda nao tem tabela de grupo.
+        tournamentsService.getBracket(tournamentId).catch(() => [] as any[]),
+      ]);
+      setData(acumulada);
+
+      const tabelas = await Promise.all(
+        (brackets ?? []).map(async (b: any) => {
+          const porGrupo = await standingsService
+            .getGroupStandings(tournamentId, b.id)
+            .catch(() => []);
+          return porGrupo.map((g) => ({ bracketId: b.id, group: g.group, rows: g.rows }));
+        }),
+      );
+      setGrupos(tabelas.flat());
     } catch (err: unknown) {
       setError(getErrorMessage(err, "Não foi possível carregar a classificação."));
     } finally {
@@ -68,13 +98,50 @@ export function StandingsScreen({ navigation, route }: any) {
         >
           {!!error && <Banner variant="error" message={error} style={{ marginBottom: 16 }} />}
 
-          {!error && data?.categories.length === 0 && (
+          {/* Duas tabelas de naturezas diferentes: a geral soma pontos por colocacao entre etapas;
+              a da etapa vem do placar das partidas (3/2/1/0) e e quem decide o avanco. */}
+          <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+            {([["geral", "Geral"], ["etapa", "Etapa atual"]] as const).map(([key, label]) => {
+              const ativa = aba === key;
+              return (
+                <Pressable
+                  key={key}
+                  onPress={() => setAba(key)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: ativa }}
+                  style={{
+                    flex: 1, paddingVertical: 11, borderRadius: 12, alignItems: "center",
+                    backgroundColor: ativa ? accent : "transparent",
+                    borderWidth: ativa ? 0 : 1, borderColor: colors.border.card,
+                  }}
+                >
+                  <Text style={{
+                    color: ativa ? (isDark ? brand.limeText : "#FFFFFF") : colors.text.secondary,
+                    fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 1,
+                    textTransform: "uppercase",
+                  }}>
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {aba === "etapa" && (
+            <GroupTables
+              grupos={grupos}
+              colors={colors}
+              accent={accent}
+            />
+          )}
+
+          {aba === "geral" && !error && data?.categories.length === 0 && (
             <Text style={{ color: colors.text.tertiary, fontFamily: "Manrope_500Medium", fontSize: 13 }}>
               Este torneio ainda não tem categorias.
             </Text>
           )}
 
-          {data?.categories.map(({ category, rows }) => (
+          {aba === "geral" && data?.categories.map(({ category, rows }) => (
             <View
               key={category.id}
               style={{
@@ -166,12 +233,93 @@ export function StandingsScreen({ navigation, route }: any) {
             </View>
           ))}
 
-          <Text style={{ color: colors.text.disabled, fontFamily: "Manrope_400Regular", fontSize: 11, lineHeight: 16 }}>
-            O traço marca etapa não disputada. A tabela é atualizada a cada partida encerrada —
-            quem já foi eliminado numa etapa entra na conta na hora.
-          </Text>
+          {aba === "geral" && (
+            <Text style={{ color: colors.text.disabled, fontFamily: "Manrope_400Regular", fontSize: 11, lineHeight: 16 }}>
+              O traço marca etapa não disputada. A tabela é atualizada a cada partida encerrada —
+              quem já foi eliminado numa etapa entra na conta na hora.
+            </Text>
+          )}
         </ScrollView>
       )}
     </SafeAreaView>
+  );
+}
+
+/**
+ * Classificação de grupo, no padrão CBV: os pontos vêm do placar (3 para vitória, 2/1 quando vai
+ * ao set decisivo) e o desempate é por sets average, depois pontos average.
+ */
+function GroupTables({ grupos, colors, accent }: any) {
+  if (grupos.length === 0) {
+    return (
+      <Text style={{ color: colors.text.tertiary, fontFamily: "Manrope_500Medium", fontSize: 13, lineHeight: 20 }}>
+        Nenhuma tabela de grupo ainda. Ela aparece quando o chaveamento tiver fase de grupos ou
+        todos contra todos — mata-mata puro não gera classificação.
+      </Text>
+    );
+  }
+
+  const col = (w: number) => ({ width: w, textAlign: "center" as const });
+
+  return (
+    <>
+      {grupos.map((g: GrupoDaEtapa) => (
+        <View
+          key={`${g.bracketId}-${g.group}`}
+          style={{
+            backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.card,
+            borderRadius: 18, padding: 16, marginBottom: 16,
+          }}
+        >
+          <Text style={{ color: accent, fontFamily: "Oswald_700Bold", fontSize: 11, letterSpacing: 1.4, textTransform: "uppercase", marginBottom: 12 }}>
+            Grupo {String.fromCharCode(65 + g.group)}
+          </Text>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View>
+              <View style={{ flexDirection: "row", marginBottom: 8 }}>
+                <Text style={{ width: 26, color: colors.text.disabled, fontFamily: "Oswald_600SemiBold", fontSize: 10 }}>#</Text>
+                <Text style={{ width: 120, color: colors.text.disabled, fontFamily: "Oswald_600SemiBold", fontSize: 10 }}>TIME</Text>
+                {["J", "V", "D", "SETS", "SA", "PTS"].map((h, i) => (
+                  <Text key={h} style={{ ...col(i === 3 ? 56 : i === 4 ? 48 : 34), color: colors.text.disabled, fontFamily: "Oswald_600SemiBold", fontSize: 10 }}>
+                    {h}
+                  </Text>
+                ))}
+              </View>
+
+              {g.rows.map((r: GroupStandingRow, idx: number) => (
+                <View
+                  key={r.teamId}
+                  style={{
+                    flexDirection: "row", alignItems: "center", paddingVertical: 8,
+                    borderTopWidth: 1, borderTopColor: colors.border.card,
+                  }}
+                >
+                  <Text style={{ width: 26, color: colors.text.tertiary, fontFamily: "Manrope_600SemiBold", fontSize: 12 }}>{idx + 1}</Text>
+                  <Text numberOfLines={1} style={{ width: 120, color: colors.text.primary, fontFamily: "Manrope_600SemiBold", fontSize: 12.5 }}>
+                    {r.team?.name ?? r.teamId.slice(0, 8)}
+                  </Text>
+                  <Text style={{ ...col(34), color: colors.text.secondary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{r.played}</Text>
+                  <Text style={{ ...col(34), color: colors.text.secondary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{r.wins}</Text>
+                  <Text style={{ ...col(34), color: colors.text.secondary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>{r.losses}</Text>
+                  <Text style={{ ...col(56), color: colors.text.secondary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>
+                    {r.setsWon}/{r.setsLost}
+                  </Text>
+                  <Text style={{ ...col(48), color: colors.text.secondary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>
+                    {r.setAverage.toFixed(2)}
+                  </Text>
+                  <Text style={{ ...col(34), color: accent, fontFamily: "Manrope_700Bold", fontSize: 13 }}>{r.leaguePoints}</Text>
+                </View>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
+      ))}
+
+      <Text style={{ color: colors.text.disabled, fontFamily: "Manrope_400Regular", fontSize: 11, lineHeight: 16 }}>
+        Vitória por 2×0 vale 3 pontos; no set decisivo, 2 para quem vence e 1 para quem perde.
+        Empate em pontos se resolve por sets average (SA), depois pontos average.
+      </Text>
+    </>
   );
 }

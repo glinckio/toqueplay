@@ -30,6 +30,8 @@ export interface TournamentStandings {
 /** Linha da tabela de grupo: pontos vêm do placar da partida (3/2/1/0), não da colocação. */
 export interface GroupStandingRow {
   teamId: string;
+  /** Nulo se o time foi removido; a tela cai para o id nesse caso. */
+  team: StandingTeam | null;
   played: number;
   wins: number;
   losses: number;
