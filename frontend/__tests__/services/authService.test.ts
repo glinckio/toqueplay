@@ -20,7 +20,11 @@ describe("authService", () => {
     });
     const result = await authService.login("a@b.com", "123456");
     expect(mockPost).toHaveBeenCalledWith("/auth/login", { email: "a@b.com", password: "123456" });
-    expect(result.accessToken).toBe("at");
+    // LoginResult e uniao: ou tokens, ou 2FA pendente. O guard estreita para o caso com token.
+    expect(authService.isTwoFactorRequired(result)).toBe(false);
+    if (!authService.isTwoFactorRequired(result)) {
+      expect(result.accessToken).toBe("at");
+    }
   });
 
   it("login returns 2FA response", async () => {

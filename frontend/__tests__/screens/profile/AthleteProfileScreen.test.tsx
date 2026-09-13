@@ -31,7 +31,13 @@ jest.mock("@/stores/authStore", () => ({
   useAuthStore: jest.fn(),
 }));
 
-const mockNavigation = { goBack: jest.fn(), navigate: jest.fn() };
+// A tela decide entre voltar e ir para a home conforme `canGoBack`.
+const mockNavigation = {
+  goBack: jest.fn(),
+  navigate: jest.fn(),
+  replace: jest.fn(),
+  canGoBack: jest.fn(() => true),
+};
 const mockRoute = { params: { id: "other-user" } };
 
 beforeEach(() => {
@@ -43,7 +49,7 @@ beforeEach(() => {
     id: "other-user", name: "Lucas Costa", username: "lucascosta",
     email: "lucas@email.com", avatarUrl: null,
     bio: "Jogador de vôlei de praia", city: null, state: null,
-    stats: { matchesPlayed: 12, matchesWon: 8, winRate: 67 },
+    stats: { tournaments: 12, wins: 8, winRate: 67 },
   });
 });
 
@@ -103,7 +109,7 @@ it("excludes teams athlete is already in from picker", () => {
   (usersService.getPublicProfile as jest.Mock).mockReturnValue({
     id: "u1", name: "Lucas Costa", email: "lucas@email.com",
     avatarUrl: null, bio: null, city: null, state: null,
-    stats: { matchesPlayed: 0, matchesWon: 0, winRate: 0 },
+    stats: { tournaments: 0, wins: 0, winRate: 0 },
   });
   const routeWithMember = { params: { id: "u1" } };
   const { getByLabelText, queryByText, getByText } = render(

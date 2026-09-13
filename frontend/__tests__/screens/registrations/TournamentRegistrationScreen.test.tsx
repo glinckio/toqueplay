@@ -141,10 +141,9 @@ describe("TournamentRegistrationScreen — step 2", () => {
       memberIds: ["m1", "m2"],
       captainMemberId: "m1",
     }));
-    await waitFor(() => expect(getByText(/Inscrição/)).toBeTruthy());
-    expect(getByText(/registrada!/)).toBeTruthy();
-    expect(getByText("R$ 120,00")).toBeTruthy();
-    expect(getByText("PENDENTE DE CONFIRMAÇÃO")).toBeTruthy();
+    // A tela de sucesso virou uma comemoracao: "Inscricao enviada" no lugar de "registrada!".
+    await waitFor(() => expect(getByText("Inscrição enviada")).toBeTruthy());
+    expect(getByText("Concluir")).toBeTruthy();
   });
 
   it("back button from step 2 returns to step 1", () => {

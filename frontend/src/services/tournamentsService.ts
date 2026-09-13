@@ -46,7 +46,8 @@ export interface TournamentCategoryDTO {
   format: TournamentFormat;
   type: TournamentType;
   bracketType: BracketType;
-  modality?: string;
+  // Enum, nao string livre: o resto do app compara com TournamentModality.
+  modality?: TournamentModality;
   registrationPrice?: number | null;
   maxTeams: number | null;
   minPlayers: number;
