@@ -29,6 +29,43 @@ jest.mock("@/stores/authStore", () => ({
 }));
 
 const mockNavigation = { goBack: jest.fn(), canGoBack: () => true, navigate: jest.fn(), replace: jest.fn() } as any;
+// A tela le o torneio por useApi; antes havia dado fixo embutido nela.
+const mockTorneio = {
+  id: "t1",
+  name: "Copa Verão 2026",
+  description: "Torneio de vôlei de praia.",
+  // A secao "Regras" so aparece quando ha regras: o campo e texto com uma por linha.
+  rules: "Chegue 30 minutos antes.\nProibido vidro na areia.",
+  eventType: "SINGLE",
+  status: "REGISTRATION_OPEN",
+  ownerId: "owner-1",
+  owner: { id: "owner-1", name: "Marcos Costa", avatarUrl: null },
+  imageUrl: null,
+  categories: [
+    { id: "c1", type: "MALE", format: "PAIR", modality: "BEACH", registrationPrice: 120, maxTeams: 16 },
+    { id: "c2", type: "FEMALE", format: "PAIR", modality: "BEACH", registrationPrice: 120, maxTeams: 16 },
+  ],
+  stages: [
+    {
+      id: "s1",
+      name: null,
+      date: "2026-12-10T00:00:00.000Z",
+      startTime: "2026-12-10T09:00:00.000Z",
+      city: "Santos",
+      state: "SP",
+      address: "Av. Beira Mar, 100",
+    },
+  ],
+  // A secao "Premiacao" so aparece com premio definido.
+  prizePot: 5000,
+  sponsors: [],
+  _count: { registrations: 3 },
+};
+
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({ data: mockTorneio, loading: false, error: null, refetch: jest.fn() }),
+}));
+
 const mockRoute = { params: { id: "t1" } };
 
 describe("TournamentDetailScreen", () => {
@@ -54,7 +91,7 @@ describe("TournamentDetailScreen", () => {
     const { getByText } = render(<TournamentDetailScreen navigation={mockNavigation} route={mockRoute} />);
     expect(getByText("Sobre o torneio")).toBeTruthy();
     expect(getByText("Regras")).toBeTruthy();
-    expect(getByText("Categorias")).toBeTruthy();
+    expect(getByText("Categorias · 2")).toBeTruthy();
     expect(getByText("Premiação")).toBeTruthy();
     expect(getByText("Times confirmados")).toBeTruthy();
     expect(getByText("Local")).toBeTruthy();
@@ -67,7 +104,8 @@ describe("TournamentDetailScreen", () => {
 
   it("renders confirmed teams count", () => {
     const { getByText } = render(<TournamentDetailScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("3 time(s) inscrito(s)")).toBeTruthy();
+    // Sem limite de vagas na etapa, a tela mostra a contagem em vez do percentual.
+    expect(getByText("3 inscritos")).toBeTruthy();
   });
 
   it("navigates to registration on CTA press", () => {
