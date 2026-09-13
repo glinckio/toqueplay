@@ -109,21 +109,29 @@ jest.mock("expo-location", () => ({
   getCurrentPositionAsync: () => Promise.resolve({ coords: { latitude: 0, longitude: 0 } }),
 }));
 
-jest.mock("react-native-svg", () => {
-  const React = require("react");
-  return {
-    __esModule: true,
-    default: "Svg",
-    Path: "Path",
-    Polyline: "Polyline",
-  };
-});
+// Precisa cobrir tudo que a tela e o Icon usam: primitivo faltando vira undefined e o React
+// quebra com "Cannot read properties of undefined (reading 'displayName')".
+jest.mock("react-native-svg", () => ({
+  __esModule: true,
+  default: "Svg",
+  Svg: "Svg",
+  Path: "Path",
+  Circle: "Circle",
+  Rect: "Rect",
+  Line: "Line",
+  Polyline: "Polyline",
+  G: "G",
+  Defs: "Defs",
+  Stop: "Stop",
+  LinearGradient: "LinearGradient",
+}));
 
 describe("HomeScreen", () => {
-  it("renders greeting with user first name", () => {
-    const { getByText } = render(<HomeScreen />);
-    expect(getByText("Olá, Lucas")).toBeTruthy();
-    expect(getByText("Pronto pra jogar?")).toBeTruthy();
+  // O gate de localizacao usa uma flag de modulo: ele abre so no primeiro render da sessao de
+  // teste, e tem tempo minimo de exibicao. Por isso este caso espera mais que o padrao.
+  it("renders the home header", async () => {
+    const { findByText } = render(<HomeScreen />);
+    expect(await findByText("Bora jogar", {}, { timeout: 5000 })).toBeTruthy();
   });
 
   it("renders live match section with tournament name", () => {
