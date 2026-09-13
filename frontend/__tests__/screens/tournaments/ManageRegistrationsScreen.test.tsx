@@ -7,50 +7,108 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
 
-const mockNavigation = { goBack: jest.fn() } as any;
-
-describe("ManageRegistrationsScreen", () => {
-  it("renders screen title and subtitle", () => {
-    const { getByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getByText("Inscrições")).toBeTruthy();
-    expect(getByText("Copa Verão Beach 2026 · Dupla Masculina")).toBeTruthy();
-  });
-
-  it("renders stats row", () => {
-    const { getByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getByText("Total")).toBeTruthy();
-    expect(getByText("Pagos")).toBeTruthy();
-    expect(getByText("Pendentes")).toBeTruthy();
-    expect(getByText("Recusada")).toBeTruthy();
-  });
-
-  it("renders registration cards", () => {
-    const { getByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getByText("Beach Titans")).toBeTruthy();
-    expect(getByText("Praia Aces")).toBeTruthy();
-    expect(getByText("Sand Rockets")).toBeTruthy();
-    expect(getByText("Volley Flames")).toBeTruthy();
-  });
-
-  it("renders status badges", () => {
-    const { getAllByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getAllByText("PENDENTE").length).toBe(2);
-    expect(getByTextHelper(getAllByText, "PAGO")).toBeTruthy();
-    expect(getByTextHelper(getAllByText, "RECUSADA")).toBeTruthy();
-  });
-
-  it("renders confirm payment buttons for pending", () => {
-    const { getAllByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getAllByText("Confirmar pgto").length).toBe(2);
-  });
-
-  it("renders confirmed date for paid registration", () => {
-    const { getByText } = render(<ManageRegistrationsScreen navigation={mockNavigation} />);
-    expect(getByText("Confirmado em 12/08/2026 às 14:30")).toBeTruthy();
-  });
+/**
+ * A tela le inscricoes e torneio por useApi, nessa ordem. O dado vive aqui porque a tela deixou
+ * de ter mock embutido quando passou a consumir a API — era disso que o teste antigo dependia.
+ */
+const membro = (nome: string, isCaptain = false) => ({
+  isCaptain,
+  teamMember: {
+    id: `tm-${nome}`,
+    guestName: null,
+    isGuest: false,
+    user: { id: `u-${nome}`, name: nome, avatarUrl: null },
+  },
 });
 
-function getByTextHelper(getAllByText: any, text: string) {
-  const results = getAllByText(text);
-  return results.length > 0 ? results[0] : null;
-}
+const categoria = {
+  id: "c1",
+  type: "MALE",
+  format: "PAIR",
+  modality: "BEACH",
+  registrationPrice: 120,
+};
+
+const mockInscricoes = [
+  {
+    id: "r1",
+    status: "PENDING_CONFIRMATION",
+    paidAt: null,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    team: { id: "t1", name: "Beach Titans", avatarUrl: null },
+    category: categoria,
+    members: [membro("Lucas Costa", true), membro("Rafael Silva")],
+  },
+  {
+    id: "r2",
+    status: "CONFIRMED",
+    paidAt: "2026-01-10T12:00:00.000Z",
+    createdAt: "2026-01-02T00:00:00.000Z",
+    team: { id: "t2", name: "Praia Aces", avatarUrl: null },
+    category: categoria,
+    members: [membro("Pedro Alves", true)],
+  },
+  {
+    id: "r3",
+    status: "PENDING_CONFIRMATION",
+    paidAt: null,
+    createdAt: "2026-01-03T00:00:00.000Z",
+    team: { id: "t3", name: "Sand Rockets", avatarUrl: null },
+    category: categoria,
+    members: [membro("João Lima", true)],
+  },
+  {
+    id: "r4",
+    status: "REJECTED",
+    paidAt: null,
+    createdAt: "2026-01-04T00:00:00.000Z",
+    team: { id: "t4", name: "Volley Flames", avatarUrl: null },
+    category: categoria,
+    members: [membro("Bruno Reis", true)],
+  },
+];
+
+const mockTorneio = { name: "Copa Verão Beach 2026", categories: [categoria] };
+
+jest.mock("@/hooks/useApi", () => {
+  let chamada = 0;
+  return {
+    useApi: () => {
+      // Primeira chamada = inscricoes, segunda = torneio (ordem em que a tela declara).
+      const data = chamada++ % 2 === 0 ? mockInscricoes : mockTorneio;
+      return { data, loading: false, error: null, refetch: jest.fn() };
+    },
+  };
+});
+
+const mockNavigation = { goBack: jest.fn(), navigate: jest.fn() };
+const mockRoute = { params: { tournamentId: "t1" } };
+
+const renderTela = () =>
+  render(<ManageRegistrationsScreen navigation={mockNavigation} route={mockRoute} />);
+
+describe("ManageRegistrationsScreen", () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it("renders the screen title", () => {
+    expect(renderTela().getByText("Inscrições")).toBeTruthy();
+  });
+
+  // As abas mostram a contagem: e o resumo que o organizador olha primeiro.
+  it("counts registrations per tab", () => {
+    const { getByText } = renderTela();
+    expect(getByText("Pendentes · 2")).toBeTruthy();
+    expect(getByText("Pagas · 1")).toBeTruthy();
+    expect(getByText("Recusadas · 1")).toBeTruthy();
+  });
+
+  // A aba inicial e "Pendentes": e o que exige acao do organizador. Pagas e recusadas ficam
+  // nas outras abas, entao nao devem aparecer aqui.
+  it("lists only the pending registrations on the default tab", () => {
+    const { getAllByText, queryByText } = renderTela();
+    expect(getAllByText("Beach Titans").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("Sand Rockets").length).toBeGreaterThanOrEqual(1);
+    expect(queryByText("Praia Aces")).toBeNull();
+    expect(queryByText("Volley Flames")).toBeNull();
+  });
+});
