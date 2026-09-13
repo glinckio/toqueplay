@@ -72,7 +72,7 @@ describe("CreateFriendlyScreen", () => {
     const { getByText, getByLabelText } = render(<CreateFriendlyScreen navigation={mockNavigation} />);
     expect(getByText("Desafiar time")).toBeTruthy();
     expect(getByText("Meu time")).toBeTruthy();
-    expect(getByLabelText("Selecionar meu time")).toBeTruthy();
+    expect(getByLabelText("Selecionar Meu time")).toBeTruthy();
   });
 
   it("renders modality options", () => {
@@ -83,7 +83,7 @@ describe("CreateFriendlyScreen", () => {
 
   it("opens team modal and selects team", () => {
     const { getByLabelText, getByText } = render(<CreateFriendlyScreen navigation={mockNavigation} />);
-    fireEvent.press(getByLabelText("Selecionar meu time"));
+    fireEvent.press(getByLabelText("Selecionar Meu time"));
     expect(getByText("Selecionar meu time")).toBeTruthy();
     fireEvent.press(getByLabelText("Selecionar Silva & Rocha"));
     expect(getByText("Silva & Rocha")).toBeTruthy();
@@ -103,6 +103,6 @@ describe("CreateFriendlyScreen", () => {
 
   it("has opponent search button", () => {
     const { getByLabelText } = render(<CreateFriendlyScreen navigation={mockNavigation} />);
-    expect(getByLabelText("Buscar adversário")).toBeTruthy();
+    expect(getByLabelText("Selecionar Adversário")).toBeTruthy();
   });
 });

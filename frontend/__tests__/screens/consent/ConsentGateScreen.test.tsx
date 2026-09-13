@@ -2,7 +2,6 @@ import React from "react";
 import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { ConsentGateScreen } from "@/screens/consent/ConsentGateScreen";
 import { privacyService } from "@/services/privacyService";
-import { useAuthStore } from "@/stores/authStore";
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -18,54 +17,77 @@ jest.mock("@/stores/authStore", () => ({
     }),
 }));
 
+jest.mock("@/services/privacyService", () => ({
+  privacyService: { acceptTerms: jest.fn().mockResolvedValue({}) },
+}));
+
+/**
+ * A tela e um Modal controlado por `visible` — sem a prop nao renderiza nada, entao todo
+ * render aqui passa `visible`.
+ *
+ * O aceite so libera com as duas caixas marcadas (Termos e Politica), que e o que a LGPD
+ * espera: consentimento por item, nao um "aceito tudo" implicito.
+ */
+const renderTela = () => render(<ConsentGateScreen visible />);
+
+const marcarAmbas = (utils: ReturnType<typeof renderTela>) => {
+  fireEvent.press(utils.getByLabelText("Termos de Uso"));
+  fireEvent.press(utils.getByLabelText("Política de Privacidade"));
+};
+
 describe("ConsentGateScreen", () => {
   beforeEach(() => jest.clearAllMocks());
 
   it("renders title and description", () => {
-    const { getAllByText, getByText } = render(<ConsentGateScreen />);
-    expect(getAllByText(/Privacidade/).length).toBeGreaterThanOrEqual(1);
+    const { getByText, getAllByText } = renderTela();
+    expect(getByText("Termos atualizados")).toBeTruthy();
     expect(getAllByText(/Termos de Uso/).length).toBeGreaterThanOrEqual(1);
     expect(getByText(/Para continuar usando o ToquePlay/)).toBeTruthy();
   });
 
-  it("renders all info cards", () => {
-    const { getByText } = render(<ConsentGateScreen />);
-    expect(getByText("Proteção de dados")).toBeTruthy();
-    expect(getByText("Compartilhamento")).toBeTruthy();
-    expect(getByText("Comunicações")).toBeTruthy();
-    expect(getByText("Seus direitos")).toBeTruthy();
+  it("renders both consent rows", () => {
+    const { getByLabelText } = renderTela();
+    expect(getByLabelText("Termos de Uso")).toBeTruthy();
+    expect(getByLabelText("Política de Privacidade")).toBeTruthy();
   });
 
-  it("renders LGPD info in cards", () => {
-    const { getByText } = render(<ConsentGateScreen />);
-    expect(getByText(/Lei Geral de Proteção de Dados/)).toBeTruthy();
-    expect(getByText(/não são vendidos a terceiros/)).toBeTruthy();
-  });
-
-  it("renders links", () => {
-    const { getByLabelText } = render(<ConsentGateScreen />);
-    expect(getByLabelText("Termos de uso")).toBeTruthy();
-    expect(getByLabelText("Política de privacidade")).toBeTruthy();
+  it("offers a link to read each document in full", () => {
+    const { getByLabelText } = renderTela();
+    expect(getByLabelText("Ler Termos de Uso")).toBeTruthy();
+    expect(getByLabelText("Ler Política de Privacidade")).toBeTruthy();
   });
 
   it("renders accept button", () => {
-    const { getByText } = render(<ConsentGateScreen />);
-    expect(getByText("Aceitar e continuar")).toBeTruthy();
+    const { getByLabelText } = renderTela();
+    expect(getByLabelText("Aceitar e continuar")).toBeTruthy();
+  });
+
+  // Consentimento por item: sem marcar as duas, o botao nao age.
+  it("does not accept while a box is unchecked", () => {
+    const utils = renderTela();
+    fireEvent.press(utils.getByLabelText("Termos de Uso"));
+    fireEvent.press(utils.getByLabelText("Aceitar e continuar"));
+    expect(privacyService.acceptTerms).not.toHaveBeenCalled();
   });
 
   it("calls acceptTerms and sets store on accept", async () => {
-    const { getByLabelText } = render(<ConsentGateScreen />);
-    fireEvent.press(getByLabelText("Aceitar e continuar"));
+    const utils = renderTela();
+    marcarAmbas(utils);
+    fireEvent.press(utils.getByLabelText("Aceitar e continuar"));
+
     await waitFor(() => {
       expect(privacyService.acceptTerms).toHaveBeenCalled();
       expect(mockSetHasAcceptedTerms).toHaveBeenCalledWith(true);
     });
   });
 
+  // Falha de rede nao pode prender o usuario numa tela sem saida.
   it("still proceeds if API fails", async () => {
     (privacyService.acceptTerms as jest.Mock).mockRejectedValueOnce(new Error("offline"));
-    const { getByLabelText } = render(<ConsentGateScreen />);
-    fireEvent.press(getByLabelText("Aceitar e continuar"));
+    const utils = renderTela();
+    marcarAmbas(utils);
+    fireEvent.press(utils.getByLabelText("Aceitar e continuar"));
+
     await waitFor(() => {
       expect(mockSetHasAcceptedTerms).toHaveBeenCalledWith(true);
     });
