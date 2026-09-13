@@ -37,7 +37,7 @@ describe("MyTournamentsScreen", () => {
   it("renders status badges", () => {
     const { getByText } = render(<MyTournamentsScreen navigation={mockNavigation} />);
     expect(getByText("INSCRIÇÕES ABERTAS")).toBeTruthy();
-    expect(getByText("RASCUNHO")).toBeTruthy();
+    expect(getByText("Rascunho")).toBeTruthy();
     expect(getByText("EM ANDAMENTO")).toBeTruthy();
   });
 

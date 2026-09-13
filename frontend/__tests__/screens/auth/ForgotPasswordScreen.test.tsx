@@ -23,14 +23,14 @@ describe("ForgotPasswordScreen", () => {
       <ForgotPasswordScreen navigation={mockNavigation} route={{} as any} />,
     );
     expect(getByText("E-mail")).toBeTruthy();
-    expect(getByText("ENVIAR CÓDIGO")).toBeTruthy();
+    expect(getByText("Enviar código")).toBeTruthy();
   });
 
   it("shows error when email empty", () => {
     const { getByText, getAllByText } = render(
       <ForgotPasswordScreen navigation={mockNavigation} route={{} as any} />,
     );
-    fireEvent.press(getByText("ENVIAR CÓDIGO"));
+    fireEvent.press(getByText("Enviar código"));
     expect(getAllByText("Informe seu email").length).toBeGreaterThanOrEqual(1);
   });
 

@@ -76,7 +76,7 @@ it("shows invite button when athlete not in any team", () => {
   const { getByText } = render(
     <AthleteProfileScreen navigation={mockNavigation} route={mockRoute} />
   );
-  expect(getByText("CONVIDAR PARA TIME")).toBeTruthy();
+  expect(getByText("Convidar para time")).toBeTruthy();
 });
 
 it("opens team picker on invite button", () => {
@@ -96,7 +96,7 @@ it("hides invite button when viewing own profile", () => {
   const { queryByText } = render(
     <AthleteProfileScreen navigation={mockNavigation} route={mockRoute} />
   );
-  expect(queryByText("CONVIDAR PARA TIME")).toBeNull();
+  expect(queryByText("Convidar para time")).toBeNull();
 });
 
 it("excludes teams athlete is already in from picker", () => {

@@ -32,7 +32,7 @@ describe("ManageTeamsScreen", () => {
 
   it("renders pending invites section", () => {
     const { getByText } = render(<ManageTeamsScreen navigation={mockNavigation} />);
-    expect(getByText("CONVITES PENDENTES")).toBeTruthy();
+    expect(getByText("Convites pendentes")).toBeTruthy();
     expect(getByText("Beach Titans")).toBeTruthy();
   });
 

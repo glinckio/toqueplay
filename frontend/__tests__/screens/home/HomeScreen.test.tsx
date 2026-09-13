@@ -129,7 +129,7 @@ describe("HomeScreen", () => {
   it("renders live match section with tournament name", () => {
     const { getByText } = render(<HomeScreen />);
     expect(getByText("Copa Verão")).toBeTruthy();
-    expect(getByText("ASSISTIR AGORA")).toBeTruthy();
+    expect(getByText("Assistir agora")).toBeTruthy();
   });
 
   it("renders live badge with set info", () => {

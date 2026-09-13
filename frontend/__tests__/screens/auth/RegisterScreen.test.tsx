@@ -30,7 +30,7 @@ describe("RegisterScreen", () => {
     const { getByText } = render(
       <RegisterScreen navigation={mockNavigation} route={{} as any} />,
     );
-    fireEvent.press(getByText("CRIAR CONTA"));
+    fireEvent.press(getByText("Criar conta"));
     expect(getByText("Mínimo 2 caracteres")).toBeTruthy();
   });
 

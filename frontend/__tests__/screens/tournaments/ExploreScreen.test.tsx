@@ -33,12 +33,12 @@ describe("ExploreScreen", () => {
 
   it("renders open tournaments section", () => {
     const { getByText } = render(<ExploreScreen />);
-    expect(getByText("INSCRIÇÕES ABERTAS")).toBeTruthy();
+    expect(getByText("Inscrições abertas")).toBeTruthy();
   });
 
   it("renders closed tournaments section", () => {
     const { getByText } = render(<ExploreScreen />);
-    expect(getByText("ENCERRADOS")).toBeTruthy();
+    expect(getByText("Encerrados")).toBeTruthy();
   });
 
   it("renders tournament cards with names", () => {

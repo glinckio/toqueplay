@@ -48,7 +48,7 @@ describe("LoginScreen", () => {
     const { getByText } = render(
       <LoginScreen navigation={mockNavigation} route={{} as any} />,
     );
-    fireEvent.press(getByText("ENTRAR"));
+    fireEvent.press(getByText("Entrar"));
     expect(getByText("Preencha email e senha")).toBeTruthy();
   });
 

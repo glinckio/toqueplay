@@ -19,8 +19,8 @@ describe("CreateTeamScreen", () => {
   it("renders create team form", () => {
     const { getAllByText, getByText, getByLabelText } = render(<CreateTeamScreen navigation={mockNavigation} />);
     expect(getAllByText("Criar time").length).toBeGreaterThanOrEqual(1);
-    expect(getByText("NOME DO TIME")).toBeTruthy();
-    expect(getByText("MODALIDADE")).toBeTruthy();
+    expect(getByText("Nome do time")).toBeTruthy();
+    expect(getByText("Modalidade")).toBeTruthy();
     expect(getByText("SUPERFÍCIE")).toBeTruthy();
   });
 

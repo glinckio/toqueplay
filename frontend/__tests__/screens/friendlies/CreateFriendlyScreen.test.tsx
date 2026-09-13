@@ -77,8 +77,8 @@ describe("CreateFriendlyScreen", () => {
 
   it("renders modality options", () => {
     const { getByText } = render(<CreateFriendlyScreen navigation={mockNavigation} />);
-    expect(getByText("AREIA")).toBeTruthy();
-    expect(getByText("QUADRA")).toBeTruthy();
+    expect(getByText("Areia")).toBeTruthy();
+    expect(getByText("Quadra")).toBeTruthy();
   });
 
   it("opens team modal and selects team", () => {

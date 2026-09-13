@@ -20,8 +20,8 @@ describe("NotificationsScreen", () => {
 
   it("renders date groups", () => {
     const { getByText } = render(<NotificationsScreen navigation={mockNavigation} />);
-    expect(getByText("HOJE")).toBeTruthy();
-    expect(getByText("ONTEM")).toBeTruthy();
+    expect(getByText("Hoje")).toBeTruthy();
+    expect(getByText("Ontem")).toBeTruthy();
   });
 
   it("renders notification items", () => {

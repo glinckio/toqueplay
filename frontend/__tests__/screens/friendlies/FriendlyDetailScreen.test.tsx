@@ -44,7 +44,7 @@ describe("FriendlyDetailScreen", () => {
 
   it("renders referee code for accepted status", () => {
     const { getByText } = render(<FriendlyDetailScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("CÓDIGO DO ÁRBITRO")).toBeTruthy();
+    expect(getByText("Código do árbitro")).toBeTruthy();
     expect(getByText("483927")).toBeTruthy();
   });
 

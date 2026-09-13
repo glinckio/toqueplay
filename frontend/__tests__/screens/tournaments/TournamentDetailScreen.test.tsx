@@ -52,12 +52,12 @@ describe("TournamentDetailScreen", () => {
 
   it("renders sections", () => {
     const { getByText } = render(<TournamentDetailScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("SOBRE O TORNEIO")).toBeTruthy();
-    expect(getByText("REGRAS")).toBeTruthy();
-    expect(getByText("CATEGORIAS")).toBeTruthy();
-    expect(getByText("PREMIAÇÃO")).toBeTruthy();
-    expect(getByText("TIMES CONFIRMADOS")).toBeTruthy();
-    expect(getByText("LOCAL")).toBeTruthy();
+    expect(getByText("Sobre o torneio")).toBeTruthy();
+    expect(getByText("Regras")).toBeTruthy();
+    expect(getByText("Categorias")).toBeTruthy();
+    expect(getByText("Premiação")).toBeTruthy();
+    expect(getByText("Times confirmados")).toBeTruthy();
+    expect(getByText("Local")).toBeTruthy();
   });
 
   it("renders CTA button for non-owner", () => {

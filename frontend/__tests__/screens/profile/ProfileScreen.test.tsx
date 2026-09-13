@@ -55,7 +55,7 @@ describe("ProfileScreen", () => {
 
   it("renders recent tournaments section", () => {
     const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
-    expect(getByText("TORNEIOS RECENTES")).toBeTruthy();
+    expect(getByText("Torneios recentes")).toBeTruthy();
     expect(getByText("Copa Verão Beach 2026")).toBeTruthy();
   });
 

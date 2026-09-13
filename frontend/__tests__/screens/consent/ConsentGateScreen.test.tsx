@@ -50,7 +50,7 @@ describe("ConsentGateScreen", () => {
 
   it("renders accept button", () => {
     const { getByText } = render(<ConsentGateScreen />);
-    expect(getByText("ACEITAR E CONTINUAR")).toBeTruthy();
+    expect(getByText("Aceitar e continuar")).toBeTruthy();
   });
 
   it("calls acceptTerms and sets store on accept", async () => {
