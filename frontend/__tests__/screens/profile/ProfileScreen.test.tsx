@@ -34,10 +34,11 @@ describe("ProfileScreen", () => {
     expect(getByText(/@lucascosta/)).toBeTruthy();
   });
 
-  it("renders role badges", () => {
-    const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
+  // Hoje so existe o selo de ATLETA: o papel de organizador deixou de ser exibido no perfil.
+  it("renders the athlete badge", () => {
+    const { getByText, queryByText } = render(<ProfileScreen navigation={mockNavigation} />);
     expect(getByText("ATLETA")).toBeTruthy();
-    expect(getByText("ORGANIZADOR")).toBeTruthy();
+    expect(queryByText("ORGANIZADOR")).toBeNull();
   });
 
   it("renders stats bar with 3 items", () => {
@@ -47,10 +48,11 @@ describe("ProfileScreen", () => {
     expect(getByText("Win rate")).toBeTruthy();
   });
 
-  it("renders quick links section", () => {
-    const { getByText } = render(<ProfileScreen navigation={mockNavigation} />);
-    expect(getByText("LINKS RÁPIDOS")).toBeTruthy();
-    expect(getByText("Meus times")).toBeTruthy();
+  // "Links rapidos" virou a secao "Definicoes", com Configuracoes e Sair da conta.
+  it("renders the settings section", () => {
+    const { getByText, getByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
+    expect(getByText("Definições")).toBeTruthy();
+    expect(getByLabelText("Configurações")).toBeTruthy();
   });
 
   it("renders recent tournaments section", () => {
@@ -69,13 +71,13 @@ describe("ProfileScreen", () => {
     const { getByLabelText, getByText } = render(<ProfileScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Editar perfil"));
     expect(getByText("Editar perfil")).toBeTruthy();
-    expect(getByLabelText("NOME COMPLETO")).toBeTruthy();
+    expect(getByLabelText("Nome de usuário")).toBeTruthy();
     expect(getByLabelText("Bio")).toBeTruthy();
   });
 
-  it("shows logout button in edit mode", () => {
+  // Sair da conta saiu do modo de edicao: hoje fica na secao Definicoes, na visao normal.
+  it("shows the logout button in the normal view", () => {
     const { getByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
-    fireEvent.press(getByLabelText("Editar perfil"));
     expect(getByLabelText("Sair da conta")).toBeTruthy();
   });
 
@@ -83,6 +85,6 @@ describe("ProfileScreen", () => {
     const { getByLabelText, queryByLabelText } = render(<ProfileScreen navigation={mockNavigation} />);
     fireEvent.press(getByLabelText("Editar perfil"));
     fireEvent.press(getByLabelText("Salvar perfil"));
-    await waitFor(() => expect(queryByLabelText("NOME COMPLETO")).toBeNull());
+    await waitFor(() => expect(queryByLabelText("Nome de usuário")).toBeNull());
   });
 });
