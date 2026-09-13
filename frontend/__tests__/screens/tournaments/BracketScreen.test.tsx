@@ -5,6 +5,10 @@ import { BracketScreen } from "@/screens/tournaments/BracketScreen";
 const mockBracketData = [
   {
     id: "b1",
+    // `type` e obrigatorio: o parse usa ele para descobrir quais rodadas sao eliminatorias e
+    // montar os rotulos (Final, Semi...). Sem isso nenhuma partida chega na tela.
+    type: "SINGLE_ELIMINATION",
+    category: { id: "cat-1", type: "MALE", format: "PAIR", modality: "BEACH" },
     matches: [
       {
         id: "m1",
@@ -31,6 +35,21 @@ const mockBracketData = [
         teamBId: "tb2",
         teamA: { id: "ta2", name: "Praia Aces", avatarUrl: null },
         teamB: { id: "tb2", name: "Sand Blockers", avatarUrl: null },
+        scoreTeamA: null,
+        scoreTeamB: null,
+        winnerId: null,
+        sets: [],
+      },
+      {
+        id: "m4",
+        round: 1,
+        position: 2,
+        status: "SCHEDULED",
+        label: null,
+        teamAId: "ta3",
+        teamBId: "tb3",
+        teamA: { id: "ta3", name: "Rede Alta", avatarUrl: null },
+        teamB: { id: "tb3", name: "Manobra", avatarUrl: null },
         scoreTeamA: null,
         scoreTeamB: null,
         winnerId: null,
@@ -108,12 +127,7 @@ describe("BracketScreen", () => {
     expect(getByText("PENDENTE")).toBeTruthy();
   });
 
-  it("renders legend", () => {
-    const { getByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("Concluído")).toBeTruthy();
-    expect(getByText("Ao vivo")).toBeTruthy();
-    expect(getByText("Pendente")).toBeTruthy();
-  });
+  // A legenda de status saiu da tela: o proprio card ja mostra CONCLUIDO / AO VIVO / PENDENTE.
 
   it("renders A definir for matches without teams", () => {
     const { getAllByText } = render(<BracketScreen navigation={mockNavigation} route={mockRoute} />);
