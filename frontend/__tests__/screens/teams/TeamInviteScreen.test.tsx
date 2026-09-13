@@ -1,6 +1,37 @@
 import React from "react";
-import { render, fireEvent } from "@testing-library/react-native";
+import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { TeamInviteScreen } from "@/screens/teams/TeamInviteScreen";
+
+// A tela busca os convites pendentes e casa pelo id da rota. Antes tinha dado fixo embutido.
+const mockConvites = [
+  {
+    id: "inv-1",
+    expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString(),
+    inviter: { name: "Rafael Silva" },
+    team: {
+      id: "team-1",
+      name: "Beach Titans",
+      avatarUrl: null,
+      members: [
+        { id: "m1", user: { id: "u1", name: "Marcos Silva", avatarUrl: null }, isCaptain: true },
+        { id: "m2", user: { id: "u2", name: "Ana Costa", avatarUrl: null }, isCaptain: false },
+        { id: "m3", user: { id: "u3", name: "João Ferreira", avatarUrl: null }, isCaptain: false },
+      ],
+    },
+  },
+];
+
+jest.mock("@/services/teamsService", () => ({
+  teamsService: {
+    getPendingInvitations: jest.fn().mockResolvedValue([]),
+    acceptInvitation: jest.fn().mockResolvedValue({}),
+    rejectInvitation: jest.fn().mockResolvedValue({}),
+  },
+}));
+
+jest.mock("@/hooks/useApi", () => ({
+  useApi: () => ({ data: mockConvites, loading: false, error: null, refetch: jest.fn() }),
+}));
 
 jest.mock("react-native-safe-area-context", () => ({
   SafeAreaView: "SafeAreaView",
@@ -43,17 +74,20 @@ describe("TeamInviteScreen", () => {
     expect(getByText("6 dias")).toBeTruthy();
   });
 
-  it("transitions to success view on accept", () => {
-    const { getByText, queryByText } = render(<TeamInviteScreen navigation={mockNavigation} route={mockRoute} />);
+  // Aceitar chama a API antes de trocar de passo, entao a comemoracao entra de forma assincrona.
+  it("transitions to the celebration view on accept", async () => {
+    const { getByText, findByText } = render(
+      <TeamInviteScreen navigation={mockNavigation} route={mockRoute} />,
+    );
     fireEvent.press(getByText("Aceitar"));
-    expect(getByText("Você entrou no time!")).toBeTruthy();
-    expect(getByText("Ver meu time")).toBeTruthy();
-    expect(getByText("Voltar à home")).toBeTruthy();
+    expect(await findByText("Convite aceito")).toBeTruthy();
   });
 
-  it("calls goBack on reject", () => {
-    const { getByText } = render(<TeamInviteScreen navigation={mockNavigation} route={mockRoute} />);
+  it("calls goBack on reject", async () => {
+    const { getByText } = render(
+      <TeamInviteScreen navigation={mockNavigation} route={mockRoute} />,
+    );
     fireEvent.press(getByText("Recusar"));
-    expect(mockNavigation.goBack).toHaveBeenCalled();
+    await waitFor(() => expect(mockNavigation.goBack).toHaveBeenCalled());
   });
 });
