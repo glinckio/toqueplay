@@ -21,7 +21,7 @@ describe("CreateTeamScreen", () => {
     expect(getAllByText("Criar time").length).toBeGreaterThanOrEqual(1);
     expect(getByText("Nome do time")).toBeTruthy();
     expect(getByText("Modalidade")).toBeTruthy();
-    expect(getByText("SUPERFÍCIE")).toBeTruthy();
+    expect(getByText("Formato")).toBeTruthy();
   });
 
   it("renders format options", () => {
@@ -36,11 +36,8 @@ describe("CreateTeamScreen", () => {
     expect(getByText("Quadra")).toBeTruthy();
   });
 
-  it("renders invite section", () => {
-    const { getByText } = render(<CreateTeamScreen navigation={mockNavigation} />);
-    expect(getByText("CONVIDAR PARCEIRO")).toBeTruthy();
-    expect(getByText("Ou compartilhar link de convite")).toBeTruthy();
-  });
+  // O convite de parceiro saiu desta tela: hoje acontece em Adicionar membro / Convite do time,
+  // depois que o time existe. Nao ha o que checar aqui.
 
   it("renders avatar placeholder", () => {
     const { getByText } = render(<CreateTeamScreen navigation={mockNavigation} />);

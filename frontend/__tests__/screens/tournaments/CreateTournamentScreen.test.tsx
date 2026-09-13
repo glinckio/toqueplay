@@ -64,16 +64,16 @@ describe("CreateTournamentScreen", () => {
     const utils = render(<CreateTournamentScreen navigation={mockNavigation} />);
     const { getByText } = utils;
     expect(getByText("Criar torneio")).toBeTruthy();
-    expect(getByText("Passo 1 de 4")).toBeTruthy();
+    expect(getByText("Passo 1")).toBeTruthy();
   });
 
   it("renders step labels", () => {
     const utils = render(<CreateTournamentScreen navigation={mockNavigation} />);
     const { getByText } = utils;
-    expect(getByText("Básico")).toBeTruthy();
-    expect(getByText("Estrutura")).toBeTruthy();
-    expect(getByText("Categorias")).toBeTruthy();
-    expect(getByText("Revisão")).toBeTruthy();
+    // O rotulo aparece na trilha de passos e tambem no cabecalho do passo atual.
+    ["Básico", "Estrutura", "Categorias", "Revisão"].forEach((label) => {
+      expect(utils.getAllByText(label).length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   it("renders step 1 fields", () => {
