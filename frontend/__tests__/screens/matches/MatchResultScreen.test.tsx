@@ -23,8 +23,8 @@ describe("MatchResultScreen", () => {
 
   it("renders winner card", () => {
     const { getByText } = render(<MatchResultScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("VENCEDOR")).toBeTruthy();
-    expect(getByText("🏆")).toBeTruthy();
+    // O trofeu e o rotulo vivem no mesmo no de texto.
+    expect(getByText("🏆 VENCEDOR")).toBeTruthy();
   });
 
   it("renders final score", () => {
@@ -44,8 +44,9 @@ describe("MatchResultScreen", () => {
 
   it("renders duration, timeouts, cards", () => {
     const { getByText } = render(<MatchResultScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("48min")).toBeTruthy();
+    // A duracao e derivada de startedAt/finishedAt; sem eles a tela mostra "--".
     expect(getByText("Duração")).toBeTruthy();
+    expect(getByText("--")).toBeTruthy();
     expect(getByText("Timeouts")).toBeTruthy();
     expect(getByText("Cartões")).toBeTruthy();
   });
@@ -56,10 +57,10 @@ describe("MatchResultScreen", () => {
     expect(getByText("Silva & Rocha vs Vôlei Norte · 17:00")).toBeTruthy();
   });
 
+  // "Compartilhar" saiu: as acoes hoje sao seguir para o proximo jogo ou voltar ao chaveamento.
   it("renders action buttons", () => {
-    const { getByText } = render(<MatchResultScreen navigation={mockNavigation} route={mockRoute} />);
-    expect(getByText("Compartilhar")).toBeTruthy();
-    expect(getByText("Ver bracket")).toBeTruthy();
+    const { getByLabelText } = render(<MatchResultScreen navigation={mockNavigation} route={mockRoute} />);
+    expect(getByLabelText("Voltar ao chaveamento")).toBeTruthy();
   });
 
   it("renders set scores", () => {
