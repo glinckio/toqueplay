@@ -33,6 +33,7 @@ export function StandingsScreen({ navigation, route }: any) {
   const [data, setData] = useState<TournamentStandings | null>(null);
   const [grupos, setGrupos] = useState<GrupoDaEtapa[]>([]);
   const [aba, setAba] = useState<Aba>("geral");
+  const [eventType, setEventType] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -42,12 +43,19 @@ export function StandingsScreen({ navigation, route }: any) {
   const carregar = useCallback(async () => {
     setError("");
     try {
-      const [acumulada, brackets] = await Promise.all([
+      const [acumulada, brackets, torneio] = await Promise.all([
         standingsService.getStandings(tournamentId),
         // Best-effort: torneio sem chave gerada ainda nao tem tabela de grupo.
         tournamentsService.getBracket(tournamentId).catch(() => [] as any[]),
+        tournamentsService.findOne(tournamentId).catch(() => null),
       ]);
       setData(acumulada);
+
+      // Os rotulos mudam com o formato: "Geral / Etapa atual" so faz sentido quando existem
+      // varias etapas para comparar. Num dia unico e numa liga e "Resultado / Classificacao".
+      const tipo = torneio?.eventType ?? null;
+      setEventType(tipo);
+      if (tipo && tipo !== "CIRCUIT") setAba("etapa");
 
       const tabelas = await Promise.all(
         (brackets ?? []).map(async (b: any) => {
@@ -101,7 +109,10 @@ export function StandingsScreen({ navigation, route }: any) {
           {/* Duas tabelas de naturezas diferentes: a geral soma pontos por colocacao entre etapas;
               a da etapa vem do placar das partidas (3/2/1/0) e e quem decide o avanco. */}
           <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
-            {([["geral", "Geral"], ["etapa", "Etapa atual"]] as const).map(([key, label]) => {
+            {(eventType === "CIRCUIT"
+              ? ([["geral", "Geral"], ["etapa", "Etapa atual"]] as const)
+              : ([["etapa", "Classificação"], ["geral", "Resultado"]] as const)
+            ).map(([key, label]) => {
               const ativa = aba === key;
               return (
                 <Pressable
@@ -159,7 +170,9 @@ export function StandingsScreen({ navigation, route }: any) {
 
               {rows.length === 0 ? (
                 <Text style={{ color: colors.text.tertiary, fontFamily: "Manrope_500Medium", fontSize: 12 }}>
-                  Nenhuma etapa encerrada ainda.
+                  {eventType === "CIRCUIT"
+                    ? "Nenhuma etapa encerrada ainda."
+                    : "A colocação aparece conforme as partidas vão sendo encerradas."}
                 </Text>
               ) : (
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -235,8 +248,9 @@ export function StandingsScreen({ navigation, route }: any) {
 
           {aba === "geral" && (
             <Text style={{ color: colors.text.disabled, fontFamily: "Manrope_400Regular", fontSize: 11, lineHeight: 16 }}>
-              O traço marca etapa não disputada. A tabela é atualizada a cada partida encerrada —
-              quem já foi eliminado numa etapa entra na conta na hora.
+              {eventType === "CIRCUIT"
+                ? "O traço marca etapa não disputada. A tabela é atualizada a cada partida encerrada — quem já foi eliminado numa etapa entra na conta na hora."
+                : "Atualizada a cada partida encerrada: quem já foi eliminado entra na conta na hora, quem ainda joga fica sem colocação."}
             </Text>
           )}
         </ScrollView>

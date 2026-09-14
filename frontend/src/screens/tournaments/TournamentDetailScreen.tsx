@@ -636,8 +636,9 @@ export function TournamentDetailScreen({ navigation, route }: any) {
           <View style={{ marginTop: 4 }}>
             {renderCTA()}
 
-            {/* Liga e circuito acumulam pontos entre etapas; torneio unico nao tem o que somar. */}
-            {tournament?.eventType !== "SINGLE" && (
+            {/* Vale para os tres formatos: o unico tambem tem tabela do dia quando a chave e
+                round robin ou grupos, e a colocacao final sempre existe. */}
+            {!!tournament && (
               <View style={{ marginTop: 10 }}>
                 <SecondaryButton
                   label="Ver classificação"
