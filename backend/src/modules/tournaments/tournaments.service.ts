@@ -345,7 +345,18 @@ export class TournamentsService {
   async openRegistration(tournamentId: string, userId: string) {
     const tournament = await this.verifyOwnership(tournamentId, userId);
 
-    if (!canTransition(tournament.status, TournamentStatus.REGISTRATION_OPEN)) {
+    // Num circuito cada etapa tem o proprio ciclo de inscricao: fechar para a etapa 1 e gerar a
+    // chave dela nao pode impedir que a etapa 2 receba times. O diagrama de estados e linear e
+    // so descreve um torneio de uma etapa, entao o circuito ganha a volta explicitamente.
+    const circuitoEntreEtapas =
+      tournament.eventType === TournamentEventType.CIRCUIT &&
+      (tournament.status === TournamentStatus.BRACKET_GENERATED ||
+        tournament.status === TournamentStatus.IN_PROGRESS);
+
+    if (
+      !circuitoEntreEtapas &&
+      !canTransition(tournament.status, TournamentStatus.REGISTRATION_OPEN)
+    ) {
       throw AppError.tournamentNotReady();
     }
 
