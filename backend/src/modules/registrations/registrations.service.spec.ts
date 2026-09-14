@@ -92,21 +92,25 @@ describe('RegistrationsService', () => {
   });
 
   // Helper: faz o $transaction executar o callback com um `tx` mockado.
-  // `membrosComCpf` alimenta a checagem de atleta repetido; `conflitoDeCpf` simula um CPF ja
-  // inscrito por outro time no mesmo torneio.
+  // Guarda o findFirst da checagem de atleta repetido para os testes inspecionarem o `where`.
+  let conflitoFindFirst: jest.Mock;
+
+  // `membrosComIdentidade` alimenta a checagem de atleta repetido (userId para quem tem conta,
+  // cpf para convidado); `conflito` simula a mesma pessoa ja inscrita por outro time.
   const txReturns = (
     registration: any,
     alreadyRegistered: any[] = [],
-    membrosComCpf: any[] = [],
-    conflitoDeCpf: any = null,
+    membrosComIdentidade: any[] = [],
+    conflito: any = null,
   ) => {
+    conflitoFindFirst = jest.fn().mockResolvedValue(conflito);
     prisma.$transaction.mockImplementation(async (cb: any) =>
       cb({
         registrationMember: {
           findMany: jest.fn().mockResolvedValue(alreadyRegistered),
-          findFirst: jest.fn().mockResolvedValue(conflitoDeCpf),
+          findFirst: conflitoFindFirst,
         },
-        teamMember: { findMany: jest.fn().mockResolvedValue(membrosComCpf) },
+        teamMember: { findMany: jest.fn().mockResolvedValue(membrosComIdentidade) },
         registration: { create: jest.fn().mockResolvedValue(registration) },
       }),
     );
@@ -249,47 +253,91 @@ describe('RegistrationsService', () => {
   });
 
   describe('registerTeam — mesmo atleta por times diferentes', () => {
-    const prepara = (torneio: any, membrosComCpf: any[], conflito: any) => {
+    const prepara = (torneio: any, membrosComIdentidade: any[], conflito: any) => {
       prisma.tournament.findFirst.mockResolvedValue(torneio);
       prisma.tournamentCategory.findUnique.mockResolvedValue(mockCategory);
       prisma.team.findUnique.mockResolvedValue(mockTeam);
-      txReturns(mockRegistration, [], membrosComCpf, conflito);
+      txReturns(mockRegistration, [], membrosComIdentidade, conflito);
     };
 
-    it('recusa quando o CPF ja esta inscrito por outro time', async () => {
+    const inscreve = () =>
+      service.registerTeam('t1', 'user-1', {
+        categoryId: 'cat1',
+        teamId: 'team1',
+        memberIds: ['m1', 'm2'],
+      } as any);
+
+    // Convidado nao tem conta: o CPF digitado pelo dono do time e a unica identidade dele.
+    it('recusa quando o CPF do convidado ja esta inscrito por outro time', async () => {
       prepara(
         { ...mockTournament },
-        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
+        [{ userId: null, cpf: '12345678901' }, { userId: null, cpf: '98765432100' }],
         { id: 'rm-existente' },
       );
 
-      await expect(
-        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
-      ).rejects.toThrow(ConflictException);
+      await expect(inscreve()).rejects.toThrow(ConflictException);
     });
 
-    it('permite quando o CPF ainda nao esta em nenhum outro time', async () => {
+    // Regressao: a regra so cruzava por TeamMember.cpf, que e sempre null para quem tem conta
+    // (o CPF do usuario vive em User.cpf e nunca foi copiado no aceite do convite). Resultado:
+    // atleta cadastrado jogava por dois times no mesmo torneio sem ser barrado.
+    it('recusa quando o atleta cadastrado ja esta inscrito por outro time', async () => {
       prepara(
         { ...mockTournament },
-        [{ cpf: '12345678901' }, { cpf: '98765432100' }],
+        [{ userId: 'u1', cpf: null }, { userId: 'u2', cpf: null }],
+        { id: 'rm-existente' },
+      );
+
+      await expect(inscreve()).rejects.toThrow(ConflictException);
+      expect(conflitoFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            teamMember: { OR: [{ userId: { in: ['u1', 'u2'] } }] },
+          }),
+        }),
+      );
+    });
+
+    // Time misto: as duas identidades entram no mesmo OR.
+    it('cruza userId e CPF juntos quando o time mistura atleta e convidado', async () => {
+      prepara(
+        { ...mockTournament },
+        [{ userId: 'u1', cpf: null }, { userId: null, cpf: '98765432100' }],
         null,
       );
 
-      await expect(
-        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
-      ).resolves.toBeDefined();
+      await expect(inscreve()).resolves.toBeDefined();
+      expect(conflitoFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            teamMember: {
+              OR: [{ userId: { in: ['u1'] } }, { cpf: { in: ['98765432100'] } }],
+            },
+          }),
+        }),
+      );
     });
 
-    it('membro sem CPF cadastrado nao e bloqueado (nao ha como cruzar)', async () => {
+    it('permite quando ninguem do time esta em outro time', async () => {
       prepara(
         { ...mockTournament },
-        [{ cpf: null }, { cpf: null }],
+        [{ userId: 'u1', cpf: null }, { userId: 'u2', cpf: null }],
+        null,
+      );
+
+      await expect(inscreve()).resolves.toBeDefined();
+    });
+
+    // Convidado sem CPF nao tem identidade nenhuma — fica fora da regra, e a consulta nem roda.
+    it('convidado sem CPF nao e bloqueado (nao ha como cruzar)', async () => {
+      prepara(
+        { ...mockTournament },
+        [{ userId: null, cpf: null }, { userId: null, cpf: null }],
         { id: 'rm-existente' },
       );
 
-      await expect(
-        service.registerTeam('t1', 'user-1', { categoryId: 'cat1', teamId: 'team1', memberIds: ['m1', 'm2'] } as any),
-      ).resolves.toBeDefined();
+      await expect(inscreve()).resolves.toBeDefined();
+      expect(conflitoFindFirst).not.toHaveBeenCalled();
     });
   });
 

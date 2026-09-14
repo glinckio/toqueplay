@@ -150,22 +150,35 @@ export class RegistrationsService {
       }
 
       // A checagem acima e por teamMemberId — a mesma pessoa cadastrada em dois times tem ids
-      // diferentes e passaria batido. A comparacao por CPF fecha essa brecha.
+      // diferentes e passaria batido. O cruzamento abaixo fecha essa brecha por identidade.
       // Nao ha opcao de desligar: o escopo acima ja diz o que vale em cada formato.
+      //
+      // Sao duas identidades porque o TeamMember tem duas naturezas: quem tem conta e cruzado
+      // por userId (TeamMember.cpf e sempre null nesse caso — o CPF do usuario vive em User.cpf),
+      // e o convidado, que nao tem conta, so pode ser cruzado pelo CPF que o dono digitou.
       {
         const membros = await tx.teamMember.findMany({
           where: { id: { in: dto.memberIds } },
-          select: { cpf: true },
+          select: { userId: true, cpf: true },
         });
-        // Membro sem CPF cadastrado nao tem como ser cruzado — fica de fora da regra.
+
+        const userIds = membros
+          .map((m) => m.userId)
+          .filter((id): id is string => Boolean(id));
+        // Convidado sem CPF nao tem identidade cruzavel — fica de fora da regra.
         const cpfs = membros
           .map((m) => m.cpf)
           .filter((cpf): cpf is string => Boolean(cpf));
 
-        if (cpfs.length > 0) {
+        const identidades = [
+          ...(userIds.length > 0 ? [{ userId: { in: userIds } }] : []),
+          ...(cpfs.length > 0 ? [{ cpf: { in: cpfs } }] : []),
+        ];
+
+        if (identidades.length > 0) {
           const jaInscritoPorOutroTime = await tx.registrationMember.findFirst({
             where: {
-              teamMember: { cpf: { in: cpfs } },
+              teamMember: { OR: identidades },
               registration: {
                 ...escopo,
                 teamId: { not: dto.teamId },
