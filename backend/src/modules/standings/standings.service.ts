@@ -4,7 +4,10 @@ import { PrismaService } from '../../common/prisma.service';
 import { AppError } from '../../common/errors/app-error';
 import {
   buildStandings,
-  placementForEliminationLoss,
+  placementsFromElimination,
+  placementsFromRoundRobin,
+  placementsFromGroupsThenElimination,
+  placementsFromDoubleElimination,
   pointsForPlacement,
   DEFAULT_POINTS_RULES,
   MatchForStandings,
@@ -26,6 +29,7 @@ const MATCH_SELECT = {
   round: true,
   group: true,
   status: true,
+  label: true,
   sets: { select: { scoreA: true, scoreB: true } },
 } as const;
 
@@ -100,11 +104,17 @@ export class StandingsService {
     const bestOfSets = bracket.category?.bestOfSets ?? 3;
     const porGrupo = new Map<number, typeof bracket.matches>();
     for (const m of bracket.matches) {
-      // Partida sem grupo e mata-mata: nao entra em tabela de classificacao.
-      if (m.group === null || m.group === undefined) continue;
-      const lista = porGrupo.get(m.group) ?? [];
+      // No round robin todo mundo joga contra todo mundo: nao ha `group` gravado, mas a chave
+      // inteira e um grupo so. Nos demais formatos, partida sem grupo e mata-mata e nao entra
+      // em tabela de classificacao.
+      // O playoff do round robin (final e 3o lugar) vem marcado com `label` e nao entra na
+      // classificacao — ela e so do todos-contra-todos.
+      const grupo =
+        m.group ?? (bracket.type === BracketType.ROUND_ROBIN && !m.label ? 0 : null);
+      if (grupo === null) continue;
+      const lista = porGrupo.get(grupo) ?? [];
       lista.push(m);
-      porGrupo.set(m.group, lista);
+      porGrupo.set(grupo, lista);
     }
 
     return [...porGrupo.entries()]
@@ -140,10 +150,9 @@ export class StandingsService {
     const tournamentId = bracket.stage.tournamentId;
     const rules = await this.getPointsRules(tournamentId);
 
-    const posicoes =
-      bracket.type === BracketType.ROUND_ROBIN
-        ? this.placementsFromRoundRobin(bracket.matches, bestOfSets)
-        : this.placementsFromElimination(bracket.matches);
+    // Cada formato coloca de um jeito: grupos e eliminacao dupla nao cabem na formula de
+    // "distancia da final", que so vale para mata-mata puro.
+    const posicoes = this.calcularPosicoes(bracket.type, bracket.matches, bestOfSets);
 
     const linhas = [...posicoes.entries()].map(([teamId, position]) => ({
       tournamentId,
@@ -214,32 +223,25 @@ export class StandingsService {
     return [...ids];
   }
 
-  private placementsFromRoundRobin(
-    matches: MatchForStandings[],
+  /** Escolhe a regra de colocacao conforme o formato da chave. */
+  private calcularPosicoes(
+    tipo: BracketType,
+    matches: any[],
     bestOfSets: number,
   ): Map<string, number> {
-    const tabela = buildStandings(this.teamIdsOf(matches), matches, bestOfSets);
-    return new Map(tabela.map((row, i) => [row.teamId, i + 1]));
-  }
-
-  private placementsFromElimination(
-    matches: (MatchForStandings & { round: number })[],
-  ): Map<string, number> {
-    const posicoes = new Map<string, number>();
-    const totalRounds = Math.max(...matches.map((m) => m.round), 1);
-
-    for (const m of matches) {
-      if (!m.winnerId) continue;
-      const perdedorId = m.winnerId === m.teamAId ? m.teamBId : m.teamAId;
-      if (perdedorId) {
-        posicoes.set(perdedorId, placementForEliminationLoss(m.round, totalRounds));
-      }
-      // O campeao e quem venceu a ultima rodada.
-      if (m.round === totalRounds) posicoes.set(m.winnerId, 1);
+    switch (tipo) {
+      case BracketType.ROUND_ROBIN:
+        return placementsFromRoundRobin(matches, bestOfSets);
+      case BracketType.GROUPS_THEN_ELIMINATION:
+        return placementsFromGroupsThenElimination(matches, bestOfSets);
+      case BracketType.DOUBLE_ELIMINATION:
+        return placementsFromDoubleElimination(matches);
+      default:
+        return placementsFromElimination(matches);
     }
-
-    return posicoes;
   }
+
+
 
   /**
    * Times que disputam a etapa final do circuito: os `finalStageTeamCount` melhores da tabela

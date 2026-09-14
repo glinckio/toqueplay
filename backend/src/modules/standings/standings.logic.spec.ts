@@ -1,5 +1,8 @@
 import {
   buildStandings,
+  placementsFromGroupsThenElimination,
+  placementsFromDoubleElimination,
+  placementsFromRoundRobin,
   sortStandings,
   leaguePointsFor,
   placementForEliminationLoss,
@@ -170,5 +173,111 @@ describe('pointsForPlacement', () => {
   it('vale zero quando nao ha regra abaixo da colocacao', () => {
     expect(pointsForPlacement([{ placement: 3, points: 10 }], 1)).toBe(0);
     expect(pointsForPlacement([], 1)).toBe(0);
+  });
+});
+
+describe('placementsFromGroupsThenElimination', () => {
+  const jogo = (a: string, b: string, vencedor: string, round: number, group: number | null) => ({
+    teamAId: a, teamBId: b, winnerId: vencedor,
+    scoreTeamA: vencedor === a ? 2 : 0, scoreTeamB: vencedor === a ? 0 : 2,
+    sets: [{ scoreA: 21, scoreB: 15 }, { scoreA: 21, scoreB: 15 }],
+    round, group,
+  });
+
+  // Regressao: o gerador numera grupo a partir de 1 e mata-mata a partir de 101. Tratar tudo
+  // como eliminatoria dava 2^(102-1) de colocacao e estourava o inteiro de 64 bits no banco.
+  it('nao mede a fase de grupos pela distancia da final', () => {
+    const posicoes = placementsFromGroupsThenElimination(
+      [
+        jogo('a', 'b', 'a', 1, 0),
+        jogo('c', 'd', 'c', 1, 1),
+        jogo('a', 'c', 'a', 101, null),
+      ],
+      3,
+    );
+
+    for (const p of posicoes.values()) {
+      expect(Number.isSafeInteger(p)).toBe(true);
+      expect(p).toBeLessThan(100);
+    }
+  });
+
+  it('coloca quem caiu no grupo depois de quem chegou ao mata-mata', () => {
+    const posicoes = placementsFromGroupsThenElimination(
+      [
+        jogo('a', 'b', 'a', 1, 0),
+        jogo('c', 'd', 'c', 1, 1),
+        jogo('a', 'c', 'a', 101, null),
+      ],
+      3,
+    );
+
+    expect(posicoes.get('a')).toBe(1);
+    expect(posicoes.get('c')).toBe(2);
+    // b e d nao passaram do grupo: vem depois dos dois classificados.
+    expect(posicoes.get('b')).toBeGreaterThan(2);
+    expect(posicoes.get('d')).toBeGreaterThan(2);
+  });
+});
+
+describe('placementsFromRoundRobin', () => {
+  const jogo = (a: string, b: string, vencedor: string, label?: string) => ({
+    teamAId: a, teamBId: b, winnerId: vencedor,
+    scoreTeamA: vencedor === a ? 2 : 0, scoreTeamB: vencedor === a ? 0 : 2,
+    sets: [{ scoreA: 21, scoreB: 15 }, { scoreA: 21, scoreB: 15 }],
+    label: label ?? null,
+  });
+
+  // Regressao: o playoff entrava na tabela e inflava o numero de jogos de cada time.
+  it('ignora o playoff ao montar a classificacao', () => {
+    const posicoes = placementsFromRoundRobin(
+      [jogo('a', 'b', 'a'), jogo('a', 'c', 'a'), jogo('b', 'c', 'b')],
+      3,
+    );
+    expect(posicoes.get('a')).toBe(1);
+    expect(posicoes.size).toBe(3);
+  });
+
+  // Quem venceu a final e campeao mesmo sem ter liderado a fase classificatoria.
+  it('deixa o playoff decidir o podio', () => {
+    const posicoes = placementsFromRoundRobin(
+      [
+        jogo('a', 'b', 'a'),
+        jogo('a', 'c', 'a'),
+        jogo('b', 'c', 'b'),
+        jogo('b', 'a', 'b', 'FINAL'),
+      ],
+      3,
+    );
+    expect(posicoes.get('b')).toBe(1);
+    expect(posicoes.get('a')).toBe(2);
+  });
+});
+
+describe('placementsFromDoubleElimination', () => {
+  const jogo = (a: string, b: string, vencedor: string, round: number) => ({
+    teamAId: a, teamBId: b, winnerId: vencedor,
+    scoreTeamA: vencedor === a ? 2 : 0, scoreTeamB: vencedor === a ? 0 : 2,
+    sets: [], round,
+  });
+
+  // Na eliminacao dupla o time cai so na segunda derrota, entao a ordem sai de quando cada um
+  // foi eliminado — nao da "distancia da final".
+  it('ordena por quando o time foi eliminado', () => {
+    const posicoes = placementsFromDoubleElimination([
+      jogo('a', 'b', 'a', 1),
+      jogo('c', 'd', 'c', 1),
+      jogo('b', 'd', 'b', 2),
+      jogo('a', 'c', 'a', 3),
+      jogo('a', 'b', 'a', 4),
+    ]);
+
+    expect(posicoes.get('a')).toBe(1);
+    // d caiu primeiro (rodada 2), b por ultimo (rodada 4).
+    expect(posicoes.get('b')!).toBeLessThan(posicoes.get('d')!);
+  });
+
+  it('nao coloca ninguem sem partida decidida', () => {
+    expect(placementsFromDoubleElimination([]).size).toBe(0);
   });
 });

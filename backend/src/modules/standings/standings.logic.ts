@@ -164,6 +164,147 @@ export function pointsForPlacement(
   return aplicavel?.points ?? 0;
 }
 
+/**
+ * Colocacao num round robin.
+ *
+ * A chave tem duas partes: o todos-contra-todos, que produz a tabela, e um playoff opcional
+ * (final e disputa de 3o) criado com `label`. A tabela ordena todo mundo; quando o playoff foi
+ * jogado, ele manda no pódio — quem venceu a final e campeao ainda que nao tenha liderado a
+ * classificacao.
+ */
+export function placementsFromRoundRobin(
+  matches: (MatchForStandings & { label?: string | null })[],
+  bestOfSets: number,
+): Map<string, number> {
+  const classificatoria = matches.filter((m) => !m.label);
+  const times = new Set<string>();
+  for (const m of classificatoria) {
+    if (m.teamAId) times.add(m.teamAId);
+    if (m.teamBId) times.add(m.teamBId);
+  }
+
+  const tabela = buildStandings([...times], classificatoria, bestOfSets);
+  const posicoes = new Map<string, number>(tabela.map((r, i) => [r.teamId, i + 1]));
+
+  const aplicarDecisao = (label: string, colocacaoVencedor: number) => {
+    const jogo = matches.find((m) => m.label === label && m.winnerId);
+    if (!jogo) return;
+    const perdedor = jogo.winnerId === jogo.teamAId ? jogo.teamBId : jogo.teamAId;
+    posicoes.set(jogo.winnerId!, colocacaoVencedor);
+    if (perdedor) posicoes.set(perdedor, colocacaoVencedor + 1);
+  };
+
+  aplicarDecisao('FINAL', 1);
+  aplicarDecisao('TERCEIRO_LUGAR', 3);
+
+  return posicoes;
+}
+
+/**
+ * Colocacao de todos os times de uma chave puramente eliminatoria.
+ *
+ * So considera partidas ja decididas: quem ainda joga fica sem colocacao, que e o correto para a
+ * tabela parcial de uma etapa em andamento.
+ */
+export function placementsFromElimination(
+  matches: (MatchForStandings & { round: number })[],
+): Map<string, number> {
+  const posicoes = new Map<string, number>();
+  if (matches.length === 0) return posicoes;
+
+  const totalRounds = Math.max(...matches.map((m) => m.round), 1);
+
+  for (const m of matches) {
+    if (!m.winnerId) continue;
+    const perdedorId = m.winnerId === m.teamAId ? m.teamBId : m.teamAId;
+    if (perdedorId) {
+      posicoes.set(perdedorId, placementForEliminationLoss(m.round, totalRounds));
+    }
+    if (m.round === totalRounds) posicoes.set(m.winnerId, 1);
+  }
+
+  return posicoes;
+}
+
+/**
+ * Colocacao numa chave de grupos + mata-mata.
+ *
+ * As duas fases nao podem ser tratadas igual: o gerador numera as rodadas de grupo a partir de 1
+ * e as do mata-mata a partir de 101, entao medir "distancia da final" sobre todas as partidas
+ * faria um time eliminado no grupo receber 2^101 de colocacao.
+ *
+ * Quem chegou ao mata-mata e colocado por ele. Quem caiu no grupo vem depois, na ordem da
+ * classificacao do proprio grupo.
+ */
+export function placementsFromGroupsThenElimination(
+  matches: (MatchForStandings & { round: number; group: number | null })[],
+  bestOfSets: number,
+): Map<string, number> {
+  const mataMata = matches.filter((m) => m.group === null || m.group === undefined);
+  const faseDeGrupos = matches.filter((m) => m.group !== null && m.group !== undefined);
+
+  const posicoes = placementsFromElimination(mataMata);
+
+  const noMataMata = new Set<string>();
+  for (const m of mataMata) {
+    if (m.teamAId) noMataMata.add(m.teamAId);
+    if (m.teamBId) noMataMata.add(m.teamBId);
+  }
+
+  // Quem nao passou do grupo comeca logo depois de todos os classificados.
+  const primeiraColocacaoDeGrupo = noMataMata.size + 1;
+  const timesDoGrupo = new Set<string>();
+  for (const m of faseDeGrupos) {
+    if (m.teamAId) timesDoGrupo.add(m.teamAId);
+    if (m.teamBId) timesDoGrupo.add(m.teamBId);
+  }
+
+  const eliminados = buildStandings([...timesDoGrupo], faseDeGrupos, bestOfSets).filter(
+    (r) => !noMataMata.has(r.teamId),
+  );
+  eliminados.forEach((r, i) => posicoes.set(r.teamId, primeiraColocacaoDeGrupo + i));
+
+  return posicoes;
+}
+
+/**
+ * Colocacao na eliminacao dupla.
+ *
+ * Aqui a formula de "distancia da final" nao vale: o time cai so na segunda derrota, e as duas
+ * chaves (vencedores e perdedores) usam numeracao propria. A ordem sai de quando cada time foi
+ * eliminado — quem sobreviveu mais tempo fica na frente.
+ */
+export function placementsFromDoubleElimination(
+  matches: (MatchForStandings & { round: number })[],
+): Map<string, number> {
+  const derrotas = new Map<string, number>();
+  const ultimaDerrota = new Map<string, number>();
+
+  const decididas = matches.filter((m) => m.winnerId && m.teamAId && m.teamBId);
+  for (const m of decididas) {
+    const perdedor = m.winnerId === m.teamAId ? m.teamBId! : m.teamAId!;
+    derrotas.set(perdedor, (derrotas.get(perdedor) ?? 0) + 1);
+    ultimaDerrota.set(perdedor, Math.max(ultimaDerrota.get(perdedor) ?? 0, m.round));
+  }
+
+  const posicoes = new Map<string, number>();
+  if (decididas.length === 0) return posicoes;
+
+  // Campeao: quem venceu a ultima partida disputada e nao acumulou duas derrotas.
+  const ultimaRodada = Math.max(...decididas.map((m) => m.round));
+  const finais = decididas.filter((m) => m.round === ultimaRodada);
+  const campeao = finais[finais.length - 1]?.winnerId;
+  if (campeao && (derrotas.get(campeao) ?? 0) < 2) posicoes.set(campeao, 1);
+
+  const eliminados = [...ultimaDerrota.entries()]
+    .filter(([teamId]) => teamId !== campeao)
+    // Eliminado mais tarde = melhor colocado.
+    .sort(([, a], [, b]) => b - a);
+
+  eliminados.forEach(([teamId], i) => posicoes.set(teamId, i + 2));
+  return posicoes;
+}
+
 /** Sugestao inicial, no espirito das tabelas de circuito: cai pela metade a cada faixa. */
 export const DEFAULT_POINTS_RULES: { placement: number; points: number }[] = [
   { placement: 1, points: 100 },
