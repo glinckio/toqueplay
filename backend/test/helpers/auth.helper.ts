@@ -13,7 +13,7 @@ export async function createTestUser(
   prisma: PrismaService,
   jwtService: JwtService,
   configService: ConfigService,
-  overrides: { email?: string; name?: string } = {},
+  overrides: { email?: string; name?: string; cpf?: string } = {},
 ): Promise<TestUser> {
   const email = overrides.email || `test-${Date.now()}@example.com`;
   const name = overrides.name || 'Test User';
@@ -24,6 +24,8 @@ export async function createTestUser(
       name,
       isEmailVerified: true,
       isFirstAccess: false,
+      // `User.cpf` e unico: so preenche quando o teste precisa (busca de membro por CPF).
+      ...(overrides.cpf && { cpf: overrides.cpf }),
     },
   });
 

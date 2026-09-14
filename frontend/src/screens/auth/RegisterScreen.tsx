@@ -13,24 +13,13 @@ import { Banner } from "@/components/ui/Banner";
 import { authService } from "@/services/authService";
 import { getErrorMessage } from "@/services/api";
 import { AuthStackParamList } from "@/navigation/types";
+import { formatCPF, unformatCPF } from "@/utils/cpf";
 import { useAC, AuthHero, Field, NotchedButton } from "./_authKit";
 
 const HERO_IMAGE = "https://images.unsplash.com/photo-1521138054413-5a47d349b7af?w=900&q=80";
 const HERO_H = Math.round(Dimensions.get("window").height * 0.4);
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
-
-function formatCPF(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 11);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
-  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
-  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
-}
-
-function unformatCPF(value: string): string {
-  return value.replace(/\D/g, "");
-}
 
 export function RegisterScreen({ navigation }: Props) {
   const AC = useAC();

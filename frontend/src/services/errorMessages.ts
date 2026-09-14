@@ -84,6 +84,8 @@ export const ERROR_MESSAGES: Record<string, string> = {
   MEMBER_NOT_FOUND: "Membro não encontrado.",
   MEMBER_ALREADY_IN_TEAM: "Este jogador já está no time.",
   USER_NOT_FOUND_BY_EMAIL: "Nenhum usuário encontrado com esse email.",
+  USER_NOT_FOUND_BY_CPF: "Nenhum usuário encontrado com esse CPF.",
+  MEMBER_IDENTITY_REQUIRED: "Informe o email ou o CPF do jogador.",
   CANNOT_REMOVE_OWNER: "Não é possível remover o capitão do time.",
   GUEST_NAME_REQUIRED: "Informe o nome do convidado.",
   CPF_ALREADY_IN_TEAM: "Este CPF já está no time.",

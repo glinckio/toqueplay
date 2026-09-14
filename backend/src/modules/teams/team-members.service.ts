@@ -20,12 +20,7 @@ export class TeamMembersService {
   async addMember(teamId: string, ownerId: string, dto: AddMemberDto) {
     await this.teamsService.verifyOwnership(teamId, ownerId);
 
-    const user = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-    if (!user) {
-      throw AppError.userNotFoundByEmail();
-    }
+    const user = await this.findInvitee(dto);
 
     const existingMember = await this.prisma.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId: user.id } },
@@ -266,6 +261,34 @@ export class TeamMembersService {
     }
 
     await this.prisma.teamMember.delete({ where: { id: memberId } });
+  }
+
+  /**
+   * Resolve quem esta sendo convidado por e-mail ou CPF. O e-mail tem precedencia quando os dois
+   * vem, para manter o comportamento de antes.
+   *
+   * A busca por CPF nao vira sonda de "esse CPF tem conta?": so o dono do time chega aqui
+   * (`verifyOwnership` roda antes) e a resposta do convite nao devolve dado de contato do
+   * convidado alem do que o dono ja teria ao adiciona-lo.
+   */
+  private async findInvitee(dto: AddMemberDto) {
+    const porEmail = Boolean(dto.email);
+
+    if (!porEmail && !dto.cpf) {
+      throw AppError.memberIdentityRequired();
+    }
+    if (!porEmail) {
+      this.cpfService.validate(dto.cpf!);
+    }
+
+    const user = await this.prisma.user.findFirst({
+      where: porEmail ? { email: dto.email } : { cpf: dto.cpf },
+    });
+    if (!user) {
+      throw porEmail ? AppError.userNotFoundByEmail() : AppError.userNotFoundByCpf();
+    }
+
+    return user;
   }
 
   private async checkCpfUnique(teamId: string, cpf: string) {

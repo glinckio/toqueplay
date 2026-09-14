@@ -54,10 +54,10 @@ export interface CreateTeamParams {
   state?: string;
 }
 
+/** Informe `email` ou `cpf` — pelo menos um. Com os dois, a API usa o e-mail. */
 export interface AddMemberParams {
-  email: string;
+  email?: string;
   cpf?: string;
-  isCaptain?: boolean;
   positions?: string[];
 }
 

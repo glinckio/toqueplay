@@ -20,7 +20,7 @@ describe('TeamMembersService', () => {
     prisma = {
       team: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       teamInvitation: { findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), createMany: jest.fn(), update: jest.fn(), updateMany: jest.fn(), delete: jest.fn(), deleteMany: jest.fn(), count: jest.fn().mockResolvedValue(0) },
-      user: { findUnique: jest.fn() },
+      user: { findUnique: jest.fn(), findFirst: jest.fn() },
       teamMember: {
         create: jest.fn(),
         findMany: jest.fn(),
@@ -56,7 +56,7 @@ describe('TeamMembersService', () => {
     // Quem entra no time de fato e o accept do convite.
     it('should create a pending invitation and notify the invited user', async () => {
       teamsService.verifyOwnership.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-2' });
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
       prisma.teamMember.findUnique.mockResolvedValue(null);
       prisma.teamInvitation.findUnique.mockResolvedValue(null);
       prisma.team.findUnique.mockResolvedValue({ name: 'Team A' });
@@ -90,7 +90,7 @@ describe('TeamMembersService', () => {
 
     it('should throw when user email not found', async () => {
       teamsService.verifyOwnership.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.user.findFirst.mockResolvedValue(null);
 
       await expect(
         service.addMember('team-1', 'owner-1', {
@@ -102,7 +102,7 @@ describe('TeamMembersService', () => {
 
     it('should throw when user is already a member', async () => {
       teamsService.verifyOwnership.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-2' });
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
       prisma.teamMember.findUnique.mockResolvedValue({ id: 'existing' });
 
       await expect(
@@ -115,7 +115,7 @@ describe('TeamMembersService', () => {
 
     it('should throw when there is already a pending invitation', async () => {
       teamsService.verifyOwnership.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-2' });
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
       prisma.teamMember.findUnique.mockResolvedValue(null);
       prisma.teamInvitation.findUnique.mockResolvedValue({ id: 'invite-1', status: 'PENDING' });
 
@@ -128,7 +128,7 @@ describe('TeamMembersService', () => {
     // Convite ja respondido nao bloqueia: e apagado para dar lugar ao novo.
     it('should replace an invitation that was already answered', async () => {
       teamsService.verifyOwnership.mockResolvedValue({});
-      prisma.user.findUnique.mockResolvedValue({ id: 'user-2' });
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
       prisma.teamMember.findUnique.mockResolvedValue(null);
       prisma.teamInvitation.findUnique.mockResolvedValue({ id: 'invite-old', status: 'REJECTED' });
       prisma.team.findUnique.mockResolvedValue({ name: 'Team A' });
@@ -138,6 +138,58 @@ describe('TeamMembersService', () => {
 
       expect(prisma.teamInvitation.delete).toHaveBeenCalledWith({ where: { id: 'invite-old' } });
       expect(prisma.teamInvitation.create).toHaveBeenCalled();
+    });
+
+    // O dono nem sempre sabe o e-mail de cadastro do atleta; o CPF e obrigatorio e unico.
+    it('should find the invitee by CPF when no email is given', async () => {
+      teamsService.verifyOwnership.mockResolvedValue({});
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
+      prisma.teamMember.findUnique.mockResolvedValue(null);
+      prisma.teamInvitation.findUnique.mockResolvedValue(null);
+      prisma.team.findUnique.mockResolvedValue({ name: 'Team A' });
+      prisma.teamInvitation.create.mockResolvedValue({ id: 'invite-1' });
+
+      await service.addMember('team-1', 'owner-1', { cpf: '01234567890' });
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({ where: { cpf: '01234567890' } });
+    });
+
+    // Precedencia fixa para nao mudar o comportamento de quem ja convidava por e-mail.
+    it('should prefer the email when both identities are given', async () => {
+      teamsService.verifyOwnership.mockResolvedValue({});
+      prisma.user.findFirst.mockResolvedValue({ id: 'user-2' });
+      prisma.teamMember.findUnique.mockResolvedValue(null);
+      prisma.teamInvitation.findUnique.mockResolvedValue(null);
+      prisma.team.findUnique.mockResolvedValue({ name: 'Team A' });
+      prisma.teamInvitation.create.mockResolvedValue({ id: 'invite-1' });
+
+      await service.addMember('team-1', 'owner-1', {
+        email: 'user2@test.com',
+        cpf: '01234567890',
+      });
+
+      expect(prisma.user.findFirst).toHaveBeenCalledWith({
+        where: { email: 'user2@test.com' },
+      });
+    });
+
+    it('should throw when no user matches the CPF', async () => {
+      teamsService.verifyOwnership.mockResolvedValue({});
+      prisma.user.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.addMember('team-1', 'owner-1', { cpf: '01234567890' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    // O DTO ja barra payload sem identidade, mas o service nao pode depender so disso.
+    it('should throw when neither email nor CPF is given', async () => {
+      teamsService.verifyOwnership.mockResolvedValue({});
+
+      await expect(service.addMember('team-1', 'owner-1', {})).rejects.toThrow(
+        BadRequestException,
+      );
+      expect(prisma.user.findFirst).not.toHaveBeenCalled();
     });
   });
 

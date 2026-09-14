@@ -15,6 +15,7 @@ import { getErrorMessage } from "@/services/api";
 import { Banner } from "@/components/ui/Banner";
 import { CelebrationScreen, NotchedPanel, NotchedButton } from "@/components/ui/CelebrationScreen";
 import { useTC } from "../tournaments/_tournamentKit";
+import { formatCPF, unformatCPF } from "@/utils/cpf";
 
 function BackButton({ onPress }: { onPress: () => void }) {
   const TC = useTC();
@@ -36,20 +37,36 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
   const teamName = route?.params?.teamName ?? "";
   const teamInitials = teamName.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
 
+  // O dono nem sempre sabe com qual e-mail o atleta se cadastrou — o CPF e obrigatorio no
+  // cadastro, entao serve como segunda via de busca.
+  const [modo, setModo] = useState<"email" | "cpf">("email");
   const [email, setEmail] = useState("");
+  const [cpf, setCpf] = useState("");
   const [focused, setFocused] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
 
-  const canSubmit = email.trim().includes("@") && !submitting;
+  const porEmail = modo === "email";
+  const identidadeOk = porEmail ? email.trim().includes("@") : unformatCPF(cpf).length === 11;
+  const canSubmit = identidadeOk && !submitting;
+  // O que aparece na tela de sucesso: o que o dono digitou.
+  const identidadeDigitada = porEmail ? email.trim() : cpf;
+
+  const trocarModo = (proximo: "email" | "cpf") => {
+    setModo(proximo);
+    setError("");
+  };
 
   const handleSubmit = async () => {
     if (!canSubmit || !teamId) return;
     setError("");
     setSubmitting(true);
     try {
-      await teamsService.addMember(teamId, { email: email.trim() });
+      await teamsService.addMember(
+        teamId,
+        porEmail ? { email: email.trim() } : { cpf: unformatCPF(cpf) },
+      );
       setSuccess(true);
     } catch (err: any) {
       setError(getErrorMessage(err, "Não foi possível convidar este jogador."));
@@ -66,14 +83,14 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
         title={"NO CAMINHO\nCERTO"}
         subtitle={
           <>
-            <Text style={{ color: TC.tx, fontFamily: "Manrope_700Bold" }}>{email.trim()}</Text> foi convidado para o{" "}
+            <Text style={{ color: TC.tx, fontFamily: "Manrope_700Bold" }}>{identidadeDigitada}</Text> foi convidado para o{" "}
             <Text style={{ color: TC.isDark ? TC.lime : TC.purple, fontFamily: "Manrope_700Bold" }}>{teamName || "time"}</Text>.
           </>
         }
         ctaLabel="Voltar ao time"
         onCta={() => navigation?.goBack()}
         secondaryLabel="Convidar outro jogador"
-        onSecondary={() => { setSuccess(false); setEmail(""); }}
+        onSecondary={() => { setSuccess(false); setEmail(""); setCpf(""); }}
         accentColor={TC.isDark ? undefined : TC.purple}
         ctaTextColor={TC.isDark ? undefined : "#FFFFFF"}
       >
@@ -125,7 +142,7 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
                 </Svg>
               </View>
               <Text style={{ flex: 1, color: TC.tx, fontFamily: "Manrope_600SemiBold", fontSize: 13, lineHeight: 19 }}>
-                Digite o email de quem você quer chamar. Ele recebe um convite e entra assim que aceitar.
+                Busque por email ou CPF quem você quer chamar. Ele recebe um convite e entra assim que aceitar.
               </Text>
             </View>
           </NotchedPanel>
@@ -133,17 +150,49 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
           {!!error && <Banner variant="error" message={error} style={{ marginTop: 20 }} />}
 
           <View style={{ marginTop: 28 }}>
+            <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
+              {([["email", "Email"], ["cpf", "CPF"]] as const).map(([key, label]) => {
+                const ativo = modo === key;
+                return (
+                  <Pressable
+                    key={key}
+                    onPress={() => trocarModo(key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: ativo }}
+                    accessibilityLabel={`Buscar por ${label}`}
+                    style={{
+                      flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5,
+                      borderColor: ativo ? TC.lime : TC.cardBorder,
+                      backgroundColor: ativo ? TC.limeTintBg : TC.card,
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{
+                      color: ativo ? (TC.isDark ? TC.lime : TC.purple) : TC.tx2,
+                      fontFamily: "Oswald_600SemiBold", fontSize: 12, letterSpacing: 1.1,
+                      textTransform: "uppercase",
+                    }}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             <Text style={{ color: TC.tx2, fontFamily: "Oswald_600SemiBold", fontSize: 11, letterSpacing: 1.3, textTransform: "uppercase", marginBottom: 8 }}>
-              Email do jogador
+              {porEmail ? "Email do jogador" : "CPF do jogador"}
             </Text>
             <TextInput
-              value={email}
-              onChangeText={setEmail}
+              // Sem `key` o RN reaproveita o input entre os modos e o teclado numerico do CPF
+              // fica montado ao voltar pro email.
+              key={modo}
+              value={porEmail ? email : cpf}
+              onChangeText={(t) => (porEmail ? setEmail(t) : setCpf(formatCPF(t)))}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="jogador@email.com"
+              placeholder={porEmail ? "jogador@email.com" : "000.000.000-00"}
               placeholderTextColor={TC.tx3}
-              keyboardType="email-address"
+              keyboardType={porEmail ? "email-address" : "numeric"}
               autoCapitalize="none"
               style={{
                 backgroundColor: TC.card,
@@ -152,7 +201,7 @@ export function AddTeamMemberScreen({ navigation, route }: any) {
                 borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16,
                 color: TC.tx, fontFamily: "Manrope_500Medium", fontSize: 14,
               }}
-              accessibilityLabel="Email do jogador"
+              accessibilityLabel={porEmail ? "Email do jogador" : "CPF do jogador"}
             />
           </View>
 

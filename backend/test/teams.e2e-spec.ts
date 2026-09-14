@@ -10,6 +10,9 @@ import {
   cleanupDatabase,
 } from './helpers/auth.helper';
 
+// CPF valido (digitos verificadores conferem) do `otherUser`, usado na busca de membro por CPF.
+const OTHER_USER_CPF = '02222222206';
+
 describe('ToquePlay API - Teams (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
@@ -55,6 +58,7 @@ describe('ToquePlay API - Teams (e2e)', () => {
     otherUser = await createTestUser(prisma, jwtService, configService, {
       name: 'Other',
       email: 'other@test.com',
+      cpf: OTHER_USER_CPF,
     });
   });
 
@@ -240,86 +244,99 @@ describe('ToquePlay API - Teams (e2e)', () => {
 
   // ─── Gestão do Elenco ────────────────────────────────────
 
+  // O endpoint nao adiciona ninguem direto: cria um convite pendente. Quem vira membro e o
+  // aceite do convite — por isso a resposta aqui e um TeamInvitation, nao um TeamMember.
   describe('POST /api/teams/:teamId/members', () => {
-    it('should add member by email with CPF', async () => {
-      const team = await prisma.team.create({
+    const criaTime = () =>
+      prisma.team.create({
         data: {
           name: 'Team',
           ownerId: owner.id,
           members: { create: { userId: owner.id, isCaptain: true } },
         },
       });
+
+    it('should invite a member by email', async () => {
+      const team = await criaTime();
 
       const res = await request(app.getHttpServer())
         .post(`/api/teams/${team.id}/members`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ email: otherUser.email, cpf: '02222222206' })
+        .send({ email: otherUser.email })
         .expect(201);
 
-      expect(res.body.userId).toBe(otherUser.id);
-      expect(res.body.cpf).toBe('02222222206');
+      expect(res.body.invitedUserId).toBe(otherUser.id);
+      expect(res.body.status).toBe('PENDING');
     });
 
-    it('should reject adding same user twice', async () => {
-      const team = await prisma.team.create({
-        data: {
-          name: 'Team',
-          ownerId: owner.id,
-          members: { create: { userId: owner.id, isCaptain: true } },
-        },
-      });
+    // O dono nem sempre sabe o e-mail de cadastro do atleta; o CPF e obrigatorio e unico.
+    it('should invite a member by CPF', async () => {
+      const team = await criaTime();
+
+      const res = await request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ cpf: OTHER_USER_CPF })
+        .expect(201);
+
+      expect(res.body.invitedUserId).toBe(otherUser.id);
+    });
+
+    it('should reject inviting the same user twice', async () => {
+      const team = await criaTime();
 
       await request(app.getHttpServer())
         .post(`/api/teams/${team.id}/members`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ email: otherUser.email, cpf: '02222222206' })
+        .send({ email: otherUser.email })
         .expect(201);
 
       return request(app.getHttpServer())
         .post(`/api/teams/${team.id}/members`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ email: otherUser.email, cpf: '03333333309' })
-        .expect(409);
-    });
-
-    it('should reject duplicate CPF in same team', async () => {
-      const team = await prisma.team.create({
-        data: {
-          name: 'Team',
-          ownerId: owner.id,
-          members: { create: { userId: owner.id, isCaptain: true } },
-        },
-      });
-
-      // Add first member with CPF
-      await request(app.getHttpServer())
-        .post(`/api/teams/${team.id}/members`)
-        .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ email: otherUser.email, cpf: '02222222206' })
-        .expect(201);
-
-      // Try adding guest with same CPF
-      return request(app.getHttpServer())
-        .post(`/api/teams/${team.id}/members/guest`)
-        .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ guestName: 'Clone', cpf: '02222222206' })
+        .send({ email: otherUser.email })
         .expect(409);
     });
 
     it('should reject non-existent email', async () => {
-      const team = await prisma.team.create({
-        data: {
-          name: 'Team',
-          ownerId: owner.id,
-          members: { create: { userId: owner.id, isCaptain: true } },
-        },
-      });
+      const team = await criaTime();
 
       return request(app.getHttpServer())
         .post(`/api/teams/${team.id}/members`)
         .set('Authorization', `Bearer ${owner.accessToken}`)
-        .send({ email: 'nobody@test.com', cpf: '05555555504' })
+        .send({ email: 'nobody@test.com' })
         .expect(404);
+    });
+
+    it('should reject a CPF that belongs to no user', async () => {
+      const team = await criaTime();
+
+      return request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ cpf: '05555555504' })
+        .expect(404);
+    });
+
+    // Sem e-mail e sem CPF nao ha quem convidar — o DTO barra antes do service.
+    it('should reject a payload with no identity', async () => {
+      const team = await criaTime();
+
+      return request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({})
+        .expect(400);
+    });
+
+    it('should reject an invalid CPF', async () => {
+      const team = await criaTime();
+
+      return request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ cpf: '11111111111' })
+        .expect(400);
     });
 
     it('should reject add from non-owner', async () => {
@@ -339,7 +356,7 @@ describe('ToquePlay API - Teams (e2e)', () => {
       return request(app.getHttpServer())
         .post(`/api/teams/${team.id}/members`)
         .set('Authorization', `Bearer ${otherUser.accessToken}`)
-        .send({ email: 'someone@test.com', cpf: '03333333309' })
+        .send({ email: 'someone@test.com' })
         .expect(403);
     });
   });
@@ -363,6 +380,30 @@ describe('ToquePlay API - Teams (e2e)', () => {
       expect(res.body.isGuest).toBe(true);
       expect(res.body.guestName).toBe('Convidado Teste');
       expect(res.body.cpf).toBe('04444444401');
+    });
+
+    // O CPF e a unica identidade do convidado: repetido no mesmo time seria a mesma pessoa duas
+    // vezes. (Convite por e-mail nao passa mais por aqui — ele nem grava CPF no TeamMember.)
+    it('should reject duplicate CPF in same team', async () => {
+      const team = await prisma.team.create({
+        data: {
+          name: 'Team',
+          ownerId: owner.id,
+          members: { create: { userId: owner.id, isCaptain: true } },
+        },
+      });
+
+      await request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members/guest`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ guestName: 'Convidado', cpf: '04444444401' })
+        .expect(201);
+
+      return request(app.getHttpServer())
+        .post(`/api/teams/${team.id}/members/guest`)
+        .set('Authorization', `Bearer ${owner.accessToken}`)
+        .send({ guestName: 'Clone', cpf: '04444444401' })
+        .expect(409);
     });
 
     it('should reject without guestName', async () => {

@@ -104,6 +104,12 @@ export const AppError = {
   userNotFoundByEmail: () =>
     withCode(NotFoundException, TeamsErrorCode.USER_NOT_FOUND),
 
+  userNotFoundByCpf: () =>
+    withCode(NotFoundException, TeamsErrorCode.USER_NOT_FOUND_BY_CPF),
+
+  memberIdentityRequired: () =>
+    withCode(BadRequestException, TeamsErrorCode.MEMBER_IDENTITY_REQUIRED),
+
   cannotRemoveOwner: () =>
     withCode(BadRequestException, TeamsErrorCode.CANNOT_REMOVE_OWNER),
 
